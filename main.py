@@ -32,6 +32,61 @@ class ConditionType(str, Enum):
     LEVEL = "level"
     SCENE_OUTCOME = "scene_outcome"
 
+
+from pydantic import BaseModel
+
+
+class Condition(BaseModel):
+    type: ConditionType
+    op: Optional[Literal["lte", "gte", "eq"]] = None
+    value: Optional[int] = None
+    scene_id: Optional[str] = None
+    outcome: Optional[Literal["damage", "item", "level"]] = None
+
+
+class ConditionalText(BaseModel):
+    condition: Condition
+    text: str
+
+
+class Choice(BaseModel):
+    kind: ChoiceKind
+    text: str
+    amount: int = 1
+    item_name: Optional[str] = None
+
+
+class Scene(BaseModel):
+    id: str
+    title: str
+    base_text: str
+    choices: list[Choice]
+    conditional_text: list[ConditionalText] = []
+
+
+class MadLibField(BaseModel):
+    key: str
+    label: str
+
+
+class MadLibTemplate(BaseModel):
+    prompt: str
+    fields: list[MadLibField]
+
+
+class StorySettings(BaseModel):
+    starting_hp: int = 3
+
+
+class Story(BaseModel):
+    id: str
+    title: str
+    theme: ThemeName = ThemeName.CYBERPUNK
+    settings: StorySettings = StorySettings()
+    madlib_template: MadLibTemplate
+    scenes: list[Scene]
+
+
 app = FastAPI(title="J&B's RPG")
 
 STATIC_DIR = Path(__file__).parent / "static"

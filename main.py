@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import uuid
@@ -196,6 +197,79 @@ STORIES_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+
+def load_state() -> "GameState | None":
+    if not STATE_FILE.exists():
+        return None
+    try:
+        with open(STATE_FILE) as f:
+            data = json.load(f)
+            if not data:
+                return None
+            return GameState(**data)
+    except (json.JSONDecodeError, Exception):
+        return None
+
+
+def save_state(state: "GameState | None"):
+    if state is None:
+        with open(STATE_FILE, "w") as f:
+            f.write("{}")
+    else:
+        with open(STATE_FILE, "w") as f:
+            json.dump(state.model_dump(), f, indent=2)
+
+
+def get_current_scene(story: Story, scene_id: str) -> "Scene | None":
+    for scene in story.scenes:
+        if scene.id == scene_id:
+            return scene
+    return None
+
+
+def build_resolved(state: "GameState | None") -> "dict | None":
+    if state is None:
+        return None
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    if not story_path.exists():
+        return None
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+    scene = get_current_scene(story, state.current_scene_id)
+    if scene is None:
+        return None
+    scene_text = resolve_scene_text(scene, state)
+    char_desc = state.character.description if state.character else None
+    return {"scene_text": scene_text, "character_description": char_desc}
+
+
+# In-memory SSE connection tracking
+sse_connections: set = set()
+
+
+async def broadcast_state():
+    global sse_connections
+    state = load_state()
+    resolved = build_resolved(state)
+    payload = {
+        "type": "state",
+        "state": state.model_dump() if state else None,
+        "resolved": resolved,
+        "connected_count": len(sse_connections),
+    }
+    message = f"data: {json.dumps(payload)}\n\n"
+    dead = set()
+    for queue in sse_connections:
+        try:
+            await queue.put(message)
+        except Exception:
+            dead.add(queue)
+    sse_connections -= dead
+
+
 class CreateStoryRequest(BaseModel):
     title: str
 
@@ -280,6 +354,254 @@ async def delete_story(story_id: str):
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "pages" / "index.html")
+
+
+# ---------------------------------------------------------------------------
+# Session state request models
+# ---------------------------------------------------------------------------
+
+class StartRequest(BaseModel):
+    story_id: str
+
+
+class MadlibRequest(BaseModel):
+    answer: str
+
+
+class ChoiceRequest(BaseModel):
+    choice_index: int
+
+
+class FinishRequest(BaseModel):
+    outcome: Literal["victory", "defeat"]
+
+
+# ---------------------------------------------------------------------------
+# Task 4.1: GET /api/state
+# ---------------------------------------------------------------------------
+
+@app.get("/api/state")
+async def get_state():
+    state = load_state()
+    resolved = build_resolved(state)
+    return {
+        "state": state.model_dump() if state else None,
+        "resolved": resolved,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Task 4.2: POST /api/state/start
+# ---------------------------------------------------------------------------
+
+@app.post("/api/state/start")
+async def start_session(request: StartRequest) -> GameState:
+    story_path = STORIES_DIR / f"{request.story_id}.json"
+    if not story_path.exists():
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+
+    if not story.scenes:
+        raise HTTPException(status_code=422, detail="Story has no scenes")
+
+    first_scene_id = story.scenes[0].id
+
+    if story.madlib_template.fields:
+        status = SessionStatus.MADLIB_IN_PROGRESS
+    else:
+        status = SessionStatus.RUNNING
+
+    state = GameState(
+        story_id=request.story_id,
+        status=status,
+        madlib_step=0,
+        madlib_answers={},
+        current_scene_id=first_scene_id,
+        hp=story.settings.starting_hp,
+        level=1,
+        items=[],
+        history=[],
+        character=None,
+        outcome=None,
+    )
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# Task 4.3: POST /api/state/madlib
+# ---------------------------------------------------------------------------
+
+@app.post("/api/state/madlib")
+async def submit_madlib(request: MadlibRequest) -> GameState:
+    state = load_state()
+    if state is None or state.status != SessionStatus.MADLIB_IN_PROGRESS:
+        raise HTTPException(status_code=409, detail="Not in madlib_in_progress status")
+
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+
+    fields = story.madlib_template.fields
+    current_field = fields[state.madlib_step]
+
+    state.madlib_answers[current_field.key] = request.answer
+    state.madlib_step += 1
+
+    if state.madlib_step >= len(fields):
+        # All fields answered — build Character
+        fields_dict = dict(state.madlib_answers)
+        # Build description by injecting variables into the prompt
+        description = inject_variables(story.madlib_template.prompt, fields_dict)
+        # Use the "name" field as character name if present, else first field value
+        name_val = fields_dict.get("name", next(iter(fields_dict.values()), "Adventurer"))
+        state.character = Character(
+            name=name_val,
+            description=description,
+            fields=fields_dict,
+        )
+        state.status = SessionStatus.RUNNING
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# Task 4.4: POST /api/state/choice
+# ---------------------------------------------------------------------------
+
+@app.post("/api/state/choice")
+async def make_choice(request: ChoiceRequest) -> GameState:
+    state = load_state()
+    if state is None or state.status != SessionStatus.RUNNING:
+        raise HTTPException(status_code=409, detail="Not in running status")
+
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+
+    scene = get_current_scene(story, state.current_scene_id)
+    if scene is None:
+        raise HTTPException(status_code=422, detail="Current scene not found")
+
+    if request.choice_index < 0 or request.choice_index >= len(scene.choices):
+        raise HTTPException(status_code=422, detail="Invalid choice index")
+
+    choice = scene.choices[request.choice_index]
+
+    # Apply outcome
+    item_name: Optional[str] = None
+    if choice.kind == ChoiceKind.DAMAGE:
+        state.hp -= choice.amount
+    elif choice.kind == ChoiceKind.ITEM:
+        item_name = choice.item_name
+        if item_name:
+            state.items.append(item_name)
+    elif choice.kind == ChoiceKind.LEVEL:
+        state.level += 1
+
+    # Record history
+    entry = HistoryEntry(
+        scene_id=state.current_scene_id,
+        outcome=choice.kind,
+        choice_index=request.choice_index,
+        item_name=item_name,
+        damage_amount=choice.amount,
+    )
+    state.history.append(entry)
+
+    # Determine next state
+    if state.hp <= 0:
+        state.hp = 0
+        state.status = SessionStatus.GAME_OVER
+        state.outcome = "defeat"
+    else:
+        # Find index of current scene
+        scene_ids = [s.id for s in story.scenes]
+        current_index = scene_ids.index(state.current_scene_id)
+        is_last_scene = current_index == len(scene_ids) - 1
+
+        if is_last_scene:
+            state.status = SessionStatus.GAME_OVER
+            state.outcome = None  # awaiting physical dice roll
+        else:
+            state.current_scene_id = scene_ids[current_index + 1]
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# Task 4.5: POST /api/state/back
+# ---------------------------------------------------------------------------
+
+@app.post("/api/state/back")
+async def go_back() -> GameState:
+    state = load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+
+    # No-op during madlib_in_progress
+    if state.status == SessionStatus.MADLIB_IN_PROGRESS:
+        return state
+
+    # No-op if history is empty
+    if not state.history:
+        return state
+
+    # If we were game_over, return to running first
+    was_game_over = state.status == SessionStatus.GAME_OVER
+
+    # Pop last history entry — the scene we want to return to
+    popped = state.history.pop()
+
+    # Load story to get starting_hp
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+
+    # Replay remaining history to recalculate hp/level/items
+    hp, level, items = replay_history(state.history, story.settings.starting_hp)
+
+    state.hp = hp
+    state.level = level
+    state.items = items
+    state.current_scene_id = popped.scene_id
+    state.status = SessionStatus.RUNNING
+    state.outcome = None
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# Task 4.6: POST /api/state/finish and POST /api/state/restart
+# ---------------------------------------------------------------------------
+
+@app.post("/api/state/finish")
+async def finish_session(request: FinishRequest) -> GameState:
+    state = load_state()
+    if state is None or state.status != SessionStatus.GAME_OVER:
+        raise HTTPException(status_code=409, detail="Not in game_over status")
+
+    state.outcome = request.outcome
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+@app.post("/api/state/restart")
+async def restart_session():
+    save_state(None)
+    await broadcast_state()
+    return {"status": "restarted"}
 
 
 if __name__ == "__main__":

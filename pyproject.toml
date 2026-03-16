@@ -2,7 +2,7 @@
 name = "jb-rpg"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.109.0",
     "pydantic>=2.5.0",

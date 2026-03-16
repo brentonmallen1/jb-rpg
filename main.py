@@ -307,10 +307,14 @@ async def list_stories() -> list[dict]:
 # Task 2.2: Create Story
 @app.post("/api/stories")
 async def create_story(request: CreateStoryRequest) -> Story:
+    title = request.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Title cannot be empty")
+
     story_id = str(uuid.uuid4())[:8]
     story = Story(
         id=story_id,
-        title=request.title,
+        title=title,
         theme=ThemeName.CYBERPUNK,
         settings=StorySettings(),
         madlib_template=MadLibTemplate(prompt="", fields=[]),

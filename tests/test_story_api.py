@@ -99,3 +99,22 @@ def test_delete_story_clears_active_session(client, tmp_path):
 
     # State file should be cleared
     assert not main.STATE_FILE.exists() or main.STATE_FILE.read_text() == "{}"
+
+
+def test_create_story_empty_title_422(client):
+    """Empty title should return 422."""
+    response = client.post("/api/stories", json={"title": ""})
+    assert response.status_code == 422
+
+
+def test_create_story_whitespace_title_422(client):
+    """Whitespace-only title should return 422."""
+    response = client.post("/api/stories", json={"title": "   "})
+    assert response.status_code == 422
+
+
+def test_create_story_title_trimmed(client):
+    """Title with leading/trailing whitespace should be trimmed."""
+    response = client.post("/api/stories", json={"title": "  My Story  "})
+    assert response.status_code == 200
+    assert response.json()["title"] == "My Story"

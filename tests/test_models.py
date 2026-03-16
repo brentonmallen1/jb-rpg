@@ -89,3 +89,42 @@ def test_madlib_template():
     )
     assert len(t.fields) == 2
     assert t.fields[0].key == "name"
+
+
+def test_history_entry():
+    from main import HistoryEntry, ChoiceKind
+    h = HistoryEntry(
+        scene_id="scene_1",
+        outcome=ChoiceKind.DAMAGE,
+        choice_index=0,
+        damage_amount=1
+    )
+    assert h.scene_id == "scene_1"
+    assert h.outcome == ChoiceKind.DAMAGE
+    assert h.item_name is None
+
+
+def test_character():
+    from main import Character
+    c = Character(
+        name="Bob",
+        description="Bob is a wizard.",
+        fields={"name": "Bob", "class": "wizard"}
+    )
+    assert c.name == "Bob"
+    assert c.fields["class"] == "wizard"
+
+
+def test_game_state_defaults():
+    from main import GameState, SessionStatus
+    g = GameState(
+        story_id="test",
+        current_scene_id="scene_1",
+        hp=3
+    )
+    assert g.status == SessionStatus.MADLIB_IN_PROGRESS
+    assert g.level == 1
+    assert g.items == []
+    assert g.history == []
+    assert g.character is None
+    assert g.outcome is None

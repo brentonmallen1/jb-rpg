@@ -87,6 +87,34 @@ class Story(BaseModel):
     scenes: list[Scene]
 
 
+class HistoryEntry(BaseModel):
+    scene_id: str
+    outcome: ChoiceKind
+    choice_index: int
+    item_name: Optional[str] = None
+    damage_amount: int = 1
+
+
+class Character(BaseModel):
+    name: str
+    description: str
+    fields: dict[str, str]
+
+
+class GameState(BaseModel):
+    story_id: str
+    status: SessionStatus = SessionStatus.MADLIB_IN_PROGRESS
+    madlib_step: int = 0
+    madlib_answers: dict[str, str] = {}
+    current_scene_id: str
+    hp: int
+    level: int = 1
+    items: list[str] = []
+    history: list[HistoryEntry] = []
+    character: Optional[Character] = None
+    outcome: Optional[Literal["victory", "defeat"]] = None
+
+
 app = FastAPI(title="J&B's RPG")
 
 STATIC_DIR = Path(__file__).parent / "static"

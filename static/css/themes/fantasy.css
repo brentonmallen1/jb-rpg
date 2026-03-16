@@ -64,3 +64,11 @@ h1, h2, .nav__title, .character-name {
 .nav {
     border-bottom: 2px solid var(--accent);
 }
+
+/* Light mode overrides */
+[data-mode="light"] {
+    --bg-primary: #f8f4e8;
+    --bg-secondary: #fff;
+    --text-primary: #2a1810;
+    --text-secondary: #6a5040;
+}

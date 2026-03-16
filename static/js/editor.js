@@ -3,57 +3,81 @@ let story = null;
 let currentView = null; // 'scene', 'madlib', 'settings'
 let currentSceneId = null;
 let isDirty = false;  // Track unsaved changes
+let autoSaveTimer = null;  // Debounce timer for auto-save
+
+// Mark story as dirty and trigger auto-save
+function markDirty() {
+    isDirty = true;
+    // Clear existing timer
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    // Set new timer for 1 second
+    autoSaveTimer = setTimeout(autoSave, 1000);
+}
+
+async function autoSave() {
+    if (!isDirty || !story) return;
+    try {
+        showToast('Saving...');
+        await API.updateStory(storyId, story);
+        isDirty = false;
+        showToast('Saved');
+    } catch (e) {
+        showToast('Save failed!');
+        console.error('Auto-save failed:', e);
+    }
+}
 
 // Preset mad lib templates for quick character creation
+// Questions are intentionally indirect to avoid giving away how answers will be used
 const BUILTIN_PRESETS = {
     classic_hero: {
         name: 'Classic Hero',
         prompt: '{name} the {profession} has a secret weakness: {weakness}. They journey forth to {quest}.',
         fields: [
-            { key: 'name', label: 'What is your hero\'s name?' },
-            { key: 'profession', label: 'What is their profession? (warrior, scholar, thief...)' },
-            { key: 'weakness', label: 'What is their secret weakness?' },
-            { key: 'quest', label: 'What quest drives them forward?' }
+            { key: 'name', label: 'If you could name a constellation, what would you call it?' },
+            { key: 'profession', label: 'What job would you do if money didn\'t matter?' },
+            { key: 'weakness', label: 'What keeps you up at 3am?' },
+            { key: 'quest', label: 'If you had one wish, what would it be?' }
         ]
     },
     mysterious_stranger: {
         name: 'Mysterious Stranger',
         prompt: 'They go by {alias}, but no one knows their true name. They carry the weight of {secret} and fear nothing except {fear}. Now they seek {goal}.',
         fields: [
-            { key: 'alias', label: 'What do people call you?' },
-            { key: 'secret', label: 'What dark secret haunts your past?' },
-            { key: 'fear', label: 'What is the one thing you truly fear?' },
-            { key: 'goal', label: 'What are you searching for?' }
+            { key: 'alias', label: 'What would your spy codename be?' },
+            { key: 'secret', label: 'What\'s something you\'ve never told anyone?' },
+            { key: 'fear', label: 'What sound makes you uncomfortable?' },
+            { key: 'goal', label: 'What would you search for in an abandoned library?' }
         ]
     },
     unlikely_champion: {
         name: 'Unlikely Champion',
         prompt: '{name} was just a simple {job} until they discovered they could {talent}. Now, driven by {motivation}, they must become something more.',
         fields: [
-            { key: 'name', label: 'What\'s your name?' },
-            { key: 'job', label: 'What boring job did you have?' },
-            { key: 'talent', label: 'What surprising ability did you discover?' },
-            { key: 'motivation', label: 'What pushes you to act?' }
+            { key: 'name', label: 'What name would you give to a friendly ghost?' },
+            { key: 'job', label: 'What\'s the most boring job you can think of?' },
+            { key: 'talent', label: 'What would be an absurd superpower?' },
+            { key: 'motivation', label: 'What makes you get out of bed in the morning?' }
         ]
     },
     fallen_noble: {
         name: 'Fallen Noble',
         prompt: 'Once known as {title}, they ruled over {domain}. But {downfall} stripped everything away. Now they wander, seeking {redemption}.',
         fields: [
-            { key: 'title', label: 'What was your noble title?' },
-            { key: 'domain', label: 'What did you once rule or possess?' },
-            { key: 'downfall', label: 'What caused your fall from grace?' },
-            { key: 'redemption', label: 'What do you hope to find or reclaim?' }
+            { key: 'title', label: 'What would your royal title be?' },
+            { key: 'domain', label: 'What place feels like home to you?' },
+            { key: 'downfall', label: 'What\'s the worst way to lose a game?' },
+            { key: 'redemption', label: 'What would you do with a second chance?' }
         ]
     },
     scrappy_survivor: {
         name: 'Scrappy Survivor',
         prompt: 'On the streets they call them {nickname}. They grew up in {origin} and learned to survive by {skill}. But deep down, they dream of {dream}.',
         fields: [
-            { key: 'nickname', label: 'What\'s your street name?' },
-            { key: 'origin', label: 'Where did you grow up?' },
-            { key: 'skill', label: 'How did you learn to survive?' },
-            { key: 'dream', label: 'What\'s your impossible dream?' }
+            { key: 'nickname', label: 'What nickname did you have as a kid?' },
+            { key: 'origin', label: 'Describe a place that smells like memories.' },
+            { key: 'skill', label: 'What\'s something you\'re surprisingly good at?' },
+            { key: 'dream', label: 'What would you do if you won the lottery?' }
         ]
     }
 };
@@ -93,6 +117,7 @@ async function loadStory() {
     try {
         story = await API.getStory(storyId);
         document.getElementById('story-name').textContent = story.title;
+        ThemeManager.setTheme(story.theme);
         renderSidebar();
         if (story.scenes.length > 0) {
             selectScene(story.scenes[0].id);
@@ -252,7 +277,7 @@ function renderConditionalRow(ct, index) {
 }
 
 function updateScene() {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     const titleEl = document.getElementById('scene-title');
@@ -268,7 +293,7 @@ function updateScene() {
 }
 
 function updateChoiceKind(index, kind) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     scene.choices[index].kind = kind;
@@ -277,19 +302,19 @@ function updateChoiceKind(index, kind) {
 }
 
 function updateChoiceText(index, text) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.choices[index].text = text;
 }
 
 function updateChoiceItem(index, name) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.choices[index].item_name = name;
 }
 
 function addConditional() {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     scene.conditional_text.push({
@@ -300,7 +325,7 @@ function addConditional() {
 }
 
 function removeConditional(index) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     scene.conditional_text.splice(index, 1);
@@ -308,7 +333,7 @@ function removeConditional(index) {
 }
 
 function updateConditionType(index, type) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     const ct = scene.conditional_text[index];
@@ -328,37 +353,37 @@ function updateConditionType(index, type) {
 }
 
 function updateConditionOp(index, op) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.op = op;
 }
 
 function updateConditionValue(index, value) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.value = parseInt(value, 10);
 }
 
 function updateConditionSceneId(index, sceneId) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.scene_id = sceneId;
 }
 
 function updateConditionOutcome(index, outcome) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.outcome = outcome;
 }
 
 function updateConditionText(index, text) {
-    isDirty = true;
+    markDirty();
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].text = text;
 }
 
 function addScene() {
-    isDirty = true;
+    markDirty();
     const id = 'scene_' + Date.now();
     story.scenes.push({
         id,
@@ -376,7 +401,7 @@ function addScene() {
 }
 
 function deleteScene(id, event) {
-    isDirty = true;
+    markDirty();
     event.stopPropagation();
     if (!confirm('Delete this scene?')) return;
     story.scenes = story.scenes.filter(s => s.id !== id);
@@ -436,6 +461,21 @@ function showMadlibEditor() {
             }
         </div>
 
+        <details class="form-group" style="border: 1px solid var(--text-secondary); border-radius: var(--radius-md); padding: var(--space-md);">
+            <summary style="cursor: pointer; font-weight: 500; color: var(--accent);">Question Writing Tips</summary>
+            <div style="margin-top: var(--space-md); color: var(--text-secondary); font-size: 0.875rem; line-height: 1.6;">
+                <p style="margin-bottom: var(--space-sm);"><strong>Make questions indirect!</strong> Don't reveal how answers will be used.</p>
+                <ul style="margin-left: var(--space-md); margin-bottom: var(--space-sm);">
+                    <li>Instead of "What's your weakness?" ask "What keeps you up at 3am?"</li>
+                    <li>Instead of "What's your goal?" ask "If you had one wish, what would it be?"</li>
+                    <li>Instead of "What's your job?" ask "What would you do if money didn't matter?"</li>
+                    <li>Instead of "What's your fear?" ask "What sound makes you uncomfortable?"</li>
+                    <li>Instead of "Where are you from?" ask "Describe a place that smells like memories."</li>
+                </ul>
+                <p>The magic happens when players don't know how their answers will be woven into the story!</p>
+            </div>
+        </details>
+
         <div class="actions">
             <button class="btn" onclick="saveStory()">Save Story</button>
             <button class="btn btn--secondary" onclick="saveAsPreset()">Save as Preset</button>
@@ -446,24 +486,20 @@ function showMadlibEditor() {
 
 function renderMadlibFields() {
     return story.madlib_template.fields.map((f, i) => `
-        <div class="madlib-field-row">
-            <code class="madlib-field-key">{${escapeHtml(f.key)}}</code>
-            <div class="madlib-field-inputs">
-                <div class="madlib-field-input">
-                    <label class="madlib-field-label">Question for players:</label>
-                    <input class="input" value="${escapeHtml(f.label)}" oninput="updateFieldLabel(${i}, this.value)">
-                </div>
-                <div class="madlib-field-input">
-                    <label class="madlib-field-label">Player's answer:</label>
-                    <input class="input madlib-field-answer" placeholder="(player types here during game)" disabled>
-                </div>
+        <div class="madlib-field-card">
+            <div class="madlib-field-header">
+                <code class="madlib-field-key">{${escapeHtml(f.key)}}</code>
+            </div>
+            <div class="madlib-field-body">
+                <label class="madlib-field-label">Question shown to players:</label>
+                <input class="input" value="${escapeHtml(f.label)}" oninput="updateFieldLabel(${i}, this.value)">
             </div>
         </div>
     `).join('');
 }
 
 function updateMadlibPrompt() {
-    isDirty = true;
+    markDirty();
     story.madlib_template.prompt = document.getElementById('madlib-prompt').value;
     // Auto-detect fields
     const matches = story.madlib_template.prompt.match(/\{(\w+)\}/g) || [];
@@ -496,7 +532,7 @@ function updateMadlibPrompt() {
 }
 
 function updateFieldLabel(index, label) {
-    isDirty = true;
+    markDirty();
     if (story.madlib_template.fields[index]) {
         story.madlib_template.fields[index].label = label;
     }
@@ -508,7 +544,7 @@ function applyPreset(presetKey) {
     const preset = allPresets[presetKey];
     if (!preset) return;
 
-    isDirty = true;
+    markDirty();
     // Apply the preset
     story.madlib_template.prompt = preset.prompt;
     story.madlib_template.fields = preset.fields.map(f => ({ ...f }));
@@ -562,7 +598,7 @@ function deleteCustomPreset(key, event) {
 function clearMadlibTemplate() {
     if (!confirm('Clear the template and start fresh?')) return;
 
-    isDirty = true;
+    markDirty();
     story.madlib_template.prompt = '';
     story.madlib_template.fields = [];
 
@@ -592,13 +628,13 @@ function showSettings() {
         <div class="form-group">
             <label>Theme</label>
             <div class="theme-picker">
-                ${['cyberpunk', 'fantasy', 'deep_space', 'modern', 'horror'].map(t => `
-                    <div class="theme-swatch theme-swatch--${t} ${story.theme === t ? 'theme-swatch--active' : ''}"
-                         onclick="setTheme('${t}')" title="${t}"></div>
+                ${['cyberpunk', 'fantasy', 'deep_space', 'modern', 'horror', 'insanity'].map(t => `
+                    <button type="button" class="theme-btn theme-btn--${t} ${story.theme === t ? 'theme-btn--active' : ''}"
+                         onclick="setTheme('${t}')">${t.replace('_', ' ')}</button>
                 `).join('')}
             </div>
             <p style="color: var(--text-secondary); margin-top: var(--space-sm); font-size: 0.875rem;">
-                Current: <strong>${story.theme}</strong>
+                Selected: <strong>${story.theme.replace('_', ' ')}</strong>
             </p>
         </div>
 
@@ -609,19 +645,20 @@ function showSettings() {
 }
 
 function updateStoryTitle(title) {
-    isDirty = true;
+    markDirty();
     story.title = title;
     document.getElementById('story-name').textContent = title;
 }
 
 function updateStartingHp() {
-    isDirty = true;
+    markDirty();
     story.settings.starting_hp = parseInt(document.getElementById('starting-hp').value, 10);
 }
 
 function setTheme(theme) {
-    isDirty = true;
+    markDirty();
     story.theme = theme;
+    ThemeManager.setTheme(theme);
     showSettings();
 }
 
@@ -715,7 +752,7 @@ function setupDragDrop() {
             const targetId = item.dataset.id;
             if (draggedId === targetId) return;
 
-            isDirty = true;
+            markDirty();
             const draggedIdx = story.scenes.findIndex(s => s.id === draggedId);
             const targetIdx = story.scenes.findIndex(s => s.id === targetId);
             const [dragged] = story.scenes.splice(draggedIdx, 1);

@@ -46,3 +46,11 @@ body::before {
 .card {
     clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }
+
+/* Light mode overrides */
+[data-mode="light"] {
+    --bg-primary: #e8f8f8;
+    --bg-secondary: #fff;
+    --text-primary: #0a4a4a;
+    --text-secondary: #446;
+}

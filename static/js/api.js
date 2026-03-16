@@ -1,7 +1,28 @@
 // static/js/api.js
 const API = {
+    // Session token for storyteller authentication
+    _sessionToken: sessionStorage.getItem('jb_rpg_session_token'),
+
+    _getAuthHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this._sessionToken) {
+            headers['X-Session-Token'] = this._sessionToken;
+        }
+        return headers;
+    },
+
+    setSessionToken(token) {
+        this._sessionToken = token;
+        if (token) {
+            sessionStorage.setItem('jb_rpg_session_token', token);
+        } else {
+            sessionStorage.removeItem('jb_rpg_session_token');
+        }
+    },
+
     async getStories() {
         const res = await fetch('/api/stories');
+        if (!res.ok) throw new Error(`Failed to fetch stories: ${res.status}`);
         return res.json();
     },
 
@@ -17,6 +38,7 @@ const API = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title })
         });
+        if (!res.ok) throw new Error(`Failed to create story: ${res.status}`);
         return res.json();
     },
 
@@ -26,15 +48,27 @@ const API = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(story)
         });
+        if (!res.ok) throw new Error(`Failed to update story: ${res.status}`);
         return res.json();
     },
 
     async deleteStory(id) {
-        await fetch(`/api/stories/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/stories/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`Failed to delete story: ${res.status}`);
     },
 
     async getState() {
         const res = await fetch('/api/state');
+        if (!res.ok) throw new Error(`Failed to fetch state: ${res.status}`);
+        return res.json();
+    },
+
+    async validateToken() {
+        const headers = {};
+        if (this._sessionToken) {
+            headers['X-Session-Token'] = this._sessionToken;
+        }
+        const res = await fetch('/api/state/validate-token', { headers });
         return res.json();
     },
 
@@ -48,13 +82,16 @@ const API = {
             const err = await res.json();
             throw new Error(err.detail || 'Failed to start session');
         }
-        return res.json();
+        const data = await res.json();
+        // Store the session token
+        this.setSessionToken(data.token);
+        return data.state;
     },
 
     async submitMadlib(answer) {
         const res = await fetch('/api/state/madlib', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this._getAuthHeaders(),
             body: JSON.stringify({ answer })
         });
         if (!res.ok) {
@@ -67,7 +104,7 @@ const API = {
     async makeChoice(choiceIndex) {
         const res = await fetch('/api/state/choice', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this._getAuthHeaders(),
             body: JSON.stringify({ choice_index: choiceIndex })
         });
         if (!res.ok) {
@@ -78,7 +115,10 @@ const API = {
     },
 
     async goBack() {
-        const res = await fetch('/api/state/back', { method: 'POST' });
+        const res = await fetch('/api/state/back', {
+            method: 'POST',
+            headers: this._getAuthHeaders()
+        });
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.detail || 'Failed to go back');
@@ -89,7 +129,7 @@ const API = {
     async finish(outcome) {
         const res = await fetch('/api/state/finish', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this._getAuthHeaders(),
             body: JSON.stringify({ outcome })
         });
         if (!res.ok) {
@@ -101,6 +141,24 @@ const API = {
 
     async restart() {
         const res = await fetch('/api/state/restart', { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to restart');
+        }
+        // Clear the session token
+        this.setSessionToken(null);
+        return res.json();
+    },
+
+    async revealChoices() {
+        const res = await fetch('/api/state/reveal-choices', {
+            method: 'POST',
+            headers: this._getAuthHeaders()
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to reveal choices');
+        }
         return res.json();
     }
 };

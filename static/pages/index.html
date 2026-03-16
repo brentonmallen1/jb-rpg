@@ -35,10 +35,92 @@
             padding: 2px 8px;
             border-radius: var(--radius-sm);
             font-size: 0.75rem;
-            text-transform: uppercase;
+            text-transform: capitalize;
             background: var(--accent);
             color: white;
             margin-right: var(--space-sm);
+        }
+
+        /* Theme-specific card styling */
+        .story-card--cyberpunk { border-left: 4px solid #0ff; }
+        .story-card--fantasy { border-left: 4px solid #d4a574; }
+        .story-card--deep_space { border-left: 4px solid #9d4edd; }
+        .story-card--modern { border-left: 4px solid #667eea; }
+        .story-card--horror { border-left: 4px solid #8b0000; }
+
+        .theme-badge--cyberpunk { background: #0ff; color: #000; }
+        .theme-badge--fantasy { background: #d4a574; color: #1a1410; }
+        .theme-badge--deep_space { background: #9d4edd; color: #fff; }
+        .theme-badge--modern { background: #667eea; color: #fff; }
+        .theme-badge--horror { background: #8b0000; color: #fff; }
+
+        .story-card--active {
+            position: relative;
+            box-shadow: 0 0 0 2px var(--success);
+        }
+        .session-badge {
+            position: absolute;
+            top: calc(-1 * var(--space-sm));
+            right: var(--space-md);
+            background: var(--success);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            text-transform: uppercase;
+        }
+
+        .card-menu {
+            position: relative;
+        }
+        .card-menu__trigger {
+            background: none;
+            border: 1px solid var(--text-secondary);
+            color: var(--text-primary);
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+        }
+        .card-menu__trigger:hover {
+            background: var(--bg-secondary);
+        }
+        .card-menu__dropdown {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--text-secondary);
+            border-radius: var(--radius-sm);
+            padding: var(--space-xs);
+            margin-bottom: var(--space-xs);
+            min-width: 120px;
+            z-index: 10;
+        }
+        .card-menu:focus-within .card-menu__dropdown,
+        .card-menu__dropdown:hover {
+            display: block;
+        }
+        .card-menu__item {
+            display: block;
+            width: 100%;
+            padding: var(--space-sm);
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            text-align: left;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+        }
+        .card-menu__item:hover {
+            background: var(--bg-primary);
+        }
+        .card-menu__item--danger {
+            color: var(--danger);
         }
         .empty-state {
             text-align: center;
@@ -58,7 +140,7 @@
     <nav class="nav">
         <span class="nav__title">J&amp;B's RPG</span>
         <div>
-            <button class="btn btn--secondary" onclick="ThemeManager.toggleMode()">Toggle Mode</button>
+            <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" title="Toggle light/dark mode"></button>
         </div>
     </nav>
 

@@ -4,6 +4,7 @@ const ThemeManager = {
         // Load saved mode
         const mode = localStorage.getItem('mode') || 'dark';
         document.documentElement.dataset.mode = mode;
+        this.updateModeButton();
     },
 
     toggleMode() {
@@ -11,6 +12,16 @@ const ThemeManager = {
         const next = current === 'dark' ? 'light' : 'dark';
         document.documentElement.dataset.mode = next;
         localStorage.setItem('mode', next);
+        this.updateModeButton();
+    },
+
+    updateModeButton() {
+        const btn = document.querySelector('.mode-toggle');
+        if (!btn) return;
+        const mode = document.documentElement.dataset.mode;
+        // Show icon for what clicking will switch TO
+        btn.textContent = mode === 'dark' ? '☀️' : '🌙';
+        btn.title = mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
     },
 
     setTheme(themeName) {

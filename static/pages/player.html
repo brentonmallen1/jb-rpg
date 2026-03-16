@@ -15,21 +15,46 @@
             padding: var(--space-lg);
             text-align: center;
         }
+        .character-section {
+            cursor: pointer;
+            margin-bottom: var(--space-lg);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            transition: background 0.2s;
+        }
+        .character-section:hover {
+            background: var(--bg-secondary);
+        }
         .character-name {
             font-size: 2rem;
             font-weight: bold;
-            margin-bottom: var(--space-lg);
-            cursor: pointer;
             font-family: var(--font-display);
+            margin-bottom: var(--space-sm);
         }
-        .character-name:hover {
+        .character-section:hover .character-name {
             color: var(--accent);
+        }
+        .character-description-preview {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            max-width: 400px;
+        }
+        .hp-section {
+            margin-bottom: var(--space-xl);
+            text-align: center;
+        }
+        .hp-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: var(--space-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
         .hp-display {
             display: flex;
             justify-content: center;
             gap: var(--space-md);
-            margin-bottom: var(--space-xl);
         }
         .hp-display .hp-indicator {
             width: 48px;
@@ -114,10 +139,103 @@
             top: var(--space-md);
             right: var(--space-md);
         }
+
+        /* Finale styles */
+        .finale-section {
+            margin-top: var(--space-lg);
+        }
+        .finale-outcome {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: var(--space-lg);
+        }
+        .finale-outcome--victory {
+            color: var(--success);
+        }
+        .finale-outcome--defeat {
+            color: var(--danger);
+        }
+        .finale-roll-info {
+            background: var(--bg-secondary);
+            padding: var(--space-lg);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-lg);
+            line-height: 1.8;
+        }
+        .finale-stats {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-xl);
+            margin-bottom: var(--space-md);
+        }
+        .finale-stat {
+            text-align: center;
+        }
+        .finale-stat__value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        .finale-stat__label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        .finale-items {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Revealed choices */
+        .revealed-choices {
+            margin-top: var(--space-lg);
+            width: 100%;
+            max-width: 400px;
+        }
+        .revealed-choices__header {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: var(--space-md);
+        }
+        .revealed-choice {
+            background: var(--bg-secondary);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-sm);
+            text-align: left;
+            border-left: 3px solid var(--accent);
+        }
+
+        /* Character creation header */
+        .creation-header {
+            margin-bottom: var(--space-xl);
+            text-align: center;
+        }
+        .waiting-message {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        /* Character creation footer */
+        .creation-footer {
+            margin-top: var(--space-xl);
+            text-align: center;
+        }
+        .creation-message {
+            font-size: 1.5rem;
+            color: var(--accent);
+            font-weight: 600;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
     </style>
 </head>
 <body>
-    <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()">Toggle Mode</button>
+    <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" title="Toggle light/dark mode"></button>
 
     <div id="player-view" class="player-layout">
         <div class="waiting-state">

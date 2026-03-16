@@ -1,9 +1,12 @@
 import asyncio
 import json
+import random
 import re
 import uuid
 
-from fastapi import FastAPI, HTTPException
+import secrets
+
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -20,6 +23,7 @@ class ThemeName(str, Enum):
     DEEP_SPACE = "deep_space"
     MODERN = "modern"
     HORROR = "horror"
+    INSANITY = "insanity"
 
 
 class SessionStatus(str, Enum):
@@ -118,6 +122,8 @@ class GameState(BaseModel):
     history: list[HistoryEntry] = []
     character: Optional[Character] = None
     outcome: Optional[Literal["victory", "defeat"]] = None
+    choices_revealed: bool = False
+    shuffled_choices: list[str] = []
 
 
 def inject_variables(text: str, fields: dict[str, str] | None) -> str:
@@ -147,6 +153,10 @@ def evaluate_condition(condition: Condition, state: GameState) -> bool:
     elif condition.type == ConditionType.LEVEL:
         actual = state.level
     else:
+        return False
+
+    # Validate that op and value are present for numeric conditions
+    if not condition.op or condition.value is None:
         return False
 
     if condition.op == "lte":
@@ -204,6 +214,25 @@ STATE_FILE = Path(__file__).parent / "state.json"
 # Ensure directories exist
 STORIES_DIR.mkdir(exist_ok=True)
 
+# Session token for storyteller authentication (in-memory, resets on server restart)
+_session_token: Optional[str] = None
+
+
+def get_session_token():
+    """Return current session token."""
+    return _session_token
+
+
+def verify_storyteller(x_session_token: Optional[str] = Header(None)):
+    """Dependency to verify storyteller has valid session token."""
+    global _session_token
+    if _session_token is None:
+        raise HTTPException(status_code=401, detail="No active session")
+    if x_session_token != _session_token:
+        raise HTTPException(status_code=403, detail="Invalid session token")
+    return True
+
+
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -260,6 +289,7 @@ def build_resolved(state: "GameState | None") -> "dict | None":
 
 # In-memory SSE connection tracking
 sse_connections: set = set()
+storyteller_connections: set = set()  # Subset of sse_connections with valid token
 sse_lock = asyncio.Lock()
 
 
@@ -269,6 +299,7 @@ async def broadcast_state():
 
     async with sse_lock:
         connected = len(sse_connections)
+        storyteller_connected = len(storyteller_connections) > 0
         queues = list(sse_connections)
 
     payload = {
@@ -276,6 +307,7 @@ async def broadcast_state():
         "state": state.model_dump() if state else None,
         "resolved": resolved,
         "connected_count": connected,
+        "storyteller_connected": storyteller_connected,
     }
     message = f"data: {json.dumps(payload)}\n\n"
 
@@ -404,17 +436,21 @@ async def player():
 
 
 @app.get("/api/events")
-async def sse_events():
+async def sse_events(token: Optional[str] = None):
     queue = asyncio.Queue()
+    is_storyteller = token is not None and token == _session_token
 
     async with sse_lock:
         sse_connections.add(queue)
+        if is_storyteller:
+            storyteller_connections.add(queue)
 
     async def event_generator():
         try:
             # Send initial state
             async with sse_lock:
                 connected = len(sse_connections)
+                storyteller_connected = len(storyteller_connections) > 0
 
             state = load_state()
             resolved = build_resolved(state)
@@ -422,7 +458,8 @@ async def sse_events():
                 "type": "state",
                 "state": state.model_dump() if state else None,
                 "resolved": resolved,
-                "connected_count": connected
+                "connected_count": connected,
+                "storyteller_connected": storyteller_connected,
             }
             yield f"data: {json.dumps(payload)}\n\n"
 
@@ -435,6 +472,10 @@ async def sse_events():
         finally:
             async with sse_lock:
                 sse_connections.discard(queue)
+                storyteller_connections.discard(queue)
+            # Notify others that storyteller may have disconnected
+            if is_storyteller:
+                await broadcast_state()
 
     return StreamingResponse(
         event_generator(),
@@ -450,6 +491,11 @@ async def sse_events():
 
 class StartRequest(BaseModel):
     story_id: str
+
+
+class StartResponse(BaseModel):
+    state: GameState
+    token: str
 
 
 class MadlibRequest(BaseModel):
@@ -473,9 +519,12 @@ class FinishRequest(BaseModel):
 async def get_state():
     state = load_state()
     resolved = build_resolved(state)
+    async with sse_lock:
+        storyteller_connected = len(storyteller_connections) > 0
     return {
         "state": state.model_dump() if state else None,
         "resolved": resolved,
+        "storyteller_connected": storyteller_connected,
     }
 
 
@@ -485,7 +534,9 @@ async def get_state():
 
 
 @app.post("/api/state/start")
-async def start_session(request: StartRequest) -> GameState:
+async def start_session(request: StartRequest) -> StartResponse:
+    global _session_token
+
     story_path = STORIES_DIR / f"{request.story_id}.json"
     if not story_path.exists():
         raise HTTPException(status_code=404, detail="Story not found")
@@ -517,9 +568,12 @@ async def start_session(request: StartRequest) -> GameState:
         outcome=None,
     )
 
+    # Generate session token for storyteller
+    _session_token = secrets.token_urlsafe(32)
+
     save_state(state)
     await broadcast_state()
-    return state
+    return StartResponse(state=state, token=_session_token)
 
 
 # ---------------------------------------------------------------------------
@@ -528,7 +582,7 @@ async def start_session(request: StartRequest) -> GameState:
 
 
 @app.post("/api/state/madlib")
-async def submit_madlib(request: MadlibRequest) -> GameState:
+async def submit_madlib(request: MadlibRequest, _: bool = Depends(verify_storyteller)) -> GameState:
     state = load_state()
     if state is None or state.status != SessionStatus.MADLIB_IN_PROGRESS:
         raise HTTPException(status_code=409, detail="Not in madlib_in_progress status")
@@ -570,7 +624,7 @@ async def submit_madlib(request: MadlibRequest) -> GameState:
 
 
 @app.post("/api/state/choice")
-async def make_choice(request: ChoiceRequest) -> GameState:
+async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storyteller)) -> GameState:
     state = load_state()
     if state is None or state.status != SessionStatus.RUNNING:
         raise HTTPException(status_code=409, detail="Not in running status")
@@ -630,6 +684,10 @@ async def make_choice(request: ChoiceRequest) -> GameState:
         else:
             state.current_scene_id = scene_ids[current_index + 1]
 
+    # Reset choice reveal state for next scene
+    state.choices_revealed = False
+    state.shuffled_choices = []
+
     save_state(state)
     await broadcast_state()
     return state
@@ -641,7 +699,7 @@ async def make_choice(request: ChoiceRequest) -> GameState:
 
 
 @app.post("/api/state/back")
-async def go_back() -> GameState:
+async def go_back(_: bool = Depends(verify_storyteller)) -> GameState:
     state = load_state()
     if state is None:
         raise HTTPException(status_code=404, detail="No active session")
@@ -681,12 +739,42 @@ async def go_back() -> GameState:
 
 
 # ---------------------------------------------------------------------------
+# Reveal choices to players
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/state/reveal-choices")
+async def reveal_choices(_: bool = Depends(verify_storyteller)) -> GameState:
+    state = load_state()
+    if state is None or state.status != SessionStatus.RUNNING:
+        raise HTTPException(status_code=409, detail="No running session")
+
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+    scene = next((s for s in story.scenes if s.id == state.current_scene_id), None)
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    # Get choice texts and shuffle them
+    choice_texts = [c.text for c in scene.choices]
+    random.shuffle(choice_texts)
+
+    state.choices_revealed = True
+    state.shuffled_choices = choice_texts
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
 # Task 4.6: POST /api/state/finish and POST /api/state/restart
 # ---------------------------------------------------------------------------
 
 
 @app.post("/api/state/finish")
-async def finish_session(request: FinishRequest) -> GameState:
+async def finish_session(request: FinishRequest, _: bool = Depends(verify_storyteller)) -> GameState:
     state = load_state()
     if state is None or state.status != SessionStatus.GAME_OVER:
         raise HTTPException(status_code=409, detail="Not in game_over status")
@@ -697,8 +785,24 @@ async def finish_session(request: FinishRequest) -> GameState:
     return state
 
 
+@app.get("/api/state/validate-token")
+async def validate_token(x_session_token: Optional[str] = Header(None)):
+    """Check if the provided token is valid for the current session."""
+    if _session_token is None:
+        return {"valid": False, "reason": "no_session"}
+    if x_session_token == _session_token:
+        return {"valid": True}
+    return {"valid": False, "reason": "invalid_token"}
+
+
 @app.post("/api/state/restart")
 async def restart_session():
+    """Restart clears the session. No auth required - anyone can reset."""
+    global _session_token
+    _session_token = None
+    # Clear storyteller connections since token is now invalid
+    async with sse_lock:
+        storyteller_connections.clear()
     save_state(None)
     await broadcast_state()
     return {"status": "restarted"}

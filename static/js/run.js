@@ -30,14 +30,76 @@ async function init() {
     // Check if a session for this story is already active
     const current = await API.getState();
     if (current.state && current.state.story_id === storyId) {
-        state = current.state;
-        resolved = current.resolved;
-        render();
+        // Check if we have a valid token to control this session
+        const tokenCheck = await API.validateToken();
+
+        if (tokenCheck.valid) {
+            // We have control - ask user what to do
+            const resume = confirm(
+                'A session is already in progress for this story.\n\n' +
+                'Click OK to resume, or Cancel to start over.'
+            );
+            if (resume) {
+                state = current.state;
+                resolved = current.resolved;
+                render();
+            } else {
+                // Restart
+                await API.restart();
+                state = await API.startSession(storyId);
+                const fresh = await API.getState();
+                resolved = fresh.resolved;
+                render();
+            }
+        } else {
+            // No valid token - need to start over to take control
+            const takeOver = confirm(
+                'A session is in progress but you don\'t have storyteller control.\n\n' +
+                'Click OK to restart and take control, or Cancel to view as player.'
+            );
+            if (takeOver) {
+                await API.restart();
+                state = await API.startSession(storyId);
+                const fresh = await API.getState();
+                resolved = fresh.resolved;
+                render();
+            } else {
+                window.location.href = '/player';
+                return;
+            }
+        }
+    } else if (current.state && current.state.story_id !== storyId) {
+        // Check token for the other session
+        const tokenCheck = await API.validateToken();
+
+        if (tokenCheck.valid) {
+            // Different story in progress, we have control - ask to switch
+            const switchStory = confirm(
+                'A different story is currently in progress.\n\n' +
+                'Click OK to start this story (ends current session), or Cancel to go back.'
+            );
+            if (switchStory) {
+                await API.restart();
+                state = await API.startSession(storyId);
+                const fresh = await API.getState();
+                resolved = fresh.resolved;
+                render();
+            } else {
+                window.location.href = '/';
+                return;
+            }
+        } else {
+            // No valid token for different story - just take over
+            await API.restart();
+            state = await API.startSession(storyId);
+            const fresh = await API.getState();
+            resolved = fresh.resolved;
+            render();
+        }
     } else {
-        // Start a new session
+        // No session - start fresh
         try {
             state = await API.startSession(storyId);
-            // Fetch resolved text for initial render
             const fresh = await API.getState();
             resolved = fresh.resolved;
             render();
@@ -47,7 +109,8 @@ async function init() {
         }
     }
 
-    sse.connect();
+    // Connect SSE with token to identify as storyteller
+    sse.connect(API._sessionToken);
 }
 
 function handleStateUpdate(data) {
@@ -211,12 +274,27 @@ function renderScene() {
 
     const sceneText = resolved?.scene_text || scene.base_text;
 
+    // Show Choices button for players
+    const revealBtnHtml = state.choices_revealed
+        ? '<button class="btn btn--secondary" disabled style="margin-top: var(--space-md);">Choices Visible to Players</button>'
+        : '<button class="btn" onclick="revealChoices()" style="margin-top: var(--space-md);">Show Choices to Players</button>';
+
     document.getElementById('main-content').innerHTML = `
         <div class="scene-title">Scene ${sceneIdx}: ${escapeHtml(scene.title)}</div>
         <div class="scene-text">${escapeHtml(sceneText)}</div>
         <div class="choices">${choicesHtml}</div>
+        ${revealBtnHtml}
         ${prevHtml}
     `;
+}
+
+async function revealChoices() {
+    try {
+        state = await API.revealChoices();
+        render();
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
 }
 
 async function makeChoice(index) {
@@ -325,12 +403,56 @@ async function restart() {
     try {
         await API.restart();
         state = await API.startSession(storyId);
+        // Reconnect SSE with new token
+        sse.connect(API._sessionToken);
         const fresh = await API.getState();
         resolved = fresh.resolved;
         render();
     } catch (e) {
         alert('Error: ' + e.message);
     }
+}
+
+async function stopSession() {
+    if (!confirm('Stop the session? Players will see the waiting screen.')) return;
+    try {
+        await API.restart();
+        window.location.href = '/';
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// Share functionality
+function showShareModal() {
+    const playerUrl = `${window.location.origin}/player`;
+    document.getElementById('share-link').value = playerUrl;
+
+    // Generate QR code
+    const qrContainer = document.getElementById('qr-container');
+    qrContainer.innerHTML = '';
+
+    if (typeof qrcode !== 'undefined') {
+        const qr = qrcode(0, 'M');
+        qr.addData(playerUrl);
+        qr.make();
+        qrContainer.innerHTML = qr.createImgTag(5, 0);
+    } else {
+        qrContainer.innerHTML = '<p style="color: var(--text-secondary);">QR code unavailable</p>';
+    }
+
+    document.getElementById('share-modal').classList.remove('share-modal--hidden');
+}
+
+function hideShareModal() {
+    document.getElementById('share-modal').classList.add('share-modal--hidden');
+}
+
+function copyShareLink() {
+    const input = document.getElementById('share-link');
+    input.select();
+    document.execCommand('copy');
+    alert('Link copied!');
 }
 
 init();

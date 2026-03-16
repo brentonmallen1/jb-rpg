@@ -1,9 +1,22 @@
 // static/js/library.js
 let stories = [];
+let activeSession = null;
 
 async function loadStories() {
-    stories = await API.getStories();
-    render();
+    try {
+        // Load stories and current session state in parallel
+        const [storiesData, stateData] = await Promise.all([
+            API.getStories(),
+            API.getState()
+        ]);
+        stories = storiesData;
+        activeSession = stateData.state;
+        render();
+    } catch (e) {
+        console.error('Failed to load stories:', e);
+        const grid = document.getElementById('story-grid');
+        grid.innerHTML = '<p class="error-message">Failed to load stories. Please refresh the page.</p>';
+    }
 }
 
 function render() {
@@ -17,20 +30,30 @@ function render() {
     }
 
     empty.style.display = 'none';
-    grid.innerHTML = stories.map(story => `
-        <div class="card story-card">
-            <div class="story-card__title">${escapeHtml(story.title)}</div>
-            <div class="story-card__meta">
-                <span class="theme-badge">${escapeHtml(story.theme)}</span>
-                ${story.scene_count} scene${story.scene_count !== 1 ? 's' : ''}
+    grid.innerHTML = stories.map(story => {
+        const isActive = activeSession && activeSession.story_id === story.id;
+        return `
+            <div class="card story-card story-card--${escapeHtml(story.theme)} ${isActive ? 'story-card--active' : ''}">
+                ${isActive ? '<div class="session-badge">Session in Progress</div>' : ''}
+                <div class="story-card__title">${escapeHtml(story.title)}</div>
+                <div class="story-card__meta">
+                    <span class="theme-badge theme-badge--${escapeHtml(story.theme)}">${escapeHtml(story.theme).replace('_', ' ')}</span>
+                    ${story.scene_count} scene${story.scene_count !== 1 ? 's' : ''}
+                </div>
+                <div class="story-card__actions">
+                    <button class="btn" onclick="editStory('${escapeAttr(story.id)}')">Edit</button>
+                    <button class="btn" onclick="runStory('${escapeAttr(story.id)}')">${isActive ? 'Resume' : 'Run'}</button>
+                    ${isActive ? `<button class="btn btn--danger" onclick="stopSession()">Stop</button>` : ''}
+                    <div class="card-menu">
+                        <button class="card-menu__trigger">⋯</button>
+                        <div class="card-menu__dropdown">
+                            <button class="card-menu__item card-menu__item--danger" onclick="deleteStory('${escapeAttr(story.id)}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="story-card__actions">
-                <button class="btn" onclick="editStory('${escapeHtml(story.id)}')">Edit</button>
-                <button class="btn" onclick="runStory('${escapeHtml(story.id)}')">Run</button>
-                <button class="btn btn--danger" onclick="deleteStory('${escapeHtml(story.id)}')">Delete</button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 async function createNewStory() {
@@ -52,6 +75,12 @@ function runStory(id) {
 async function deleteStory(id) {
     if (!confirm('Delete this story?')) return;
     await API.deleteStory(id);
+    await loadStories();
+}
+
+async function stopSession() {
+    if (!confirm('Stop the current session? Players will see the waiting screen.')) return;
+    await API.restart();
     await loadStories();
 }
 

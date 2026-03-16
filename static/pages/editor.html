@@ -6,10 +6,14 @@
     <title>Story Editor - J&amp;B's RPG</title>
     <link rel="stylesheet" href="/static/css/base.css">
     <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
         .editor-layout {
             display: grid;
             grid-template-columns: 280px 1fr;
-            min-height: calc(100vh - 60px);
+            height: calc(100vh - 60px);
         }
         .sidebar {
             background: var(--bg-secondary);
@@ -117,23 +121,27 @@
             gap: var(--space-sm);
             flex-wrap: wrap;
         }
-        .theme-swatch {
-            width: 60px;
-            height: 40px;
-            border-radius: var(--radius-sm);
-            border: 2px solid transparent;
+        .theme-btn {
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+            border: 2px solid;
             cursor: pointer;
-            position: relative;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: capitalize;
+            background: transparent;
+            transition: all 0.2s;
         }
-        .theme-swatch--active {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px var(--accent);
-        }
-        .theme-swatch--cyberpunk { background: linear-gradient(135deg, #0ff, #f0f); }
-        .theme-swatch--fantasy { background: linear-gradient(135deg, #d4a574, #8b4513); }
-        .theme-swatch--deep_space { background: linear-gradient(135deg, #1a0a2e, #4a1a6b); }
-        .theme-swatch--modern { background: linear-gradient(135deg, #667eea, #764ba2); }
-        .theme-swatch--horror { background: linear-gradient(135deg, #2d0a0a, #8b0000); }
+        .theme-btn--cyberpunk { border-color: #0ff; color: #0ff; }
+        .theme-btn--cyberpunk:hover, .theme-btn--cyberpunk.theme-btn--active { background: #0ff; color: #000; }
+        .theme-btn--fantasy { border-color: #d4a574; color: #d4a574; }
+        .theme-btn--fantasy:hover, .theme-btn--fantasy.theme-btn--active { background: #d4a574; color: #1a1410; }
+        .theme-btn--deep_space { border-color: #9d4edd; color: #9d4edd; }
+        .theme-btn--deep_space:hover, .theme-btn--deep_space.theme-btn--active { background: #9d4edd; color: #fff; }
+        .theme-btn--modern { border-color: #667eea; color: #667eea; }
+        .theme-btn--modern:hover, .theme-btn--modern.theme-btn--active { background: #667eea; color: #fff; }
+        .theme-btn--horror { border-color: #8b0000; color: #8b0000; }
+        .theme-btn--horror:hover, .theme-btn--horror.theme-btn--active { background: #8b0000; color: #fff; }
         .nav-link {
             display: block;
             padding: var(--space-sm);
@@ -213,56 +221,47 @@
 
         /* Mad lib field editor styles */
         .madlib-fields-scroll {
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
             padding-right: var(--space-sm);
         }
-        .madlib-field-row {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: var(--space-md);
+        .madlib-field-card {
             margin-bottom: var(--space-md);
-            padding: var(--space-sm);
             background: var(--bg-primary);
-            border-radius: var(--radius-sm);
-            align-items: start;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .madlib-field-header {
+            background: var(--bg-secondary);
+            padding: var(--space-sm) var(--space-md);
+            border-bottom: 1px solid var(--text-secondary);
         }
         .madlib-field-key {
-            padding: var(--space-sm) var(--space-md);
-            background: var(--bg-secondary);
-            border-radius: var(--radius-sm);
             font-family: var(--font-mono);
-            font-size: 0.9rem;
-            white-space: nowrap;
-            align-self: center;
+            font-size: 1rem;
+            color: var(--accent);
         }
-        .madlib-field-inputs {
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-sm);
-        }
-        .madlib-field-input {
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-xs);
+        .madlib-field-body {
+            padding: var(--space-md);
         }
         .madlib-field-label {
+            display: block;
             font-size: 0.75rem;
             color: var(--text-secondary);
             font-weight: 500;
-        }
-        .madlib-field-answer {
-            background: var(--bg-secondary);
-            border-style: dashed;
+            margin-bottom: var(--space-xs);
         }
     </style>
 </head>
 <body>
-    <nav class="nav">
-        <a href="/" class="nav__title">J&amp;B's RPG</a>
+    <nav class="nav" style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;">
         <div style="display: flex; gap: var(--space-sm); align-items: center;">
-            <span id="story-name" style="color: var(--text-secondary);"></span>
-            <button class="btn btn--secondary" onclick="ThemeManager.toggleMode()">Toggle Mode</button>
+            <a href="/" class="nav__title">J&amp;B's RPG</a>
+            <a href="/" class="btn btn--secondary">Library</a>
+        </div>
+        <span id="story-name" style="font-weight: 600; font-size: 1.1rem;"></span>
+        <div style="display: flex; gap: var(--space-sm); align-items: center; justify-content: flex-end;">
+            <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" title="Toggle light/dark mode"></button>
         </div>
     </nav>
 

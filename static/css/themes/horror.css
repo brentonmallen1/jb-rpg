@@ -35,3 +35,11 @@
 .card {
     border: 2px solid var(--danger);
 }
+
+/* Light mode overrides */
+[data-mode="light"] {
+    --bg-primary: #f5f0f0;
+    --bg-secondary: #fff;
+    --text-primary: #1a0a0a;
+    --text-secondary: #664444;
+}

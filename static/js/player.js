@@ -1,17 +1,76 @@
 // static/js/player.js
 let story = null;
 let state = null;
+let storytellerConnected = false;
+let pollInterval = null;
 
 const sse = new SSEClient(handleStateUpdate);
 
+// Theme-specific waiting messages
+const WAITING_MESSAGES = {
+    fantasy: "The tale begins soon... Your storyteller prepares the ancient scrolls.",
+    cyberpunk: "STANDBY... Narrative upload initializing.",
+    deep_space: "Awaiting transmission from the storyteller...",
+    horror: "Something stirs in the darkness... The story approaches.",
+    modern: "Your story is about to begin. Please wait.",
+    insanity: "The stars align... Your sanity trembles at the threshold of forbidden knowledge.",
+    default: "Your adventure awaits..."
+};
+
+// Theme-specific character creation messages
+const CREATION_MESSAGES = {
+    fantasy: "The ancient spirits weave your destiny...",
+    cyberpunk: "GENERATING IDENTITY PROFILE...",
+    deep_space: "Calibrating neural imprint...",
+    horror: "Something watches as your fate takes shape...",
+    modern: "Building your character profile...",
+    insanity: "Your mind fractures as eldritch truths take shape...",
+    default: "Creating your character..."
+};
+
+function getWaitingMessage() {
+    const theme = story?.theme || localStorage.getItem('jb_rpg_last_theme');
+    return WAITING_MESSAGES[theme] || WAITING_MESSAGES.default;
+}
+
+function getCreationMessage() {
+    const theme = story?.theme || localStorage.getItem('jb_rpg_last_theme');
+    return CREATION_MESSAGES[theme] || CREATION_MESSAGES.default;
+}
+
 async function init() {
+    // Start SSE for instant updates
     sse.connect();
+
+    // Also poll every 3 seconds as primary reliability mechanism
+    pollInterval = setInterval(pollForUpdates, 3000);
+
+    // Initial poll immediately
+    await pollForUpdates();
+}
+
+async function pollForUpdates() {
+    try {
+        const data = await API.getState();
+        // Check if anything changed
+        const newStateJson = JSON.stringify(data.state);
+        const currentStateJson = JSON.stringify(state);
+        const storytellerChanged = data.storyteller_connected !== storytellerConnected;
+
+        if (newStateJson !== currentStateJson || storytellerChanged) {
+            handleStateUpdate(data);
+        }
+    } catch (e) {
+        console.error('Poll failed:', e);
+    }
 }
 
 async function handleStateUpdate(data) {
     state = data.state;
+    storytellerConnected = data.storyteller_connected;
 
-    if (!state) {
+    // Show waiting if no state OR storyteller is not connected
+    if (!state || !storytellerConnected) {
         renderWaiting();
         return;
     }
@@ -21,6 +80,7 @@ async function handleStateUpdate(data) {
         try {
             story = await API.getStory(state.story_id);
             ThemeManager.setTheme(story.theme);
+            localStorage.setItem('jb_rpg_last_theme', story.theme);
         } catch (e) {
             console.error('Failed to load story:', e);
             document.getElementById('player-view').innerHTML = `
@@ -36,9 +96,15 @@ async function handleStateUpdate(data) {
 }
 
 function renderWaiting() {
+    // Apply last theme if available
+    const lastTheme = localStorage.getItem('jb_rpg_last_theme');
+    if (lastTheme) {
+        ThemeManager.setTheme(lastTheme);
+    }
+
     document.getElementById('player-view').innerHTML = `
         <div class="waiting-state">
-            <p>Waiting for storyteller to start...</p>
+            <p>${getWaitingMessage()}</p>
         </div>
     `;
 }
@@ -59,26 +125,70 @@ function render() {
         : '<p style="color: var(--text-secondary); margin-bottom: var(--space-xl);">No items yet</p>';
 
     let statusHtml = '';
+    let headerHtml = '';
+    let footerHtml = '';
     if (state.status === 'madlib_in_progress') {
-        statusHtml = '<div class="status-message" style="color: var(--text-secondary);">Creating character...</div>';
+        headerHtml = `
+            <div class="creation-header">
+                <div class="waiting-message">${getWaitingMessage()}</div>
+            </div>
+        `;
+        footerHtml = `
+            <div class="creation-footer">
+                <div class="creation-message">${getCreationMessage()}</div>
+            </div>
+        `;
     } else if (state.status === 'game_over') {
+        const rollCount = state.level;
+        const bonus = state.items.length;
+
+        let outcomeHtml = '';
         if (state.outcome === 'victory') {
-            statusHtml = '<div class="status-message" style="color: var(--success); font-size: 2rem; font-weight: bold;">VICTORY!</div>';
+            outcomeHtml = '<div class="finale-outcome finale-outcome--victory">VICTORY!</div>';
         } else if (state.outcome === 'defeat') {
-            statusHtml = '<div class="status-message" style="color: var(--danger); font-size: 2rem; font-weight: bold;">DEFEATED</div>';
+            outcomeHtml = '<div class="finale-outcome finale-outcome--defeat">DEFEATED</div>';
         } else {
-            statusHtml = '<div class="status-message" style="color: var(--warning);">Awaiting final roll...</div>';
+            outcomeHtml = `
+                <div class="finale-roll-info">
+                    <div style="font-weight: bold; margin-bottom: var(--space-sm);">The Final Challenge</div>
+                    <div>You have <strong>${rollCount}</strong> roll${rollCount !== 1 ? 's' : ''}</div>
+                    <div>Add <strong>+${bonus}</strong> to each roll</div>
+                    <div>Need <strong>20+</strong> to win</div>
+                </div>
+            `;
         }
+
+        statusHtml = `
+            <div class="finale-section">
+                ${outcomeHtml}
+                ${state.items.length > 0 ? `
+                    <div class="finale-items">
+                        ${state.items.map(i => escapeHtml(i)).join(' • ')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
     }
 
     document.getElementById('player-view').innerHTML = `
+        ${headerHtml}
         ${state.character ? `
-            <div class="character-name" onclick="showCharacter()" title="Tap for description">
-                ${escapeHtml(state.character.name)}
+            <div class="character-section" onclick="showCharacter()" title="Tap for full description">
+                <div class="character-name">
+                    ${escapeHtml(state.character.name)}
+                </div>
+                <div class="character-description-preview">
+                    ${escapeHtml(state.character.description.length > 120
+                        ? state.character.description.slice(0, 120) + '...'
+                        : state.character.description)}
+                </div>
             </div>
         ` : ''}
 
-        <div class="hp-display hp-container">${hpHtml}</div>
+        <div class="hp-section">
+            <div class="hp-label">Health</div>
+            <div class="hp-display hp-container">${hpHtml}</div>
+        </div>
 
         <div class="stats">
             <div class="stat-block">
@@ -100,7 +210,17 @@ function render() {
             Scene ${displayIdx} of ${story.scenes.length}
         </div>
 
+        ${state.choices_revealed && state.shuffled_choices.length > 0 ? `
+            <div class="revealed-choices">
+                <div class="revealed-choices__header">The Choices</div>
+                ${state.shuffled_choices.map(text => `
+                    <div class="revealed-choice">${escapeHtml(text)}</div>
+                `).join('')}
+            </div>
+        ` : ''}
+
         ${statusHtml}
+        ${footerHtml}
     `;
 }
 

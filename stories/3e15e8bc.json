@@ -1,13 +1,57 @@
 {
   "id": "3e15e8bc",
   "title": "test",
-  "theme": "cyberpunk",
+  "theme": "fantasy",
   "settings": {
     "starting_hp": 3
   },
   "madlib_template": {
-    "prompt": "",
-    "fields": []
+    "prompt": "{name} the {profession} has a secret weakness: {weakness}. They journey forth to {quest}.",
+    "fields": [
+      {
+        "key": "name",
+        "label": "What is your hero's name?"
+      },
+      {
+        "key": "profession",
+        "label": "What is their profession? (warrior, scholar, thief...)"
+      },
+      {
+        "key": "weakness",
+        "label": "What is their secret weakness?"
+      },
+      {
+        "key": "quest",
+        "label": "What quest drives them forward?"
+      }
+    ]
   },
-  "scenes": []
+  "scenes": [
+    {
+      "id": "scene_1773662860054",
+      "title": "scene1",
+      "base_text": "blah tlaedfadf {name}",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Choice 1",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Choice 2",
+          "amount": 1,
+          "item_name": "Item"
+        },
+        {
+          "kind": "level",
+          "text": "Choice 3",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": []
+    }
+  ]
 }

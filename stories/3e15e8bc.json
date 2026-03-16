@@ -1,0 +1,13 @@
+{
+  "id": "3e15e8bc",
+  "title": "test",
+  "theme": "cyberpunk",
+  "settings": {
+    "starting_hp": 3
+  },
+  "madlib_template": {
+    "prompt": "",
+    "fields": []
+  },
+  "scenes": []
+}

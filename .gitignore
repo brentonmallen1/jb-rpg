@@ -14,3 +14,6 @@ wheels/
 
 # Runtime files
 state.json
+
+.history
+.superpowers

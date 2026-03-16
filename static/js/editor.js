@@ -4,6 +4,83 @@ let currentView = null; // 'scene', 'madlib', 'settings'
 let currentSceneId = null;
 let isDirty = false;  // Track unsaved changes
 
+// Preset mad lib templates for quick character creation
+const BUILTIN_PRESETS = {
+    classic_hero: {
+        name: 'Classic Hero',
+        prompt: '{name} the {profession} has a secret weakness: {weakness}. They journey forth to {quest}.',
+        fields: [
+            { key: 'name', label: 'What is your hero\'s name?' },
+            { key: 'profession', label: 'What is their profession? (warrior, scholar, thief...)' },
+            { key: 'weakness', label: 'What is their secret weakness?' },
+            { key: 'quest', label: 'What quest drives them forward?' }
+        ]
+    },
+    mysterious_stranger: {
+        name: 'Mysterious Stranger',
+        prompt: 'They go by {alias}, but no one knows their true name. They carry the weight of {secret} and fear nothing except {fear}. Now they seek {goal}.',
+        fields: [
+            { key: 'alias', label: 'What do people call you?' },
+            { key: 'secret', label: 'What dark secret haunts your past?' },
+            { key: 'fear', label: 'What is the one thing you truly fear?' },
+            { key: 'goal', label: 'What are you searching for?' }
+        ]
+    },
+    unlikely_champion: {
+        name: 'Unlikely Champion',
+        prompt: '{name} was just a simple {job} until they discovered they could {talent}. Now, driven by {motivation}, they must become something more.',
+        fields: [
+            { key: 'name', label: 'What\'s your name?' },
+            { key: 'job', label: 'What boring job did you have?' },
+            { key: 'talent', label: 'What surprising ability did you discover?' },
+            { key: 'motivation', label: 'What pushes you to act?' }
+        ]
+    },
+    fallen_noble: {
+        name: 'Fallen Noble',
+        prompt: 'Once known as {title}, they ruled over {domain}. But {downfall} stripped everything away. Now they wander, seeking {redemption}.',
+        fields: [
+            { key: 'title', label: 'What was your noble title?' },
+            { key: 'domain', label: 'What did you once rule or possess?' },
+            { key: 'downfall', label: 'What caused your fall from grace?' },
+            { key: 'redemption', label: 'What do you hope to find or reclaim?' }
+        ]
+    },
+    scrappy_survivor: {
+        name: 'Scrappy Survivor',
+        prompt: 'On the streets they call them {nickname}. They grew up in {origin} and learned to survive by {skill}. But deep down, they dream of {dream}.',
+        fields: [
+            { key: 'nickname', label: 'What\'s your street name?' },
+            { key: 'origin', label: 'Where did you grow up?' },
+            { key: 'skill', label: 'How did you learn to survive?' },
+            { key: 'dream', label: 'What\'s your impossible dream?' }
+        ]
+    }
+};
+
+// Custom presets stored in localStorage
+const CUSTOM_PRESETS_KEY = 'jb_rpg_custom_madlib_presets';
+
+function getCustomPresets() {
+    try {
+        return JSON.parse(localStorage.getItem(CUSTOM_PRESETS_KEY)) || {};
+    } catch {
+        return {};
+    }
+}
+
+function saveCustomPresets(presets) {
+    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(presets));
+}
+
+function getAllPresets() {
+    return { ...BUILTIN_PRESETS, ...getCustomPresets() };
+}
+
+function isBuiltinPreset(key) {
+    return key in BUILTIN_PRESETS;
+}
+
 const params = new URLSearchParams(window.location.search);
 const storyId = params.get('story');
 
@@ -319,8 +396,28 @@ function showMadlibEditor() {
     currentSceneId = null;
     renderSidebar();
     const panel = document.getElementById('main-panel');
+    const allPresets = getAllPresets();
+
     panel.innerHTML = `
         <h2>Mad Libs Template</h2>
+
+        <div class="form-group">
+            <label>Start from a preset</label>
+            <div class="preset-list">
+                ${Object.entries(allPresets).map(([key, preset]) => {
+                    const isCustom = !isBuiltinPreset(key);
+                    return `
+                        <div class="preset-chip ${isCustom ? 'preset-chip--custom' : ''}" onclick="applyPreset('${escapeAttr(key)}')">
+                            <span>${escapeHtml(preset.name)}</span>
+                            ${isCustom ? `<button class="preset-chip__delete" onclick="deleteCustomPreset('${escapeAttr(key)}', event)" title="Delete preset">&times;</button>` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            <p style="color: var(--text-secondary); margin-top: var(--space-xs); font-size: 0.875rem;">
+                Click a preset to load it, then customize below.
+            </p>
+        </div>
 
         <div class="form-group">
             <label>Template Text</label>
@@ -330,24 +427,39 @@ function showMadlibEditor() {
 
         <div class="form-group">
             <label>Fields</label>
-            <div id="madlib-fields">
-                ${story.madlib_template.fields.length === 0
-                    ? '<p style="color: var(--text-secondary);">No fields yet. Add {key} placeholders to the template above.</p>'
-                    : story.madlib_template.fields.map((f, i) => `
-                        <div style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); align-items: center;">
-                            <code style="min-width: 120px; padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-family: var(--font-mono);">{${escapeHtml(f.key)}}</code>
-                            <input class="input" placeholder="Prompt for player" value="${escapeHtml(f.label)}"
-                                   oninput="updateFieldLabel(${i}, this.value)">
-                        </div>
-                    `).join('')
-                }
-            </div>
+            <p style="color: var(--text-secondary); margin-bottom: var(--space-sm); font-size: 0.875rem;">
+                For each placeholder, write the question players will see.
+            </p>
+            ${story.madlib_template.fields.length === 0
+                ? '<p id="madlib-fields" style="color: var(--text-secondary);">No fields yet. Add {key} placeholders to the template above.</p>'
+                : `<div id="madlib-fields" class="madlib-fields-scroll">${renderMadlibFields()}</div>`
+            }
         </div>
 
         <div class="actions">
             <button class="btn" onclick="saveStory()">Save Story</button>
+            <button class="btn btn--secondary" onclick="saveAsPreset()">Save as Preset</button>
+            <button class="btn btn--danger" onclick="clearMadlibTemplate()">Clear</button>
         </div>
     `;
+}
+
+function renderMadlibFields() {
+    return story.madlib_template.fields.map((f, i) => `
+        <div class="madlib-field-row">
+            <code class="madlib-field-key">{${escapeHtml(f.key)}}</code>
+            <div class="madlib-field-inputs">
+                <div class="madlib-field-input">
+                    <label class="madlib-field-label">Question for players:</label>
+                    <input class="input" value="${escapeHtml(f.label)}" oninput="updateFieldLabel(${i}, this.value)">
+                </div>
+                <div class="madlib-field-input">
+                    <label class="madlib-field-label">Player's answer:</label>
+                    <input class="input madlib-field-answer" placeholder="(player types here during game)" disabled>
+                </div>
+            </div>
+        </div>
+    `).join('');
 }
 
 function updateMadlibPrompt() {
@@ -364,18 +476,22 @@ function updateMadlibPrompt() {
         label: oldFields[key] || `Enter a ${key}`
     }));
 
-    // Re-render the fields section only
+    // Re-render the fields section - need to replace the element since structure changes
     const fieldsEl = document.getElementById('madlib-fields');
     if (fieldsEl) {
-        fieldsEl.innerHTML = story.madlib_template.fields.length === 0
-            ? '<p style="color: var(--text-secondary);">No fields yet. Add {key} placeholders to the template above.</p>'
-            : story.madlib_template.fields.map((f, i) => `
-                <div style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); align-items: center;">
-                    <code style="min-width: 120px; padding: var(--space-sm); background: var(--bg-primary); border-radius: var(--radius-sm); font-family: var(--font-mono);">{${escapeHtml(f.key)}}</code>
-                    <input class="input" placeholder="Prompt for player" value="${escapeHtml(f.label)}"
-                           oninput="updateFieldLabel(${i}, this.value)">
-                </div>
-            `).join('');
+        if (story.madlib_template.fields.length === 0) {
+            const p = document.createElement('p');
+            p.id = 'madlib-fields';
+            p.style.color = 'var(--text-secondary)';
+            p.textContent = 'No fields yet. Add {key} placeholders to the template above.';
+            fieldsEl.replaceWith(p);
+        } else {
+            const div = document.createElement('div');
+            div.id = 'madlib-fields';
+            div.className = 'madlib-fields-scroll';
+            div.innerHTML = renderMadlibFields();
+            fieldsEl.replaceWith(div);
+        }
     }
 }
 
@@ -384,6 +500,73 @@ function updateFieldLabel(index, label) {
     if (story.madlib_template.fields[index]) {
         story.madlib_template.fields[index].label = label;
     }
+}
+
+function applyPreset(presetKey) {
+    if (!presetKey) return;
+    const allPresets = getAllPresets();
+    const preset = allPresets[presetKey];
+    if (!preset) return;
+
+    isDirty = true;
+    // Apply the preset
+    story.madlib_template.prompt = preset.prompt;
+    story.madlib_template.fields = preset.fields.map(f => ({ ...f }));
+
+    // Re-render the editor
+    showMadlibEditor();
+}
+
+function saveAsPreset() {
+    const name = prompt('Enter a name for this preset:');
+    if (!name || !name.trim()) return;
+
+    // Validate we have something to save
+    if (!story.madlib_template.prompt.trim()) {
+        alert('Cannot save an empty template.');
+        return;
+    }
+
+    // Generate a key from the name
+    const key = 'custom_' + name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+
+    // Check if it would overwrite a builtin
+    if (isBuiltinPreset(key)) {
+        alert('Cannot overwrite a built-in preset.');
+        return;
+    }
+
+    const customPresets = getCustomPresets();
+    customPresets[key] = {
+        name: name.trim(),
+        prompt: story.madlib_template.prompt,
+        fields: story.madlib_template.fields.map(f => ({ ...f }))
+    };
+    saveCustomPresets(customPresets);
+
+    showMadlibEditor();
+    showToast('Preset saved!');
+}
+
+function deleteCustomPreset(key, event) {
+    event.stopPropagation();
+    if (!confirm('Delete this preset?')) return;
+
+    const customPresets = getCustomPresets();
+    delete customPresets[key];
+    saveCustomPresets(customPresets);
+
+    showMadlibEditor();
+}
+
+function clearMadlibTemplate() {
+    if (!confirm('Clear the template and start fresh?')) return;
+
+    isDirty = true;
+    story.madlib_template.prompt = '';
+    story.madlib_template.fields = [];
+
+    showMadlibEditor();
 }
 
 function showSettings() {
@@ -452,8 +635,9 @@ async function saveStory() {
     }
 }
 
-function showToast() {
+function showToast(message = 'Story saved!') {
     const toast = document.getElementById('save-toast');
+    toast.textContent = message;
     toast.classList.add('save-toast--visible');
     setTimeout(() => toast.classList.remove('save-toast--visible'), 2000);
 }

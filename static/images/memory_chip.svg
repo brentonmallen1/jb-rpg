@@ -1,0 +1,46 @@
+<svg width="150" height="256" viewBox="0 0 150 256" xmlns="http://www.w3.org/2000/svg">
+<g fill="none" stroke-linejoin="round" stroke-linecap="round">
+
+<!-- outer body -->
+<path d="
+M50 18
+H90
+L106 36
+V182
+L86 206
+H74
+L70 198
+H56
+L50 206
+H44
+Q40 206 40 198
+V28
+Q40 18 50 18 Z"
+fill="#42E6F2"/>
+
+<!-- central plate -->
+<path d="
+M60 44
+H84
+L92 54
+V168
+L80 184
+H60
+L52 176
+V54 Z"
+fill="#179EAB"/>
+
+<!-- cross reinforcement -->
+<path d="M60 70 H84
+         M60 96 H80
+         M60 124 H84
+         M60 150 H78"
+stroke="#0C6A73" stroke-width="3"/>
+
+<!-- vertical rail -->
+<path d="M92 64 V104
+         M92 120 V162"
+stroke="#8FFBFF" stroke-width="3"/>
+
+</g>
+</svg>

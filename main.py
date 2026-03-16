@@ -4,6 +4,7 @@ import re
 import uuid
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pathlib import Path
@@ -187,6 +188,14 @@ def replay_history(
 
 
 app = FastAPI(title="J&B's RPG")
+
+# Allow local network access for multi-device play
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 STATIC_DIR = Path(__file__).parent / "static"
 STORIES_DIR = Path(__file__).parent / "stories"

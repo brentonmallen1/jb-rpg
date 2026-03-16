@@ -413,3 +413,33 @@ def test_choice_item_null_name_422(client):
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 422
+
+
+def test_choice_index_out_of_bounds(client):
+    """Choice index >= number of choices should return 422."""
+    story_id = make_story(client, with_madlibs=False)
+    client.post("/api/state/start", json={"story_id": story_id})
+
+    resp = client.post("/api/state/choice", json={"choice_index": 99})
+    assert resp.status_code == 422
+    assert "choice" in resp.json()["detail"].lower()
+
+
+def test_choice_index_negative(client):
+    """Negative choice index should return 422."""
+    story_id = make_story(client, with_madlibs=False)
+    client.post("/api/state/start", json={"story_id": story_id})
+
+    resp = client.post("/api/state/choice", json={"choice_index": -1})
+    assert resp.status_code == 422
+
+
+def test_start_session_no_scenes(client):
+    """Starting a story with no scenes should return 422."""
+    resp = client.post("/api/stories", json={"title": "Empty Story"})
+    story_id = resp.json()["id"]
+    # Story has no scenes by default
+
+    resp = client.post("/api/state/start", json={"story_id": story_id})
+    assert resp.status_code == 422
+    assert "scene" in resp.json()["detail"].lower()

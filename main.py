@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 
 from fastapi import FastAPI, HTTPException
@@ -115,6 +116,71 @@ class GameState(BaseModel):
     history: list[HistoryEntry] = []
     character: Optional[Character] = None
     outcome: Optional[Literal["victory", "defeat"]] = None
+
+
+def inject_variables(text: str, fields: dict[str, str] | None) -> str:
+    """Replace {key} placeholders with values from fields dict."""
+    if not fields:
+        return text
+
+    def replace(match):
+        key = match.group(1)
+        return fields.get(key, match.group(0))
+
+    return re.sub(r"\{(\w+)\}", replace, text)
+
+
+def evaluate_condition(condition: Condition, state: GameState) -> bool:
+    """Evaluate a condition against current game state."""
+    if condition.type == ConditionType.SCENE_OUTCOME:
+        for entry in state.history:
+            if entry.scene_id == condition.scene_id:
+                return entry.outcome.value == condition.outcome
+        return False
+
+    if condition.type == ConditionType.HP:
+        actual = state.hp
+    elif condition.type == ConditionType.ITEMS:
+        actual = len(state.items)
+    elif condition.type == ConditionType.LEVEL:
+        actual = state.level
+    else:
+        return False
+
+    if condition.op == "lte":
+        return actual <= condition.value
+    elif condition.op == "gte":
+        return actual >= condition.value
+    elif condition.op == "eq":
+        return actual == condition.value
+    return False
+
+
+def resolve_scene_text(scene: Scene, state: GameState) -> str:
+    """Build full scene text with conditionals and variable injection."""
+    fields = state.character.fields if state.character else None
+    text = inject_variables(scene.base_text, fields)
+    for ct in scene.conditional_text:
+        if evaluate_condition(ct.condition, state):
+            injected = inject_variables(ct.text, fields)
+            text += " " + injected
+    return text
+
+
+def replay_history(history: list[HistoryEntry], starting_hp: int) -> tuple[int, int, list[str]]:
+    """Replay history to calculate hp, level, items from scratch."""
+    hp = starting_hp
+    level = 1
+    items = []
+    for entry in history:
+        if entry.outcome == ChoiceKind.DAMAGE:
+            hp -= entry.damage_amount
+        elif entry.outcome == ChoiceKind.ITEM:
+            if entry.item_name:
+                items.append(entry.item_name)
+        elif entry.outcome == ChoiceKind.LEVEL:
+            level += 1
+    return hp, level, items
 
 
 app = FastAPI(title="J&B's RPG")

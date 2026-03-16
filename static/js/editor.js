@@ -458,17 +458,26 @@ function setupDragDrop() {
     items.forEach(item => {
         item.addEventListener('dragstart', e => {
             e.dataTransfer.setData('text/plain', item.dataset.id);
-            item.style.opacity = '0.5';
+            item.classList.add('scene-item--dragging');
         });
         item.addEventListener('dragend', e => {
-            item.style.opacity = '';
+            item.classList.remove('scene-item--dragging');
+            // Remove all drag-over indicators
+            document.querySelectorAll('.scene-item--drag-over').forEach(el => {
+                el.classList.remove('scene-item--drag-over');
+            });
         });
         item.addEventListener('dragover', e => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
+            item.classList.add('scene-item--drag-over');
+        });
+        item.addEventListener('dragleave', e => {
+            item.classList.remove('scene-item--drag-over');
         });
         item.addEventListener('drop', e => {
             e.preventDefault();
+            item.classList.remove('scene-item--drag-over');
             const draggedId = e.dataTransfer.getData('text/plain');
             const targetId = item.dataset.id;
             if (draggedId === targetId) return;

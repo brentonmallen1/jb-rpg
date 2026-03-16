@@ -2,6 +2,7 @@
 let story = null;
 let currentView = null; // 'scene', 'madlib', 'settings'
 let currentSceneId = null;
+let isDirty = false;  // Track unsaved changes
 
 const params = new URLSearchParams(window.location.search);
 const storyId = params.get('story');
@@ -24,6 +25,14 @@ async function loadStory() {
         window.location.href = '/';
     }
 }
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', (e) => {
+    if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
 
 function renderSidebar() {
     const list = document.getElementById('scene-list');
@@ -149,6 +158,7 @@ function renderConditionalRow(ct, index) {
 }
 
 function updateScene() {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     const titleEl = document.getElementById('scene-title');
@@ -164,6 +174,7 @@ function updateScene() {
 }
 
 function updateChoiceKind(index, kind) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     scene.choices[index].kind = kind;
@@ -172,16 +183,19 @@ function updateChoiceKind(index, kind) {
 }
 
 function updateChoiceText(index, text) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.choices[index].text = text;
 }
 
 function updateChoiceItem(index, name) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.choices[index].item_name = name;
 }
 
 function addConditional() {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     scene.conditional_text.push({
@@ -192,6 +206,7 @@ function addConditional() {
 }
 
 function removeConditional(index) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     scene.conditional_text.splice(index, 1);
@@ -199,6 +214,7 @@ function removeConditional(index) {
 }
 
 function updateConditionType(index, type) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (!scene) return;
     const ct = scene.conditional_text[index];
@@ -218,31 +234,37 @@ function updateConditionType(index, type) {
 }
 
 function updateConditionOp(index, op) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.op = op;
 }
 
 function updateConditionValue(index, value) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.value = parseInt(value, 10);
 }
 
 function updateConditionSceneId(index, sceneId) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.scene_id = sceneId;
 }
 
 function updateConditionOutcome(index, outcome) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].condition.outcome = outcome;
 }
 
 function updateConditionText(index, text) {
+    isDirty = true;
     const scene = story.scenes.find(s => s.id === currentSceneId);
     if (scene) scene.conditional_text[index].text = text;
 }
 
 function addScene() {
+    isDirty = true;
     const id = 'scene_' + Date.now();
     story.scenes.push({
         id,
@@ -260,6 +282,7 @@ function addScene() {
 }
 
 function deleteScene(id, event) {
+    isDirty = true;
     event.stopPropagation();
     if (!confirm('Delete this scene?')) return;
     story.scenes = story.scenes.filter(s => s.id !== id);
@@ -311,6 +334,7 @@ function showMadlibEditor() {
 }
 
 function updateMadlibPrompt() {
+    isDirty = true;
     story.madlib_template.prompt = document.getElementById('madlib-prompt').value;
     // Auto-detect fields
     const matches = story.madlib_template.prompt.match(/\{(\w+)\}/g) || [];
@@ -339,6 +363,7 @@ function updateMadlibPrompt() {
 }
 
 function updateFieldLabel(index, label) {
+    isDirty = true;
     if (story.madlib_template.fields[index]) {
         story.madlib_template.fields[index].label = label;
     }
@@ -384,15 +409,18 @@ function showSettings() {
 }
 
 function updateStoryTitle(title) {
+    isDirty = true;
     story.title = title;
     document.getElementById('story-name').textContent = title;
 }
 
 function updateStartingHp() {
+    isDirty = true;
     story.settings.starting_hp = parseInt(document.getElementById('starting-hp').value, 10);
 }
 
 function setTheme(theme) {
+    isDirty = true;
     story.theme = theme;
     showSettings();
 }
@@ -400,6 +428,7 @@ function setTheme(theme) {
 async function saveStory() {
     try {
         await API.updateStory(storyId, story);
+        isDirty = false;
         showToast();
     } catch (e) {
         alert('Failed to save: ' + e.message);
@@ -444,6 +473,7 @@ function setupDragDrop() {
             const targetId = item.dataset.id;
             if (draggedId === targetId) return;
 
+            isDirty = true;
             const draggedIdx = story.scenes.findIndex(s => s.id === draggedId);
             const targetIdx = story.scenes.findIndex(s => s.id === targetId);
             const [dragged] = story.scenes.splice(draggedIdx, 1);

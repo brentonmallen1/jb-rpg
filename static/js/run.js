@@ -79,7 +79,7 @@ function updateStatusBar() {
 
     // HP display
     const hpHtml = Array.from({ length: story.settings.starting_hp }, (_, i) =>
-        `<span class="hp-indicator ${i >= state.hp ? 'hp-indicator--empty' : ''}">&#9829;</span>`
+        `<span class="hp-indicator ${i >= state.hp ? 'hp-indicator--empty' : ''}"></span>`
     ).join('');
     document.getElementById('hp-display').innerHTML = hpHtml;
 

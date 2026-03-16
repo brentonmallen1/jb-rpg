@@ -46,7 +46,7 @@ function render() {
     const progress = (displayIdx / story.scenes.length) * 100;
 
     const hpHtml = Array.from({ length: story.settings.starting_hp }, (_, i) =>
-        `<span class="hp-indicator ${i >= state.hp ? 'hp-indicator--empty' : ''}">&#9829;</span>`
+        `<span class="hp-indicator ${i >= state.hp ? 'hp-indicator--empty' : ''}"></span>`
     ).join('');
 
     const itemsHtml = state.items.length > 0

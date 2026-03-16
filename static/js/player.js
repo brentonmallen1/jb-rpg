@@ -23,6 +23,11 @@ async function handleStateUpdate(data) {
             ThemeManager.setTheme(story.theme);
         } catch (e) {
             console.error('Failed to load story:', e);
+            document.getElementById('player-view').innerHTML = `
+                <div class="waiting-state">
+                    <p style="color: var(--danger);">Error loading story. Please refresh.</p>
+                </div>
+            `;
             return;
         }
     }

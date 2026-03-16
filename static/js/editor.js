@@ -143,33 +143,33 @@ function renderConditionalRow(ct, index) {
     const cond = ct.condition;
     return `
         <div class="conditional-row">
-            <select class="input" onchange="updateConditionType(${index}, this.value)">
+            <select class="input" onchange="updateConditionType(${index}, this.value)" style="width: 130px;">
                 <option value="hp" ${cond.type === 'hp' ? 'selected' : ''}>HP</option>
                 <option value="items" ${cond.type === 'items' ? 'selected' : ''}>Items</option>
                 <option value="level" ${cond.type === 'level' ? 'selected' : ''}>Level</option>
                 <option value="scene_outcome" ${cond.type === 'scene_outcome' ? 'selected' : ''}>Scene Outcome</option>
             </select>
             ${cond.type === 'scene_outcome' ? `
-                <select class="input" onchange="updateConditionSceneId(${index}, this.value)">
+                <select class="input" onchange="updateConditionSceneId(${index}, this.value)" style="width: 150px;">
                     ${story.scenes.map(s => `<option value="${escapeAttr(s.id)}" ${cond.scene_id === s.id ? 'selected' : ''}>${escapeHtml(s.title || s.id)}</option>`).join('')}
                 </select>
-                <select class="input" onchange="updateConditionOutcome(${index}, this.value)">
+                <select class="input" onchange="updateConditionOutcome(${index}, this.value)" style="width: 100px;">
                     <option value="damage" ${cond.outcome === 'damage' ? 'selected' : ''}>damage</option>
                     <option value="item" ${cond.outcome === 'item' ? 'selected' : ''}>item</option>
                     <option value="level" ${cond.outcome === 'level' ? 'selected' : ''}>level</option>
                 </select>
             ` : `
-                <select class="input" onchange="updateConditionOp(${index}, this.value)">
+                <select class="input" onchange="updateConditionOp(${index}, this.value)" style="width: 70px;">
                     <option value="lte" ${cond.op === 'lte' ? 'selected' : ''}>&le;</option>
                     <option value="gte" ${cond.op === 'gte' ? 'selected' : ''}>&ge;</option>
                     <option value="eq" ${cond.op === 'eq' ? 'selected' : ''}>=</option>
                 </select>
                 <input class="input" type="number" value="${cond.value !== null ? cond.value : 0}"
-                       onchange="updateConditionValue(${index}, this.value)">
+                       onchange="updateConditionValue(${index}, this.value)" style="width: 70px;">
             `}
             <input class="input" placeholder="Text to show" value="${escapeHtml(ct.text)}"
                    oninput="updateConditionText(${index}, this.value)">
-            <button class="btn btn--danger" onclick="removeConditional(${index})" style="white-space: nowrap;">×</button>
+            <button class="btn btn--danger" onclick="removeConditional(${index})" title="Remove">×</button>
         </div>
     `;
 }

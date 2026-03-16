@@ -90,11 +90,27 @@
             align-items: center;
         }
         .conditional-row {
-            display: grid;
-            grid-template-columns: 150px 80px 80px 1fr auto;
+            display: flex;
+            flex-wrap: wrap;
             gap: var(--space-sm);
             margin-bottom: var(--space-sm);
             align-items: center;
+        }
+
+        .conditional-row > select,
+        .conditional-row > input[type="number"] {
+            width: auto;
+            min-width: 80px;
+        }
+
+        .conditional-row > input[type="text"],
+        .conditional-row > input:not([type]) {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .conditional-row > .btn {
+            flex-shrink: 0;
         }
         .theme-picker {
             display: flex;

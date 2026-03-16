@@ -168,7 +168,9 @@ def resolve_scene_text(scene: Scene, state: GameState) -> str:
     return text
 
 
-def replay_history(history: list[HistoryEntry], starting_hp: int) -> tuple[int, int, list[str]]:
+def replay_history(
+    history: list[HistoryEntry], starting_hp: int
+) -> tuple[int, int, list[str]]:
     """Replay history to calculate hp, level, items from scratch."""
     hp = starting_hp
     level = 1
@@ -200,6 +202,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
+
 
 def load_state() -> "GameState | None":
     if not STATE_FILE.exists():
@@ -290,12 +293,14 @@ async def list_stories() -> list[dict]:
     for path in STORIES_DIR.glob("*.json"):
         with open(path) as f:
             story = json.load(f)
-            stories.append({
-                "id": story["id"],
-                "title": story["title"],
-                "theme": story["theme"],
-                "scene_count": len(story.get("scenes", [])),
-            })
+            stories.append(
+                {
+                    "id": story["id"],
+                    "title": story["title"],
+                    "theme": story["theme"],
+                    "scene_count": len(story.get("scenes", [])),
+                }
+            )
     return stories
 
 
@@ -384,6 +389,7 @@ async def player():
 # Task 5.1: SSE Endpoint
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/events")
 async def sse_events():
     queue = asyncio.Queue()
@@ -428,6 +434,7 @@ async def sse_events():
 # Session state request models
 # ---------------------------------------------------------------------------
 
+
 class StartRequest(BaseModel):
     story_id: str
 
@@ -448,6 +455,7 @@ class FinishRequest(BaseModel):
 # Task 4.1: GET /api/state
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/state")
 async def get_state():
     state = load_state()
@@ -461,6 +469,7 @@ async def get_state():
 # ---------------------------------------------------------------------------
 # Task 4.2: POST /api/state/start
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/state/start")
 async def start_session(request: StartRequest) -> GameState:
@@ -504,6 +513,7 @@ async def start_session(request: StartRequest) -> GameState:
 # Task 4.3: POST /api/state/madlib
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/state/madlib")
 async def submit_madlib(request: MadlibRequest) -> GameState:
     state = load_state()
@@ -526,7 +536,9 @@ async def submit_madlib(request: MadlibRequest) -> GameState:
         # Build description by injecting variables into the prompt
         description = inject_variables(story.madlib_template.prompt, fields_dict)
         # Use the "name" field as character name if present, else first field value
-        name_val = fields_dict.get("name", next(iter(fields_dict.values()), "Adventurer"))
+        name_val = fields_dict.get(
+            "name", next(iter(fields_dict.values()), "Adventurer")
+        )
         state.character = Character(
             name=name_val,
             description=description,
@@ -542,6 +554,7 @@ async def submit_madlib(request: MadlibRequest) -> GameState:
 # ---------------------------------------------------------------------------
 # Task 4.4: POST /api/state/choice
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/state/choice")
 async def make_choice(request: ChoiceRequest) -> GameState:
@@ -561,6 +574,10 @@ async def make_choice(request: ChoiceRequest) -> GameState:
         raise HTTPException(status_code=422, detail="Invalid choice index")
 
     choice = scene.choices[request.choice_index]
+
+    # Validate item choices have item_name
+    if choice.kind == ChoiceKind.ITEM and not choice.item_name:
+        raise HTTPException(status_code=422, detail="Item choice must have item_name")
 
     # Apply outcome
     item_name: Optional[str] = None
@@ -609,6 +626,7 @@ async def make_choice(request: ChoiceRequest) -> GameState:
 # Task 4.5: POST /api/state/back
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/state/back")
 async def go_back() -> GameState:
     state = load_state()
@@ -653,6 +671,7 @@ async def go_back() -> GameState:
 # Task 4.6: POST /api/state/finish and POST /api/state/restart
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/state/finish")
 async def finish_session(request: FinishRequest) -> GameState:
     state = load_state()
@@ -674,4 +693,5 @@ async def restart_session():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

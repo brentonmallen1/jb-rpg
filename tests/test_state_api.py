@@ -376,3 +376,40 @@ def test_restart(client):
 
     state_resp = client.get("/api/state")
     assert state_resp.json() == {"state": None, "resolved": None}
+
+
+def test_choice_item_without_name_422(client):
+    """Item choice with empty item_name should return 422."""
+    scenes = [
+        {
+            "id": "s1",
+            "title": "Scene 1",
+            "base_text": "Find something.",
+            "choices": [{"kind": "item", "text": "Take thing", "amount": 1, "item_name": ""}],
+            "conditional_text": [],
+        }
+    ]
+    story_id = make_story(client, with_madlibs=False, scenes=scenes)
+    client.post("/api/state/start", json={"story_id": story_id})
+
+    resp = client.post("/api/state/choice", json={"choice_index": 0})
+    assert resp.status_code == 422
+    assert "item_name" in resp.json()["detail"].lower()
+
+
+def test_choice_item_null_name_422(client):
+    """Item choice with null item_name should return 422."""
+    scenes = [
+        {
+            "id": "s1",
+            "title": "Scene 1",
+            "base_text": "Find something.",
+            "choices": [{"kind": "item", "text": "Take thing", "amount": 1, "item_name": None}],
+            "conditional_text": [],
+        }
+    ]
+    story_id = make_story(client, with_madlibs=False, scenes=scenes)
+    client.post("/api/state/start", json={"story_id": story_id})
+
+    resp = client.post("/api/state/choice", json={"choice_index": 0})
+    assert resp.status_code == 422

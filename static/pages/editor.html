@@ -3,10 +3,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Editor - J&B's RPG</title>
+    <title>Story Editor - J&amp;B's RPG</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        .editor-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: calc(100vh - 60px);
+        }
+        .sidebar {
+            background: var(--bg-secondary);
+            padding: var(--space-md);
+            border-right: 1px solid var(--text-secondary);
+            overflow-y: auto;
+        }
+        .sidebar__section {
+            margin-bottom: var(--space-lg);
+        }
+        .sidebar__title {
+            font-weight: 600;
+            margin-bottom: var(--space-sm);
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+        .scene-list {
+            list-style: none;
+        }
+        .scene-item {
+            padding: var(--space-sm);
+            margin-bottom: var(--space-xs);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .scene-item:hover {
+            background: var(--bg-primary);
+        }
+        .scene-item--active {
+            background: var(--accent);
+            color: white;
+        }
+        .scene-item__delete {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 4px;
+        }
+        .scene-item:hover .scene-item__delete {
+            opacity: 1;
+        }
+        .main-panel {
+            padding: var(--space-lg);
+            overflow-y: auto;
+        }
+        .form-group {
+            margin-bottom: var(--space-lg);
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: var(--space-xs);
+            font-weight: 500;
+        }
+        textarea.input {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .choice-block {
+            background: var(--bg-primary);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-md);
+        }
+        .choice-block--damage { border-left: 4px solid var(--danger); }
+        .choice-block--item { border-left: 4px solid var(--success); }
+        .choice-block--level { border-left: 4px solid var(--warning); }
+        .choice-header {
+            display: flex;
+            gap: var(--space-md);
+            margin-bottom: var(--space-sm);
+            align-items: center;
+        }
+        .conditional-row {
+            display: grid;
+            grid-template-columns: 150px 80px 80px 1fr auto;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+            align-items: center;
+        }
+        .theme-picker {
+            display: flex;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+        .theme-swatch {
+            width: 60px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            border: 2px solid transparent;
+            cursor: pointer;
+            position: relative;
+        }
+        .theme-swatch--active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+        .theme-swatch--cyberpunk { background: linear-gradient(135deg, #0ff, #f0f); }
+        .theme-swatch--fantasy { background: linear-gradient(135deg, #d4a574, #8b4513); }
+        .theme-swatch--deep_space { background: linear-gradient(135deg, #1a0a2e, #4a1a6b); }
+        .theme-swatch--modern { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .theme-swatch--horror { background: linear-gradient(135deg, #2d0a0a, #8b0000); }
+        .nav-link {
+            display: block;
+            padding: var(--space-sm);
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+        }
+        .nav-link:hover {
+            background: var(--bg-primary);
+        }
+        .actions {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: var(--space-lg);
+        }
+        .save-toast {
+            position: fixed;
+            bottom: var(--space-lg);
+            right: var(--space-lg);
+            background: var(--success);
+            color: white;
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .save-toast--visible {
+            opacity: 1;
+        }
+    </style>
 </head>
 <body>
-    <h1>Story Editor</h1>
-    <p>Coming soon...</p>
+    <nav class="nav">
+        <a href="/" class="nav__title">J&amp;B's RPG</a>
+        <div style="display: flex; gap: var(--space-sm); align-items: center;">
+            <span id="story-name" style="color: var(--text-secondary);"></span>
+            <button class="btn btn--secondary" onclick="ThemeManager.toggleMode()">Toggle Mode</button>
+        </div>
+    </nav>
+
+    <div class="editor-layout">
+        <aside class="sidebar">
+            <div class="sidebar__section">
+                <div class="sidebar__title">Scenes</div>
+                <ul id="scene-list" class="scene-list"></ul>
+                <button class="btn" style="width: 100%; margin-top: var(--space-sm);" onclick="addScene()">+ Add Scene</button>
+            </div>
+            <div class="sidebar__section">
+                <div class="sidebar__title">Setup</div>
+                <a class="nav-link" onclick="showMadlibEditor(); return false;">Mad Libs Template</a>
+                <a class="nav-link" onclick="showSettings(); return false;">Story Settings</a>
+            </div>
+        </aside>
+
+        <main id="main-panel" class="main-panel">
+            <p style="color: var(--text-secondary);">Select a scene to edit, or create a new one.</p>
+        </main>
+    </div>
+
+    <div id="save-toast" class="save-toast">Story saved!</div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/theme.js"></script>
+    <script src="/static/js/editor.js"></script>
 </body>
 </html>

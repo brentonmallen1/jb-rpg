@@ -1,0 +1,66 @@
+/* static/css/themes/cyberpunk.css */
+:root {
+    --bg-primary: #0a0a12;
+    --bg-secondary: #12121f;
+    --text-primary: #e0e0ff;
+    --text-secondary: #8080a0;
+    --accent: #00fff0;
+    --accent-hover: #00d4c8;
+    --danger: #ff0055;
+    --success: #00ff88;
+    --warning: #ffaa00;
+
+    --font-display: 'Orbitron', 'Rajdhani', system-ui, sans-serif;
+}
+
+/* Scanline overlay */
+body {
+    background-image:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 255, 240, 0.03) 2px,
+            rgba(0, 255, 240, 0.03) 4px
+        );
+}
+
+/* Clipped corners */
+.card, .choice-btn, .btn {
+    clip-path: polygon(
+        0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px,
+        100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px)
+    );
+}
+
+/* Memory chip HP indicators */
+.hp-indicator::before {
+    content: '\25A3';
+    color: var(--accent);
+    font-size: 1rem;
+}
+
+.hp-indicator--empty::before {
+    content: '\25A3';
+    color: var(--bg-secondary);
+}
+
+h1, h2, .nav__title, .character-name {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.scene-text::first-letter {
+    color: var(--accent);
+    font-size: 1.5em;
+}
+
+.nav {
+    border-bottom-color: var(--accent);
+}
+
+.input:focus {
+    outline-color: var(--accent);
+    box-shadow: 0 0 8px rgba(0, 255, 240, 0.3);
+}

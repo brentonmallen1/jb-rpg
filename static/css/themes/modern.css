@@ -1,0 +1,68 @@
+/* static/css/themes/modern.css */
+:root {
+    --bg-primary: #f5f5f7;
+    --bg-secondary: #ffffff;
+    --text-primary: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --accent: #667eea;
+    --accent-hover: #5a6fd6;
+    --danger: #ff3b30;
+    --success: #34c759;
+    --warning: #ff9500;
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+}
+
+/* Dark mode override */
+[data-mode="dark"] {
+    --bg-primary: #1c1c1e;
+    --bg-secondary: #2c2c2e;
+    --text-primary: #f5f5f7;
+    --text-secondary: #8e8e93;
+}
+
+body {
+    background-image: none;
+}
+
+.card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: none;
+}
+
+[data-mode="dark"] .card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Circle HP indicators */
+.hp-indicator::before {
+    content: '\25CF';
+    color: var(--danger);
+    font-size: 1.25rem;
+}
+
+.hp-indicator--empty::before {
+    content: '\25CB';
+    color: var(--text-secondary);
+}
+
+.hp-indicator--empty {
+    opacity: 1;
+}
+
+.btn {
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.choice-btn {
+    border-width: 1px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-radius: var(--radius-md);
+}
+
+.nav {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}

@@ -3,10 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>J&B's RPG</title>
+    <title>Story Library - J&amp;B's RPG</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        .story-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--space-lg);
+            margin-top: var(--space-lg);
+        }
+        .story-card {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+        .story-card__title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .story-card__meta {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        .story-card__actions {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: auto;
+        }
+        .theme-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            background: var(--accent);
+            color: white;
+            margin-right: var(--space-sm);
+        }
+        .empty-state {
+            text-align: center;
+            padding: var(--space-xl);
+            color: var(--text-secondary);
+            margin-top: var(--space-lg);
+        }
+        .library-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-sm);
+        }
+    </style>
 </head>
 <body>
-    <h1>Story Library</h1>
-    <p>Coming soon...</p>
+    <nav class="nav">
+        <span class="nav__title">J&amp;B's RPG</span>
+        <div>
+            <button class="btn btn--secondary" onclick="ThemeManager.toggleMode()">Toggle Mode</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="library-header">
+            <h1>Story Library</h1>
+            <button class="btn" onclick="createNewStory()">New Story</button>
+        </div>
+
+        <div id="story-grid" class="story-grid"></div>
+        <div id="empty-state" class="empty-state card" style="display: none;">
+            <p>No stories yet. Create your first adventure!</p>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/theme.js"></script>
+    <script src="/static/js/library.js"></script>
 </body>
 </html>

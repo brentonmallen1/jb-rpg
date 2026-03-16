@@ -3,10 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player View - J&B's RPG</title>
+    <title>Player View - J&amp;B's RPG</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <style>
+        .player-layout {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-lg);
+            text-align: center;
+        }
+        .character-name {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: var(--space-lg);
+            cursor: pointer;
+            font-family: var(--font-display);
+        }
+        .character-name:hover {
+            color: var(--accent);
+        }
+        .hp-display {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-md);
+            margin-bottom: var(--space-xl);
+        }
+        .hp-display .hp-indicator {
+            width: 48px;
+            height: 48px;
+            font-size: 2rem;
+        }
+        .stats {
+            display: flex;
+            gap: var(--space-xl);
+            margin-bottom: var(--space-xl);
+        }
+        .stat-block {
+            text-align: center;
+        }
+        .stat-block__value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        .stat-block__label {
+            color: var(--text-secondary);
+        }
+        .items-list {
+            list-style: none;
+            margin-bottom: var(--space-xl);
+            max-width: 300px;
+        }
+        .items-list li {
+            padding: var(--space-sm);
+            border-bottom: 1px solid var(--bg-secondary);
+        }
+        .progress-bar {
+            width: 100%;
+            max-width: 300px;
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin-bottom: var(--space-sm);
+        }
+        .progress-bar__fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+        .waiting-state {
+            color: var(--text-secondary);
+            font-size: 1.25rem;
+        }
+        .status-message {
+            margin-top: var(--space-lg);
+            font-size: 1.25rem;
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-lg);
+        }
+        .modal__content {
+            background: var(--bg-secondary);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            max-width: 500px;
+            width: 100%;
+        }
+        .modal__content h2 {
+            margin-bottom: var(--space-md);
+        }
+        .modal__content p {
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+        .modal--hidden {
+            display: none;
+        }
+        .mode-toggle {
+            position: fixed;
+            top: var(--space-md);
+            right: var(--space-md);
+        }
+    </style>
 </head>
 <body>
-    <h1>Player View</h1>
-    <p>Coming soon...</p>
+    <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()">Toggle Mode</button>
+
+    <div id="player-view" class="player-layout">
+        <div class="waiting-state">
+            <p>Waiting for storyteller to start...</p>
+        </div>
+    </div>
+
+    <div id="character-modal" class="modal modal--hidden" onclick="closeModal()">
+        <div class="modal__content" onclick="event.stopPropagation()">
+            <h2 id="modal-name"></h2>
+            <p id="modal-description"></p>
+            <button class="btn btn--secondary" style="margin-top: var(--space-lg);" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/sse.js"></script>
+    <script src="/static/js/theme.js"></script>
+    <script src="/static/js/player.js"></script>
 </body>
 </html>

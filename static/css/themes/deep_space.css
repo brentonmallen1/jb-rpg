@@ -1,0 +1,70 @@
+/* static/css/themes/deep_space.css */
+:root {
+    --bg-primary: #0a0a14;
+    --bg-secondary: #101020;
+    --text-primary: #e8e0f8;
+    --text-secondary: #8080a0;
+    --accent: #9b59b6;
+    --accent-hover: #b370cf;
+    --danger: #c0392b;
+    --success: #27ae60;
+    --warning: #f1c40f;
+
+    --font-display: 'Space Mono', 'Courier New', monospace;
+}
+
+/* Star field background */
+body {
+    background-image:
+        radial-gradient(1px 1px at 20px 30px, white, transparent),
+        radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.8), transparent),
+        radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.6), transparent),
+        radial-gradient(1px 1px at 130px 80px, white, transparent),
+        radial-gradient(1px 1px at 160px 120px, rgba(255,255,255,0.7), transparent),
+        radial-gradient(1px 1px at 50px 160px, rgba(255,255,255,0.5), transparent),
+        radial-gradient(1px 1px at 190px 40px, rgba(255,255,255,0.9), transparent),
+        radial-gradient(1px 1px at 10px 100px, white, transparent),
+        radial-gradient(1px 1px at 80px 140px, rgba(255,255,255,0.6), transparent);
+    background-size: 200px 200px;
+}
+
+/* Star HP indicators */
+.hp-indicator::before {
+    content: '\2605';
+    color: var(--warning);
+    font-size: 1.25rem;
+}
+
+.hp-indicator--empty::before {
+    content: '\2606';
+    color: var(--text-secondary);
+}
+
+.hp-indicator--empty {
+    opacity: 1;
+}
+
+h1, h2, .nav__title {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+}
+
+.card {
+    border: 1px solid var(--accent);
+    box-shadow: 0 0 12px rgba(155, 89, 182, 0.2);
+}
+
+.scene-title::before {
+    content: '>>> ';
+    color: var(--accent);
+    font-family: var(--font-display);
+}
+
+.nav {
+    border-bottom-color: var(--accent);
+}
+
+.btn {
+    font-family: var(--font-display);
+}

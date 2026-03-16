@@ -104,6 +104,8 @@ function renderSceneEditor() {
 
 function renderChoiceBlock(choice, index) {
     const kinds = ['damage', 'item', 'level'];
+    const hasVariables = story.madlib_template.fields.length > 0;
+
     return `
         <div class="choice-block choice-block--${choice.kind}">
             <div class="choice-header">
@@ -116,8 +118,23 @@ function renderChoiceBlock(choice, index) {
                            oninput="updateChoiceItem(${index}, this.value)">
                 ` : ''}
             </div>
-            <input class="input" placeholder="Choice text" value="${escapeHtml(choice.text)}"
-                   oninput="updateChoiceText(${index}, this.value)">
+            <div style="display: flex; gap: var(--space-sm); align-items: center;">
+                <input class="input" id="choice-text-${index}" placeholder="Choice text" value="${escapeHtml(choice.text)}"
+                       oninput="updateChoiceText(${index}, this.value)" style="flex: 1;">
+                ${hasVariables ? `
+                    <div class="dropdown" style="position: relative;">
+                        <button type="button" class="btn btn--secondary" onclick="toggleChoiceVars(${index})" style="padding: var(--space-xs) var(--space-sm);">+var</button>
+                        <div id="choice-vars-${index}" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 100%; background: var(--bg-secondary); border: 1px solid var(--text-secondary); border-radius: var(--radius-sm); padding: var(--space-sm); z-index: 10; min-width: 150px;">
+                            ${story.madlib_template.fields.map(f =>
+                                `<div onclick="insertChoiceVariable(${index}, '${escapeAttr(f.key)}')"
+                                      style="cursor: pointer; padding: var(--space-xs); border-radius: var(--radius-sm);"
+                                      onmouseover="this.style.background='var(--bg-primary)'"
+                                      onmouseout="this.style.background='transparent'">{${escapeHtml(f.key)}}</div>`
+                            ).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
         </div>
     `;
 }
@@ -452,6 +469,38 @@ function insertVariable(textareaId, key) {
     textarea.selectionStart = textarea.selectionEnd = start + key.length + 2;
     updateScene();
 }
+
+function toggleChoiceVars(index) {
+    const menu = document.getElementById(`choice-vars-${index}`);
+    if (menu) {
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function insertChoiceVariable(index, key) {
+    const input = document.getElementById(`choice-text-${index}`);
+    if (!input) return;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const text = input.value;
+    input.value = text.slice(0, start) + `{${key}}` + text.slice(end);
+    input.focus();
+    input.selectionStart = input.selectionEnd = start + key.length + 2;
+    updateChoiceText(index, input.value);
+
+    // Hide the dropdown
+    const menu = document.getElementById(`choice-vars-${index}`);
+    if (menu) menu.style.display = 'none';
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-menu').forEach(menu => {
+            menu.style.display = 'none';
+        });
+    }
+});
 
 function setupDragDrop() {
     const items = document.querySelectorAll('.scene-item');

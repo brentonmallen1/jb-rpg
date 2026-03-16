@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+import json
+import uuid
+
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -125,6 +128,87 @@ STORIES_DIR.mkdir(exist_ok=True)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+class CreateStoryRequest(BaseModel):
+    title: str
+
+
+# Task 2.1: List Stories
+@app.get("/api/stories")
+async def list_stories() -> list[dict]:
+    stories = []
+    for path in STORIES_DIR.glob("*.json"):
+        with open(path) as f:
+            story = json.load(f)
+            stories.append({
+                "id": story["id"],
+                "title": story["title"],
+                "theme": story["theme"],
+                "scene_count": len(story.get("scenes", [])),
+            })
+    return stories
+
+
+# Task 2.2: Create Story
+@app.post("/api/stories")
+async def create_story(request: CreateStoryRequest) -> Story:
+    story_id = str(uuid.uuid4())[:8]
+    story = Story(
+        id=story_id,
+        title=request.title,
+        theme=ThemeName.CYBERPUNK,
+        settings=StorySettings(),
+        madlib_template=MadLibTemplate(prompt="", fields=[]),
+        scenes=[],
+    )
+    story_path = STORIES_DIR / f"{story_id}.json"
+    with open(story_path, "w") as f:
+        json.dump(story.model_dump(), f, indent=2)
+    return story
+
+
+# Task 2.3: Get Single Story
+@app.get("/api/stories/{story_id}")
+async def get_story(story_id: str) -> Story:
+    story_path = STORIES_DIR / f"{story_id}.json"
+    if not story_path.exists():
+        raise HTTPException(status_code=404, detail="Story not found")
+    with open(story_path) as f:
+        return Story(**json.load(f))
+
+
+# Task 2.4: Update Story
+@app.put("/api/stories/{story_id}")
+async def update_story(story_id: str, story: Story) -> Story:
+    story_path = STORIES_DIR / f"{story_id}.json"
+    if not story_path.exists():
+        raise HTTPException(status_code=404, detail="Story not found")
+    with open(story_path, "w") as f:
+        json.dump(story.model_dump(), f, indent=2)
+    return story
+
+
+# Task 2.5: Delete Story
+@app.delete("/api/stories/{story_id}")
+async def delete_story(story_id: str):
+    story_path = STORIES_DIR / f"{story_id}.json"
+    if not story_path.exists():
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    # Clear state if this story is active
+    if STATE_FILE.exists():
+        with open(STATE_FILE) as f:
+            try:
+                state = json.load(f)
+                if state.get("story_id") == story_id:
+                    with open(STATE_FILE, "w") as fw:
+                        fw.write("{}")
+            except json.JSONDecodeError:
+                pass
+
+    story_path.unlink()
+    return {"status": "deleted"}
 
 
 @app.get("/")

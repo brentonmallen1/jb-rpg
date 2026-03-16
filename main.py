@@ -248,26 +248,35 @@ def build_resolved(state: "GameState | None") -> "dict | None":
 
 # In-memory SSE connection tracking
 sse_connections: set = set()
+sse_lock = asyncio.Lock()
 
 
 async def broadcast_state():
-    global sse_connections
     state = load_state()
     resolved = build_resolved(state)
+
+    async with sse_lock:
+        connected = len(sse_connections)
+        queues = list(sse_connections)
+
     payload = {
         "type": "state",
         "state": state.model_dump() if state else None,
         "resolved": resolved,
-        "connected_count": len(sse_connections),
+        "connected_count": connected,
     }
     message = f"data: {json.dumps(payload)}\n\n"
+
     dead = set()
-    for queue in sse_connections:
+    for queue in queues:
         try:
             await queue.put(message)
         except Exception:
             dead.add(queue)
-    sse_connections -= dead
+
+    if dead:
+        async with sse_lock:
+            sse_connections.difference_update(dead)
 
 
 class CreateStoryRequest(BaseModel):
@@ -378,18 +387,23 @@ async def player():
 @app.get("/api/events")
 async def sse_events():
     queue = asyncio.Queue()
-    sse_connections.add(queue)
+
+    async with sse_lock:
+        sse_connections.add(queue)
 
     async def event_generator():
         try:
             # Send initial state
+            async with sse_lock:
+                connected = len(sse_connections)
+
             state = load_state()
             resolved = build_resolved(state)
             payload = {
                 "type": "state",
                 "state": state.model_dump() if state else None,
                 "resolved": resolved,
-                "connected_count": len(sse_connections)
+                "connected_count": connected
             }
             yield f"data: {json.dumps(payload)}\n\n"
 
@@ -400,7 +414,8 @@ async def sse_events():
         except asyncio.CancelledError:
             pass
         finally:
-            sse_connections.discard(queue)
+            async with sse_lock:
+                sse_connections.discard(queue)
 
     return StreamingResponse(
         event_generator(),

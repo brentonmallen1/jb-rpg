@@ -1,30 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Special+Elite&display=swap');
+
 /* static/css/themes/horror.css */
 :root {
     --bg-primary: #0d0d0d;
     --bg-secondary: #1a0a0a;
-    --text-primary: #d0c0c0;
-    --text-secondary: #804040;
+    --text-primary: #e8e0e0;
+    --text-secondary: #886666;
     --accent: #8b0000;
     --accent-hover: #a00000;
     --danger: #ff0000;
-    --success: #006400;
-    --warning: #ff4500;
+    --success: #228b22;
+    --warning: #ff6600;
 
-    --font-body: 'Crimson Text', 'Georgia', serif;
-    --font-display: 'Nosifer', 'Creepster', 'Palatino Linotype', cursive;
+    --font-body: 'Special Elite', cursive;
+    --font-display: 'Creepster', cursive;
 }
 
-body {
-    background-image:
-        radial-gradient(ellipse at center, transparent 0%, rgba(13, 13, 13, 0.8) 70%);
-}
-
-.card {
-    border: 1px solid var(--accent);
-    box-shadow: 0 0 20px rgba(139, 0, 0, 0.3);
-}
-
-/* Eye HP indicators */
+/* Eldritch eye HP indicators */
 .hp-indicator::before {
     content: '\1F441';
     font-size: 1.25rem;
@@ -34,41 +26,12 @@ body {
     filter: grayscale(1) opacity(0.3);
 }
 
-.hp-indicator--empty::before {
-    content: '\1F441';
-}
-
-h1, h2, .nav__title {
-    font-family: var(--font-display);
-    text-shadow: 0 0 10px var(--danger);
-    letter-spacing: 0.05em;
-}
-
-.scene-text {
-    font-family: var(--font-body);
-    font-size: 1.1rem;
-}
-
-/* Sharp border choices */
-.choice-btn {
-    border-color: var(--accent);
-    border-radius: 0;
-}
-
-.choice-btn:hover {
+/* Blood red glow on accent elements */
+.btn:hover {
     box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
 }
 
-.nav {
-    border-bottom: 1px solid var(--accent);
-    box-shadow: 0 2px 10px rgba(139, 0, 0, 0.3);
-}
-
-.btn {
-    border-radius: 0;
-}
-
-.input {
-    border-color: var(--accent);
-    background: #0d0505;
+/* Sharp rectangular borders */
+.card {
+    border: 2px solid var(--danger);
 }

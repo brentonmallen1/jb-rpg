@@ -2,6 +2,35 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
+from enum import Enum
+from typing import Optional, Literal
+
+
+class ThemeName(str, Enum):
+    CYBERPUNK = "cyberpunk"
+    FANTASY = "fantasy"
+    DEEP_SPACE = "deep_space"
+    MODERN = "modern"
+    HORROR = "horror"
+
+
+class SessionStatus(str, Enum):
+    MADLIB_IN_PROGRESS = "madlib_in_progress"
+    RUNNING = "running"
+    GAME_OVER = "game_over"
+
+
+class ChoiceKind(str, Enum):
+    DAMAGE = "damage"
+    ITEM = "item"
+    LEVEL = "level"
+
+
+class ConditionType(str, Enum):
+    HP = "hp"
+    ITEMS = "items"
+    LEVEL = "level"
+    SCENE_OUTCOME = "scene_outcome"
 
 app = FastAPI(title="J&B's RPG")
 

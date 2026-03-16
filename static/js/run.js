@@ -127,26 +127,33 @@ function renderMadlib() {
 
 async function submitMadlib() {
     const input = document.getElementById('madlib-input');
+    const submitBtn = document.querySelector('.madlib-view .btn');
     if (!input) return;
     const value = input.value.trim();
     if (!value) return;
 
-    // Disable input to prevent double submit
+    // Disable input and button
     input.disabled = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('btn--loading');
+    }
 
     try {
         state = await API.submitMadlib(value);
-        // SSE will update resolved; fetch immediately for character reveal
         if (state.character && state.status === 'running') {
             renderCharacterReveal();
         } else {
-            // Fetch resolved text since madlib endpoint returns GameState only
             const fresh = await API.getState();
             resolved = fresh.resolved;
             render();
         }
     } catch (e) {
         input.disabled = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('btn--loading');
+        }
         alert('Error: ' + e.message);
     }
 }
@@ -213,13 +220,24 @@ function renderScene() {
 }
 
 async function makeChoice(index) {
+    // Disable all choice buttons
+    const buttons = document.querySelectorAll('.choice-btn');
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('btn--loading');
+    });
+
     try {
         state = await API.makeChoice(index);
-        // Fetch updated resolved text (choice endpoint returns GameState only)
         const fresh = await API.getState();
         resolved = fresh.resolved;
         render();
     } catch (e) {
+        // Re-enable buttons on error
+        buttons.forEach(btn => {
+            btn.disabled = false;
+            btn.classList.remove('btn--loading');
+        });
         alert('Error: ' + e.message);
     }
 }

@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pathlib import Path
 from enum import Enum
 from typing import Optional, Literal
@@ -354,6 +354,59 @@ async def delete_story(story_id: str):
 @app.get("/")
 async def index():
     return FileResponse(STATIC_DIR / "pages" / "index.html")
+
+
+@app.get("/editor")
+async def editor():
+    return FileResponse(STATIC_DIR / "pages" / "editor.html")
+
+
+@app.get("/run")
+async def run():
+    return FileResponse(STATIC_DIR / "pages" / "run.html")
+
+
+@app.get("/player")
+async def player():
+    return FileResponse(STATIC_DIR / "pages" / "player.html")
+
+
+# ---------------------------------------------------------------------------
+# Task 5.1: SSE Endpoint
+# ---------------------------------------------------------------------------
+
+@app.get("/api/events")
+async def sse_events():
+    queue = asyncio.Queue()
+    sse_connections.add(queue)
+
+    async def event_generator():
+        try:
+            # Send initial state
+            state = load_state()
+            resolved = build_resolved(state)
+            payload = {
+                "type": "state",
+                "state": state.model_dump() if state else None,
+                "resolved": resolved,
+                "connected_count": len(sse_connections)
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+
+            # Send updates
+            while True:
+                message = await queue.get()
+                yield message
+        except asyncio.CancelledError:
+            pass
+        finally:
+            sse_connections.discard(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+    )
 
 
 # ---------------------------------------------------------------------------

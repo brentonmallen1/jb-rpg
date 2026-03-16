@@ -5,6 +5,8 @@ from pathlib import Path
 from enum import Enum
 from typing import Optional, Literal
 
+from pydantic import BaseModel
+
 
 class ThemeName(str, Enum):
     CYBERPUNK = "cyberpunk"
@@ -31,9 +33,6 @@ class ConditionType(str, Enum):
     ITEMS = "items"
     LEVEL = "level"
     SCENE_OUTCOME = "scene_outcome"
-
-
-from pydantic import BaseModel
 
 
 class Condition(BaseModel):

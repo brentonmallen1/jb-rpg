@@ -138,6 +138,12 @@ function render() {
                 <div class="creation-message">${getCreationMessage()}</div>
             </div>
         `;
+    } else if (state.status === 'awaiting_scene_selection') {
+        statusHtml = `
+            <div class="scene-selection-notice">
+                <p>The storyteller is choosing the next scene...</p>
+            </div>
+        `;
     } else if (state.status === 'game_over') {
         const rollCount = state.level;
         const bonus = state.items.length;
@@ -234,5 +240,21 @@ function showCharacter() {
 function closeModal() {
     document.getElementById('character-modal').classList.add('modal--hidden');
 }
+
+function showRules() {
+    document.getElementById('rules-modal').classList.remove('modal--hidden');
+}
+
+function closeRulesModal() {
+    document.getElementById('rules-modal').classList.add('modal--hidden');
+}
+
+// Escape key closes modals
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeModal();
+        closeRulesModal();
+    }
+});
 
 init();

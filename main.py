@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import random
 import re
 import uuid
@@ -29,6 +30,7 @@ class ThemeName(str, Enum):
 class SessionStatus(str, Enum):
     MADLIB_IN_PROGRESS = "madlib_in_progress"
     RUNNING = "running"
+    AWAITING_SCENE_SELECTION = "awaiting_scene_selection"
     GAME_OVER = "game_over"
 
 
@@ -85,6 +87,7 @@ class MadLibTemplate(BaseModel):
 
 class StorySettings(BaseModel):
     starting_hp: int = 3
+    non_linear: bool = False
 
 
 class Story(BaseModel):
@@ -207,12 +210,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+DATA_DIR = Path(os.getenv("DATA_DIR", Path(__file__).parent))
 STATIC_DIR = Path(__file__).parent / "static"
-STORIES_DIR = Path(__file__).parent / "stories"
-STATE_FILE = Path(__file__).parent / "state.json"
+STORIES_DIR = DATA_DIR / "stories"
+STATE_FILE = DATA_DIR / "state.json"
 
 # Ensure directories exist
-STORIES_DIR.mkdir(exist_ok=True)
+STORIES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Session token for storyteller authentication (in-memory, resets on server restart)
 _session_token: Optional[str] = None
@@ -410,23 +414,41 @@ async def delete_story(story_id: str):
     return {"status": "deleted"}
 
 
+# SPA routes - serve index.html for client-side routing
+# In production, STATIC_DIR contains the built React app
+# In development, Vite dev server handles these routes
+
 @app.get("/")
 async def index():
+    # Check for React build (index.html in STATIC_DIR root)
+    react_index = STATIC_DIR / "index.html"
+    if react_index.exists():
+        return FileResponse(react_index)
+    # Fallback to old vanilla JS pages
     return FileResponse(STATIC_DIR / "pages" / "index.html")
 
 
-@app.get("/editor")
-async def editor():
+@app.get("/editor/{story_id:path}")
+async def editor(story_id: str):
+    react_index = STATIC_DIR / "index.html"
+    if react_index.exists():
+        return FileResponse(react_index)
     return FileResponse(STATIC_DIR / "pages" / "editor.html")
 
 
 @app.get("/run")
 async def run():
+    react_index = STATIC_DIR / "index.html"
+    if react_index.exists():
+        return FileResponse(react_index)
     return FileResponse(STATIC_DIR / "pages" / "run.html")
 
 
 @app.get("/player")
 async def player():
+    react_index = STATIC_DIR / "index.html"
+    if react_index.exists():
+        return FileResponse(react_index)
     return FileResponse(STATIC_DIR / "pages" / "player.html")
 
 
@@ -508,6 +530,10 @@ class ChoiceRequest(BaseModel):
 
 class FinishRequest(BaseModel):
     outcome: Literal["victory", "defeat"]
+
+
+class SelectSceneRequest(BaseModel):
+    scene_id: str
 
 
 # ---------------------------------------------------------------------------
@@ -673,16 +699,28 @@ async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storytell
         state.status = SessionStatus.GAME_OVER
         state.outcome = "defeat"
     else:
-        # Find index of current scene
-        scene_ids = [s.id for s in story.scenes]
-        current_index = scene_ids.index(state.current_scene_id)
-        is_last_scene = current_index == len(scene_ids) - 1
+        # Check how many scenes remain unplayed
+        played_scene_ids = {h.scene_id for h in state.history}
+        unplayed_scenes = [s for s in story.scenes if s.id not in played_scene_ids]
 
-        if is_last_scene:
+        if len(unplayed_scenes) == 0:
+            # All scenes played - finale
             state.status = SessionStatus.GAME_OVER
             state.outcome = None  # awaiting physical dice roll
+        elif story.settings.non_linear:
+            # Non-linear mode: wait for storyteller to select next scene
+            state.status = SessionStatus.AWAITING_SCENE_SELECTION
         else:
-            state.current_scene_id = scene_ids[current_index + 1]
+            # Linear mode: auto-advance to next scene in array order
+            scene_ids = [s.id for s in story.scenes]
+            current_index = scene_ids.index(state.current_scene_id)
+            is_last_scene = current_index == len(scene_ids) - 1
+
+            if is_last_scene:
+                state.status = SessionStatus.GAME_OVER
+                state.outcome = None  # awaiting physical dice roll
+            else:
+                state.current_scene_id = scene_ids[current_index + 1]
 
     # Reset choice reveal state for next scene
     state.choices_revealed = False
@@ -732,6 +770,43 @@ async def go_back(_: bool = Depends(verify_storyteller)) -> GameState:
     state.current_scene_id = popped.scene_id
     state.status = SessionStatus.RUNNING
     state.outcome = None
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# Select next scene (non-linear mode)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/state/select-scene")
+async def select_scene(request: SelectSceneRequest, _: bool = Depends(verify_storyteller)) -> GameState:
+    state = load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+    if state.status != SessionStatus.AWAITING_SCENE_SELECTION:
+        raise HTTPException(status_code=409, detail=f"Cannot select scene in status: {state.status}")
+
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+
+    # Validate scene exists
+    scene = next((s for s in story.scenes if s.id == request.scene_id), None)
+    if not scene:
+        raise HTTPException(status_code=400, detail=f"Scene not found: {request.scene_id}")
+
+    # Validate scene not already played
+    played_ids = {h.scene_id for h in state.history}
+    if request.scene_id in played_ids:
+        raise HTTPException(status_code=400, detail=f"Scene already played: {request.scene_id}")
+
+    state.current_scene_id = request.scene_id
+    state.status = SessionStatus.RUNNING
+    state.choices_revealed = False
+    state.shuffled_choices = []
 
     save_state(state)
     await broadcast_state()

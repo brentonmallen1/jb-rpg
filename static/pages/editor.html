@@ -35,12 +35,9 @@
             list-style: none;
         }
         .scene-item {
-            padding: var(--space-sm);
             margin-bottom: var(--space-xs);
             border-radius: var(--radius-sm);
-            cursor: pointer;
             display: flex;
-            justify-content: space-between;
             align-items: center;
         }
         .scene-item:hover {
@@ -50,16 +47,44 @@
             background: var(--accent);
             color: white;
         }
+        .scene-item__btn {
+            flex: 1;
+            padding: var(--space-sm);
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            text-align: left;
+            font-size: inherit;
+            font-family: inherit;
+            border-radius: var(--radius-sm);
+        }
+        .scene-item__btn:hover {
+            background: var(--bg-primary);
+        }
+        .scene-item--active .scene-item__btn:hover {
+            background: transparent;
+        }
         .scene-item__delete {
             opacity: 0;
             background: none;
             border: none;
             color: inherit;
             cursor: pointer;
-            font-size: 1rem;
-            padding: 0 4px;
+            font-size: 1.25rem;
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-sm);
         }
-        .scene-item:hover .scene-item__delete {
+        .scene-item__delete:hover {
+            background: var(--danger);
+            color: white;
+        }
+        .scene-item:hover .scene-item__delete,
+        .scene-item__delete:focus {
             opacity: 1;
         }
         .main-panel {
@@ -132,16 +157,18 @@
             background: transparent;
             transition: all 0.2s;
         }
-        .theme-btn--cyberpunk { border-color: #0ff; color: #0ff; }
-        .theme-btn--cyberpunk:hover, .theme-btn--cyberpunk.theme-btn--active { background: #0ff; color: #000; }
-        .theme-btn--fantasy { border-color: #d4a574; color: #d4a574; }
-        .theme-btn--fantasy:hover, .theme-btn--fantasy.theme-btn--active { background: #d4a574; color: #1a1410; }
-        .theme-btn--deep_space { border-color: #9d4edd; color: #9d4edd; }
-        .theme-btn--deep_space:hover, .theme-btn--deep_space.theme-btn--active { background: #9d4edd; color: #fff; }
-        .theme-btn--modern { border-color: #667eea; color: #667eea; }
-        .theme-btn--modern:hover, .theme-btn--modern.theme-btn--active { background: #667eea; color: #fff; }
-        .theme-btn--horror { border-color: #8b0000; color: #8b0000; }
-        .theme-btn--horror:hover, .theme-btn--horror.theme-btn--active { background: #8b0000; color: #fff; }
+        .theme-btn--cyberpunk { border-color: var(--theme-cyberpunk); color: var(--theme-cyberpunk); }
+        .theme-btn--cyberpunk:hover, .theme-btn--cyberpunk.theme-btn--active { background: var(--theme-cyberpunk); color: #000; }
+        .theme-btn--fantasy { border-color: var(--theme-fantasy); color: var(--theme-fantasy); }
+        .theme-btn--fantasy:hover, .theme-btn--fantasy.theme-btn--active { background: var(--theme-fantasy); color: #1a1410; }
+        .theme-btn--deep_space { border-color: var(--theme-deep-space); color: var(--theme-deep-space); }
+        .theme-btn--deep_space:hover, .theme-btn--deep_space.theme-btn--active { background: var(--theme-deep-space); color: #fff; }
+        .theme-btn--modern { border-color: var(--theme-modern); color: var(--theme-modern); }
+        .theme-btn--modern:hover, .theme-btn--modern.theme-btn--active { background: var(--theme-modern); color: #fff; }
+        .theme-btn--horror { border-color: var(--theme-horror); color: var(--theme-horror); }
+        .theme-btn--horror:hover, .theme-btn--horror.theme-btn--active { background: var(--theme-horror); color: #fff; }
+        .theme-btn--insanity { border-color: var(--theme-insanity); color: var(--theme-insanity); }
+        .theme-btn--insanity:hover, .theme-btn--insanity.theme-btn--active { background: var(--theme-insanity); color: #fff; }
         .nav-link {
             display: block;
             padding: var(--space-sm);
@@ -210,13 +237,21 @@
             border: none;
             color: var(--danger);
             cursor: pointer;
-            font-size: 1rem;
-            padding: 0;
-            line-height: 1;
+            font-size: 1.25rem;
+            min-width: 32px;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             opacity: 0.7;
+            border-radius: var(--radius-sm);
+            margin: calc(-1 * var(--space-xs));
+            margin-left: 0;
         }
-        .preset-chip__delete:hover {
+        .preset-chip__delete:hover,
+        .preset-chip__delete:focus {
             opacity: 1;
+            background: rgba(231, 76, 60, 0.1);
         }
 
         /* Mad lib field editor styles */
@@ -251,6 +286,93 @@
             font-weight: 500;
             margin-bottom: var(--space-xs);
         }
+
+        /* Sidebar toggle button (mobile only) */
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            bottom: var(--space-lg);
+            right: var(--space-lg);
+            z-index: 101;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* Sidebar overlay (mobile only) */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--overlay-bg);
+            z-index: 99;
+        }
+        .sidebar-overlay--visible {
+            display: block;
+        }
+
+        /* Responsive breakpoints */
+        @media (max-width: 768px) {
+            .editor-layout {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 60px;
+                bottom: 0;
+                width: 280px;
+                z-index: 100;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            .sidebar--open {
+                transform: translateX(0);
+            }
+            .sidebar-toggle {
+                display: flex;
+            }
+            .main-panel {
+                padding: var(--space-md);
+            }
+            .conditional-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .conditional-row > select,
+            .conditional-row > input {
+                width: 100% !important;
+                min-width: unset !important;
+            }
+            .choice-header {
+                flex-wrap: wrap;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav {
+                grid-template-columns: 1fr;
+                gap: var(--space-sm);
+                text-align: center;
+            }
+            .nav > div:first-child {
+                justify-content: center;
+            }
+            .nav > div:last-child {
+                justify-content: center;
+            }
+            .theme-picker {
+                justify-content: center;
+            }
+            .actions {
+                flex-direction: column;
+            }
+            .actions .btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -261,12 +383,20 @@
         </div>
         <span id="story-name" style="font-weight: 600; font-size: 1.1rem;"></span>
         <div style="display: flex; gap: var(--space-sm); align-items: center; justify-content: flex-end;">
-            <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" title="Toggle light/dark mode"></button>
+            <button class="btn btn--secondary" onclick="showRules()" style="padding: var(--space-xs) var(--space-sm); font-size: 0.875rem;">Rules</button>
+            <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" aria-label="Toggle light/dark mode">
+                <span class="visually-hidden">Toggle light/dark mode</span>
+            </button>
         </div>
     </nav>
 
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <button class="btn sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle scene list">
+        ☰
+    </button>
+
     <div class="editor-layout">
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar__section">
                 <div class="sidebar__title">Scenes</div>
                 <ul id="scene-list" class="scene-list"></ul>
@@ -285,6 +415,74 @@
     </div>
 
     <div id="save-toast" class="save-toast">Story saved!</div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="rules-modal rules-modal--hidden" role="dialog" aria-modal="true" aria-labelledby="rules-title" onclick="closeRulesModal()">
+        <div class="rules-modal__content" onclick="event.stopPropagation()">
+            <h2 id="rules-title" style="text-align: center; margin-bottom: var(--space-md);">Game Rules</h2>
+            <div style="line-height: 1.8;">
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Goal</strong><br>
+                    Reach the final scene and roll 20+ on a d20 to defeat the boss.
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Gameplay</strong><br>
+                    All players control one shared character. Each scene, one player decides which of 3 choices to make. Use <code>{field_key}</code> placeholders to weave character details into the text.
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Choice Outcomes</strong><br>
+                    <span style="color: var(--danger);">Damage</span> — Lose 1 HP (0 HP = defeat)<br>
+                    <span style="color: var(--success);">Item</span> — Gain an item (+1 to final roll)<br>
+                    <span style="color: var(--warning);">Level Up</span> — Gain a level (+1 roll attempt)
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Starting Stats</strong><br>
+                    HP is configurable in story settings (default 3). Players start at Level 1 with 0 Items.
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Conditional Text</strong><br>
+                    Add text that only appears based on HP, items, level, or previous scene outcomes.
+                </p>
+                <p>
+                    <strong>Final Boss</strong><br>
+                    Players roll a d20, add item count as bonus. Level = number of roll attempts. Need 20+ total to win.
+                </p>
+            </div>
+            <button class="btn btn--secondary" style="margin-top: var(--space-lg); display: block; margin-left: auto; margin-right: auto;" onclick="closeRulesModal()">Close</button>
+        </div>
+    </div>
+
+    <style>
+        .rules-modal {
+            position: fixed;
+            inset: 0;
+            background: var(--overlay-bg, rgba(0,0,0,0.8));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-lg);
+            z-index: 1000;
+        }
+        .rules-modal--hidden {
+            display: none;
+        }
+        .rules-modal__content {
+            background: var(--bg-secondary);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .rules-modal__content code {
+            background: var(--bg-primary);
+            padding: 0.1em 0.3em;
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+        }
+    </style>
 
     <script src="/static/js/utils.js"></script>
     <script src="/static/js/api.js"></script>

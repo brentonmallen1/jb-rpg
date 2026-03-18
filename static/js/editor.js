@@ -4,6 +4,8 @@ let currentView = null; // 'scene', 'madlib', 'settings'
 let currentSceneId = null;
 let isDirty = false;  // Track unsaved changes
 let autoSaveTimer = null;  // Debounce timer for auto-save
+let saveRetryCount = 0;  // Track retry attempts
+const MAX_SAVE_RETRIES = 3;
 
 // Mark story as dirty and trigger auto-save
 function markDirty() {
@@ -20,9 +22,18 @@ async function autoSave() {
         showToast('Saving...');
         await API.updateStory(storyId, story);
         isDirty = false;
+        saveRetryCount = 0;
         showToast('Saved');
     } catch (e) {
-        showToast('Save failed!');
+        saveRetryCount++;
+        if (saveRetryCount <= MAX_SAVE_RETRIES) {
+            const delay = Math.pow(2, saveRetryCount) * 1000;
+            showToast(`Save failed. Retrying in ${delay / 1000}s...`);
+            setTimeout(autoSave, delay);
+        } else {
+            showToast('Save failed! Please save manually.');
+            saveRetryCount = 0;
+        }
         console.error('Auto-save failed:', e);
     }
 }
@@ -140,11 +151,12 @@ function renderSidebar() {
     const list = document.getElementById('scene-list');
     list.innerHTML = story.scenes.map((scene, i) => `
         <li class="scene-item ${scene.id === currentSceneId ? 'scene-item--active' : ''}"
-            onclick="selectScene('${escapeAttr(scene.id)}')"
             draggable="true"
             data-id="${escapeAttr(scene.id)}">
-            <span>${i + 1}. ${escapeHtml(scene.title || 'Untitled')}</span>
-            <button class="scene-item__delete" onclick="deleteScene('${escapeAttr(scene.id)}', event)" title="Delete scene">×</button>
+            <button type="button" class="scene-item__btn" onclick="selectScene('${escapeAttr(scene.id)}')">
+                ${i + 1}. ${escapeHtml(scene.title || 'Untitled')}
+            </button>
+            <button type="button" class="scene-item__delete" onclick="deleteScene('${escapeAttr(scene.id)}', event)" aria-label="Delete scene ${escapeAttr(scene.title || 'Untitled')}">×</button>
         </li>
     `).join('');
     setupDragDrop();
@@ -166,12 +178,12 @@ function renderSceneEditor() {
         <h2>Edit Scene</h2>
 
         <div class="form-group">
-            <label>Scene Title</label>
+            <label for="scene-title">Scene Title</label>
             <input class="input" id="scene-title" value="${escapeHtml(scene.title)}" oninput="updateScene()">
         </div>
 
         <div class="form-group">
-            <label>Scene Text</label>
+            <label for="scene-text">Scene Text</label>
             <textarea class="input" id="scene-text" oninput="updateScene()">${escapeHtml(scene.base_text)}</textarea>
             <details style="margin-top: var(--space-xs);">
                 <summary style="cursor: pointer; color: var(--text-secondary);">Available variables</summary>
@@ -391,7 +403,7 @@ function addScene() {
         base_text: '',
         choices: [
             { kind: 'damage', text: 'Choice 1', amount: 1, item_name: null },
-            { kind: 'item', text: 'Choice 2', item_name: 'Item', amount: 1 },
+            { kind: 'item', text: 'Choice 2', item_name: '', amount: 1 },
             { kind: 'level', text: 'Choice 3', amount: 1, item_name: null }
         ],
         conditional_text: []
@@ -434,7 +446,7 @@ function showMadlibEditor() {
                     return `
                         <div class="preset-chip ${isCustom ? 'preset-chip--custom' : ''}" onclick="applyPreset('${escapeAttr(key)}')">
                             <span>${escapeHtml(preset.name)}</span>
-                            ${isCustom ? `<button class="preset-chip__delete" onclick="deleteCustomPreset('${escapeAttr(key)}', event)" title="Delete preset">&times;</button>` : ''}
+                            ${isCustom ? `<button class="preset-chip__delete" onclick="deleteCustomPreset('${escapeAttr(key)}', event)" aria-label="Delete ${escapeAttr(preset.name)} preset">&times;</button>` : ''}
                         </div>
                     `;
                 }).join('')}
@@ -445,7 +457,7 @@ function showMadlibEditor() {
         </div>
 
         <div class="form-group">
-            <label>Template Text</label>
+            <label for="madlib-prompt">Template Text</label>
             <textarea class="input" id="madlib-prompt" oninput="updateMadlibPrompt()">${escapeHtml(story.madlib_template.prompt)}</textarea>
             <p style="color: var(--text-secondary); margin-top: var(--space-xs); font-size: 0.875rem;">Use {key} to define placeholders. Fields are auto-detected.</p>
         </div>
@@ -614,15 +626,27 @@ function showSettings() {
         <h2>Story Settings</h2>
 
         <div class="form-group">
-            <label>Story Title</label>
+            <label for="story-title-input">Story Title</label>
             <input class="input" id="story-title-input" value="${escapeHtml(story.title)}"
                    oninput="updateStoryTitle(this.value)">
         </div>
 
         <div class="form-group">
-            <label>Starting HP</label>
+            <label for="starting-hp">Starting HP</label>
             <input class="input" type="number" id="starting-hp" min="1" max="10"
                    value="${story.settings.starting_hp}" onchange="updateStartingHp()">
+        </div>
+
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+                <input type="checkbox" id="non-linear-mode"
+                       ${story.settings.non_linear ? 'checked' : ''}
+                       onchange="updateNonLinear(this.checked)">
+                Non-linear mode
+            </label>
+            <p style="color: var(--text-secondary); margin-top: var(--space-sm); font-size: 0.875rem;">
+                When enabled, the storyteller chooses which scene to play next instead of following the scene order.
+            </p>
         </div>
 
         <div class="form-group">
@@ -653,6 +677,11 @@ function updateStoryTitle(title) {
 function updateStartingHp() {
     markDirty();
     story.settings.starting_hp = parseInt(document.getElementById('starting-hp').value, 10);
+}
+
+function updateNonLinear(checked) {
+    markDirty();
+    story.settings.non_linear = checked;
 }
 
 function setTheme(theme) {
@@ -761,5 +790,42 @@ function setupDragDrop() {
         });
     });
 }
+
+// Mobile sidebar toggle
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const isOpen = sidebar.classList.contains('sidebar--open');
+
+    sidebar.classList.toggle('sidebar--open', !isOpen);
+    overlay.classList.toggle('sidebar-overlay--visible', !isOpen);
+}
+
+// Close sidebar when selecting a scene on mobile
+const originalSelectScene = selectScene;
+selectScene = function(sceneId) {
+    originalSelectScene(sceneId);
+    if (window.innerWidth <= 768) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.remove('sidebar--open');
+        overlay.classList.remove('sidebar-overlay--visible');
+    }
+};
+
+// Rules modal
+function showRules() {
+    document.getElementById('rules-modal').classList.remove('rules-modal--hidden');
+}
+
+function closeRulesModal() {
+    document.getElementById('rules-modal').classList.add('rules-modal--hidden');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeRulesModal();
+    }
+});
 
 loadStory();

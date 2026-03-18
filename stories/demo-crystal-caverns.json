@@ -1,0 +1,259 @@
+{
+  "id": "demo-crystal-caverns",
+  "title": "The Crystal Caverns",
+  "theme": "fantasy",
+  "settings": {
+    "starting_hp": 3,
+    "non_linear": true
+  },
+  "madlib_template": {
+    "prompt": "{name}, a wanderer from {homeland}, has heard rumors of a legendary {treasure} hidden deep within the Crystal Caverns. The village elder waits at the gate...",
+    "fields": [
+      {
+        "key": "name",
+        "label": "The tavern keeper asks who seeks the Crystal Caverns. What name do you give?"
+      },
+      {
+        "key": "homeland",
+        "label": "The elder squints at your travel-worn boots. 'You've come a long way,' she says. 'From where?'"
+      },
+      {
+        "key": "treasure",
+        "label": "Word travels fast in small villages. What legendary prize has drawn you here?"
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "scene_village_gate",
+      "title": "The Village Gate",
+      "base_text": "The elder's eyes widen when she hears you seek the {treasure}. 'Many have entered those caverns, {name}. Few return.' She gestures toward the dark maw in the hillside. 'The entrance lies before you. How will you proceed?'",
+      "choices": [
+        {
+          "kind": "item",
+          "text": "Ask the elder for guidance before entering",
+          "amount": 1,
+          "item_name": "Elder's Map"
+        },
+        {
+          "kind": "damage",
+          "text": "Rush boldly into the darkness",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "level",
+          "text": "Study the entrance carvings for clues",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": []
+    },
+    {
+      "id": "scene_mushroom_grove",
+      "title": "The Mushroom Grove",
+      "base_text": "The tunnel opens into a vast chamber filled with towering mushrooms that glow in shades of blue and violet. Their light pulses gently, casting dancing shadows on the crystalline walls. The air is thick with spores, and strange sounds echo from deeper within.",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Taste one of the glowing mushrooms",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Carefully harvest the luminescent spores",
+          "amount": 1,
+          "item_name": "Moonspore Vial"
+        },
+        {
+          "kind": "level",
+          "text": "Follow the dancing fireflies deeper",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_village_gate",
+            "outcome": "item"
+          },
+          "text": "The Elder's Map reveals a safe path marked by red-capped fungi. You can navigate without disturbing the more dangerous growths."
+        }
+      ]
+    },
+    {
+      "id": "scene_chasm_bridge",
+      "title": "The Chasm Bridge",
+      "base_text": "A vast chasm splits the cavern in two. Far below, you hear the rush of an underground river. A rickety rope bridge spans the gap, swaying slightly in an unfelt breeze. Ancient stone pillars line the edges, covered in faded runes.",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Sprint across before it collapses",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Search the pillars for useful tools",
+          "amount": 1,
+          "item_name": "Climbing Rope"
+        },
+        {
+          "kind": "level",
+          "text": "Decipher the runes to reveal a hidden mechanism",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "level",
+            "op": "gte",
+            "value": 2,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "Your growing experience in these caverns fills you with confidence. The bridge's construction seems clearer to you now."
+        }
+      ]
+    },
+    {
+      "id": "scene_guardian_chamber",
+      "title": "The Guardian's Chamber",
+      "base_text": "The passage widens into a grand hall. At its center stands a massive stone golem, ancient runes glowing faintly across its chest. It turns its head toward you with a grinding sound. 'WHO SEEKS THE CRYSTAL HEART?' it rumbles.",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Draw your weapon and fight",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Offer something valuable in tribute",
+          "amount": 1,
+          "item_name": "Guardian's Blessing"
+        },
+        {
+          "kind": "level",
+          "text": "Read the riddle inscribed on its chest",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_mushroom_grove",
+            "outcome": "item"
+          },
+          "text": "The Moonspore Vial glows in your pack. Its light could temporarily blind the guardian if needed."
+        }
+      ]
+    },
+    {
+      "id": "scene_crystal_heart",
+      "title": "The Crystal Heart",
+      "base_text": "You stand in a chamber of impossible beauty. Crystals of every color jut from the walls, floor, and ceiling, refracting light into rainbows. At the center, on a simple stone pedestal, rests the legendary {treasure}. It pulses with inner light, beckoning you closer.",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Grab the largest, most dazzling crystal",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Choose a modest but pure crystal",
+          "amount": 1,
+          "item_name": "Heart Crystal"
+        },
+        {
+          "kind": "level",
+          "text": "Attune yourself to the crystal's ancient magic",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "hp",
+            "op": "lte",
+            "value": 1,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "Your wounds ache terribly. You've come so far, {name}. The {treasure} is within reach, but one wrong move could be your last."
+        },
+        {
+          "condition": {
+            "type": "level",
+            "op": "gte",
+            "value": 3,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "Your journey through the caverns has taught you much. You sense which crystals are stable and which are dangerously unstable."
+        }
+      ]
+    },
+    {
+      "id": "scene_ascent",
+      "title": "The Ascent",
+      "base_text": "The cavern rumbles. Taking the crystal has awakened something deep below. Dust falls from the ceiling as cracks spider across the walls. You must escape before the caverns collapse! The way back is treacherous, but you can see daylight far above.",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Climb as fast as you can",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Use your gathered supplies wisely",
+          "amount": 1,
+          "item_name": "Hero's Medal"
+        },
+        {
+          "kind": "level",
+          "text": "Let the cavern's magic guide you to safety",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "items",
+            "op": "gte",
+            "value": 3,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "Your pack is heavy with treasures from the deep. The items you've collected along the way may prove useful in your escape."
+        },
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_chasm_bridge",
+            "outcome": "item"
+          },
+          "text": "The Climbing Rope you found earlier could make the ascent much safer."
+        }
+      ]
+    }
+  ]
+}

@@ -132,6 +132,8 @@ function render() {
         renderMadlib();
     } else if (state.status === 'game_over') {
         renderFinale();
+    } else if (state.status === 'awaiting_scene_selection') {
+        renderSceneSelector();
     } else {
         renderScene();
     }
@@ -247,7 +249,7 @@ function renderScene() {
     const choicesHtml = scene.choices.map((c, i) => {
         let outcome = '';
         if (c.kind === 'damage') outcome = '&minus;1 HP';
-        else if (c.kind === 'item') outcome = escapeHtml(c.item_name || 'Item');
+        else if (c.kind === 'item') outcome = c.item_name ? escapeHtml(c.item_name) : '<em>No item set</em>';
         else if (c.kind === 'level') outcome = 'Level Up';
 
         return `
@@ -317,6 +319,82 @@ async function makeChoice(index) {
             btn.classList.remove('btn--loading');
         });
         alert('Error: ' + e.message);
+    }
+}
+
+function getOutcomeBadge(historyEntry) {
+    if (historyEntry.outcome === 'damage') {
+        return `<span class="scene-badge scene-badge--damage">&minus;1 HP</span>`;
+    } else if (historyEntry.outcome === 'item') {
+        const itemName = historyEntry.item_name || 'Item';
+        return `<span class="scene-badge scene-badge--item">${escapeHtml(itemName)}</span>`;
+    } else if (historyEntry.outcome === 'level') {
+        return `<span class="scene-badge scene-badge--level">+1 LVL</span>`;
+    }
+    return '';
+}
+
+function renderSceneSelector() {
+    if (!story || !state) return;
+
+    const playedIds = new Set(state.history.map(h => h.scene_id));
+    const historyByScene = {};
+    state.history.forEach(h => { historyByScene[h.scene_id] = h; });
+
+    // Build scene cards
+    const sceneCardsHtml = story.scenes.map((scene, idx) => {
+        const isPlayed = playedIds.has(scene.id);
+        const historyEntry = historyByScene[scene.id];
+
+        if (isPlayed) {
+            return `
+                <div class="scene-card scene-card--played">
+                    <div class="scene-card__number">${idx + 1}</div>
+                    <div class="scene-card__title">${escapeHtml(scene.title)}</div>
+                    ${getOutcomeBadge(historyEntry)}
+                </div>
+            `;
+        } else {
+            return `
+                <div class="scene-card scene-card--available" onclick="selectScene('${scene.id}')">
+                    <div class="scene-card__number">${idx + 1}</div>
+                    <div class="scene-card__title">${escapeHtml(scene.title)}</div>
+                    <span class="scene-card__select">Select</span>
+                </div>
+            `;
+        }
+    }).join('');
+
+    document.getElementById('main-content').innerHTML = `
+        <div class="scene-selector">
+            <h2 class="scene-selector__heading">Choose the Next Scene</h2>
+            <div class="scene-selector__grid">
+                ${sceneCardsHtml}
+            </div>
+        </div>
+    `;
+}
+
+async function selectScene(sceneId) {
+    // Disable all scene cards
+    const cards = document.querySelectorAll('.scene-card--available');
+    cards.forEach(card => {
+        card.classList.add('scene-card--loading');
+        card.onclick = null;
+    });
+
+    try {
+        state = await API.selectScene(sceneId);
+        const fresh = await API.getState();
+        resolved = fresh.resolved;
+        render();
+    } catch (e) {
+        // Re-enable cards on error
+        cards.forEach(card => {
+            card.classList.remove('scene-card--loading');
+        });
+        alert('Error: ' + e.message);
+        render(); // Re-render to restore onclick handlers
     }
 }
 
@@ -437,6 +515,9 @@ function showShareModal() {
         qr.addData(playerUrl);
         qr.make();
         qrContainer.innerHTML = qr.createImgTag(5, 0);
+        // Add alt text for accessibility
+        const img = qrContainer.querySelector('img');
+        if (img) img.alt = 'QR code linking to player view';
     } else {
         qrContainer.innerHTML = '<p style="color: var(--text-secondary);">QR code unavailable</p>';
     }
@@ -448,11 +529,55 @@ function hideShareModal() {
     document.getElementById('share-modal').classList.add('share-modal--hidden');
 }
 
-function copyShareLink() {
-    const input = document.getElementById('share-link');
-    input.select();
-    document.execCommand('copy');
-    alert('Link copied!');
+function showRules() {
+    document.getElementById('rules-modal').classList.remove('share-modal--hidden');
 }
+
+function closeRulesModal() {
+    document.getElementById('rules-modal').classList.add('share-modal--hidden');
+}
+
+async function copyShareLink() {
+    const input = document.getElementById('share-link');
+    try {
+        await navigator.clipboard.writeText(input.value);
+        showToast('Link copied!');
+    } catch (e) {
+        // Fallback for older browsers
+        input.select();
+        document.execCommand('copy');
+        showToast('Link copied!');
+    }
+}
+
+function showToast(message) {
+    // Simple toast notification
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: var(--space-lg);
+        right: var(--space-lg);
+        background: var(--success);
+        color: white;
+        padding: var(--space-sm) var(--space-md);
+        border-radius: var(--radius-md);
+        z-index: 1001;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
+// Escape key closes modals
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        hideShareModal();
+        closeRulesModal();
+    }
+});
 
 init();

@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+.venv
+*.egg-info
+
+# Testing
+tests/
+.pytest_cache
+.coverage
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+
+# Project specific (exclude user data, keep demo stories)
+data/*
+!data/stories
+data/stories/*
+!data/stories/demo-*.json
+stories/
+state.json
+*.md
+docs/
+.claude/
+.history/
+.superpowers/
+justfile
+
+# Docker files
+docker-compose.yml
+.env*

@@ -6,6 +6,10 @@ dist/
 wheels/
 *.egg-info
 
+# Node.js
+node_modules/
+frontend/dist/
+
 # Virtual environments
 .venv
 
@@ -17,3 +21,13 @@ state.json
 
 .history
 .superpowers
+
+# Docker
+.env
+
+# Data directory contents (keep structure via .gitkeep)
+data/stories/*.json
+!data/stories/demo-*.json
+data/state.json
+!data/.gitkeep
+!data/stories/.gitkeep

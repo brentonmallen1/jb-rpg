@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+/* static/css/themes/fantasy.css */
+:root {
+    --bg-primary: #1a1410;
+    --bg-secondary: #2a2018;
+    --text-primary: #f4e8d8;
+    --text-secondary: #a89080;
+    --accent: #d4a574;
+    --accent-hover: #e8b888;
+    --danger: #8b3a3a;
+    --success: #4a7c4a;
+    --warning: #b8860b;
+
+    --font-body: 'Crimson Text', 'Georgia', serif;
+    --font-display: 'Cinzel', 'Trajan Pro', 'Palatino Linotype', serif;
+}
+
+.card {
+    border: 2px solid var(--accent);
+    border-image: linear-gradient(135deg, var(--accent), transparent, var(--accent)) 1;
+}
+
+/* Lantern HP indicators */
+.hp-indicator::before {
+    content: '\1F4A1';
+    font-size: 1.25rem;
+}
+
+.hp-indicator--empty {
+    filter: grayscale(1) opacity(0.3);
+}
+
+.hp-indicator--empty::before {
+    content: '\1F4A1';
+}
+
+h1, h2, .nav__title, .character-name {
+    font-family: var(--font-display);
+    letter-spacing: 0.05em;
+}
+
+.scene-text {
+    font-family: var(--font-body);
+    font-size: 1.2rem;
+}
+
+/* Drop cap */
+.scene-text::first-letter {
+    font-size: 2em;
+    float: left;
+    line-height: 1;
+    margin-right: 0.1em;
+    color: var(--accent);
+    font-family: var(--font-display);
+}
+
+/* Double border for choices */
+.choice-btn {
+    border-style: double;
+    border-width: 4px;
+}
+
+.nav {
+    border-bottom: 2px solid var(--accent);
+}
+
+/* Light mode overrides */
+[data-mode="light"] {
+    --bg-primary: #f8f4e8;
+    --bg-secondary: #fff;
+    --text-primary: #2a1810;
+    --text-secondary: #6a5040;
+}

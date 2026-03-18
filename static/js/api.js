@@ -160,5 +160,18 @@ const API = {
             throw new Error(err.detail || 'Failed to reveal choices');
         }
         return res.json();
+    },
+
+    async selectScene(sceneId) {
+        const res = await fetch('/api/state/select-scene', {
+            method: 'POST',
+            headers: this._getAuthHeaders(),
+            body: JSON.stringify({ scene_id: sceneId })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to select scene');
+        }
+        return res.json();
     }
 };

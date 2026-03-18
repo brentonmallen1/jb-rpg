@@ -111,7 +111,7 @@
         .modal {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.8);
+            background: var(--overlay-bg);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -134,10 +134,31 @@
         .modal--hidden {
             display: none;
         }
-        .mode-toggle {
+        .player-toolbar {
             position: fixed;
-            top: var(--space-md);
-            right: var(--space-md);
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-sm);
+            padding: var(--space-md);
+            z-index: 50;
+        }
+
+        /* Scene selection notice */
+        .scene-selection-notice {
+            margin-top: var(--space-xl);
+            padding: var(--space-lg);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            text-align: center;
+            color: var(--text-secondary);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
         }
 
         /* Finale styles */
@@ -232,10 +253,40 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.6; }
         }
+
+        /* Responsive breakpoints */
+        @media (max-width: 480px) {
+            .player-layout {
+                padding: var(--space-md);
+            }
+            .character-name {
+                font-size: 1.5rem;
+            }
+            .stats {
+                gap: var(--space-lg);
+            }
+            .stat-block__value {
+                font-size: 2rem;
+            }
+            .hp-display .hp-indicator {
+                width: 36px;
+                height: 36px;
+                font-size: 1.5rem;
+            }
+            .finale-outcome {
+                font-size: 2rem;
+            }
+            .revealed-choices {
+                max-width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
-    <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" title="Toggle light/dark mode"></button>
+    <div class="player-toolbar">
+        <button class="btn btn--secondary" onclick="showRules()" aria-label="Game rules" style="padding: var(--space-xs) var(--space-sm); font-size: 0.875rem;">?</button>
+        <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" aria-label="Toggle light/dark mode"></button>
+    </div>
 
     <div id="player-view" class="player-layout">
         <div class="waiting-state">
@@ -243,11 +294,38 @@
         </div>
     </div>
 
-    <div id="character-modal" class="modal modal--hidden" onclick="closeModal()">
+    <div id="character-modal" class="modal modal--hidden" role="dialog" aria-modal="true" aria-labelledby="modal-name" onclick="closeModal()">
         <div class="modal__content" onclick="event.stopPropagation()">
             <h2 id="modal-name"></h2>
             <p id="modal-description"></p>
             <button class="btn btn--secondary" style="margin-top: var(--space-lg);" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal modal--hidden" role="dialog" aria-modal="true" aria-labelledby="rules-title" onclick="closeRulesModal()">
+        <div class="modal__content" onclick="event.stopPropagation()">
+            <h2 id="rules-title">Game Rules</h2>
+            <div style="text-align: left; line-height: 1.8;">
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Goal</strong><br>
+                    Reach the final scene and roll 20+ on a d20 to defeat the boss.
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Gameplay</strong><br>
+                    All players control one shared character. Each scene, one player decides which of 3 choices to make. Discuss as a group first.
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Choice Outcomes</strong><br>
+                    <span style="color: var(--danger);">Damage</span> — Lose 1 HP (0 HP = defeat)<br>
+                    <span style="color: var(--success);">Item</span> — Gain an item (+1 to final roll)<br>
+                    <span style="color: var(--warning);">Level Up</span> — Gain a level (+1 roll attempt)
+                </p>
+                <p>
+                    <strong>Final Boss</strong><br>
+                    Roll a d20, add your item count as a bonus. Your level = number of roll attempts. Need 20+ total to win.
+                </p>
+            </div>
+            <button class="btn btn--secondary" style="margin-top: var(--space-lg);" onclick="closeRulesModal()">Close</button>
         </div>
     </div>
 

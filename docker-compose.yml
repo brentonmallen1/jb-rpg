@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_PORT: ${APP_PORT:-8000}
+    ports:
+      - "${HOST_PORT:-8000}:${APP_PORT:-8000}"
+    volumes:
+      - ${DATA_PATH:-./data}:/data
+    environment:
+      - DATA_DIR=/data
+      - APP_PORT=${APP_PORT:-8000}
+    restart: unless-stopped

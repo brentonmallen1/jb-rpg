@@ -175,11 +175,85 @@
             gap: var(--space-xs);
         }
 
+        /* Scene selector (non-linear mode) */
+        .scene-selector {
+            text-align: center;
+            padding: var(--space-xl);
+        }
+        .scene-selector__heading {
+            margin-bottom: var(--space-xl);
+        }
+        .scene-selector__grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: var(--space-md);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .scene-card {
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            border: 2px solid var(--text-secondary);
+            background: var(--bg-secondary);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+        .scene-card--available {
+            cursor: pointer;
+            transition: transform 0.1s, border-color 0.1s;
+        }
+        .scene-card--available:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+        }
+        .scene-card--played {
+            opacity: 0.6;
+            background: var(--bg-primary);
+        }
+        .scene-card--loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .scene-card__number {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .scene-card__title {
+            font-weight: bold;
+            flex: 1;
+        }
+        .scene-card__select {
+            font-size: 0.875rem;
+            color: var(--accent);
+            margin-top: var(--space-xs);
+        }
+        .scene-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .scene-badge--damage {
+            background: var(--danger);
+            color: white;
+        }
+        .scene-badge--item {
+            background: var(--success);
+            color: white;
+        }
+        .scene-badge--level {
+            background: var(--warning);
+            color: black;
+        }
+
         /* Share modal */
         .share-modal {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.8);
+            background: var(--overlay-bg);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -213,6 +287,51 @@
             flex: 1;
             font-size: 0.875rem;
         }
+
+        /* Responsive breakpoints */
+        @media (max-width: 768px) {
+            .status-bar {
+                padding: var(--space-sm) var(--space-md);
+            }
+            .status-bar__left,
+            .status-bar__right {
+                gap: var(--space-md);
+            }
+            .scene-panel {
+                padding: var(--space-md);
+            }
+            .controls {
+                flex-wrap: wrap;
+                padding: var(--space-sm) var(--space-md);
+            }
+            .controls details {
+                width: 100%;
+                margin-left: 0;
+                margin-top: var(--space-sm);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .status-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .status-bar__left,
+            .status-bar__right {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .finale-stats {
+                flex-wrap: wrap;
+            }
+            .finale-stat {
+                flex: 1 1 100px;
+            }
+            .controls .btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 </head>
@@ -227,7 +346,9 @@
                 <div class="stat">Items <strong id="items-count">0</strong></div>
             </div>
             <div class="status-bar__right">
+                <button class="btn btn--secondary" onclick="showRules()" style="padding: var(--space-xs) var(--space-sm); font-size: 0.875rem;">Rules</button>
                 <button class="btn btn--secondary" onclick="showShareModal()" style="padding: var(--space-xs) var(--space-sm); font-size: 0.875rem;">Share</button>
+                <button class="btn btn--secondary mode-toggle" onclick="ThemeManager.toggleMode()" aria-label="Toggle light/dark mode" style="padding: var(--space-xs) var(--space-sm); font-size: 0.875rem;"></button>
                 <span id="scene-progress">Scene 1 of 1</span>
                 <span id="connected-count" class="connected-count"></span>
             </div>
@@ -249,9 +370,9 @@
     </div>
 
     <!-- Share Modal -->
-    <div id="share-modal" class="share-modal share-modal--hidden" onclick="hideShareModal()">
+    <div id="share-modal" class="share-modal share-modal--hidden" role="dialog" aria-modal="true" aria-labelledby="share-modal-title" onclick="hideShareModal()">
         <div class="share-modal__content" onclick="event.stopPropagation()">
-            <h2>Share with Players</h2>
+            <h2 id="share-modal-title">Share with Players</h2>
             <p style="color: var(--text-secondary); margin-top: var(--space-sm);">Players can scan this QR code or use the link below:</p>
             <div class="share-modal__qr" id="qr-container"></div>
             <div class="share-modal__link">
@@ -259,6 +380,38 @@
                 <button class="btn" onclick="copyShareLink()">Copy</button>
             </div>
             <button class="btn btn--secondary" style="margin-top: var(--space-lg);" onclick="hideShareModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="share-modal share-modal--hidden" role="dialog" aria-modal="true" aria-labelledby="rules-title" onclick="closeRulesModal()">
+        <div class="share-modal__content" onclick="event.stopPropagation()" style="text-align: left;">
+            <h2 id="rules-title" style="text-align: center;">Game Rules</h2>
+            <div style="line-height: 1.8; margin-top: var(--space-md);">
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Goal</strong><br>
+                    Reach the final scene and roll 20+ on a d20 to defeat the boss.
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Gameplay</strong><br>
+                    Read scenes aloud. All players control one shared character. Each scene, one player decides which of 3 choices to make. Let them discuss first.
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Choice Outcomes</strong><br>
+                    <span style="color: var(--danger);">Damage</span> — Lose 1 HP (0 HP = defeat)<br>
+                    <span style="color: var(--success);">Item</span> — Gain an item (+1 to final roll)<br>
+                    <span style="color: var(--warning);">Level Up</span> — Gain a level (+1 roll attempt)
+                </p>
+                <p style="margin-bottom: var(--space-md);">
+                    <strong>Starting Stats</strong><br>
+                    3 HP (configurable), Level 1, 0 Items
+                </p>
+                <p>
+                    <strong>Final Boss</strong><br>
+                    Have players roll a d20, add item count as bonus. Level = number of roll attempts. Need 20+ total to win.
+                </p>
+            </div>
+            <button class="btn btn--secondary" style="margin-top: var(--space-lg); display: block; margin-left: auto; margin-right: auto;" onclick="closeRulesModal()">Close</button>
         </div>
     </div>
 

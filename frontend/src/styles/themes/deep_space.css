@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600&family=Space+Mono&display=swap');
+
+/* static/css/themes/deep_space.css */
+:root {
+    --bg-primary: #0a0a1a;
+    --bg-secondary: #141428;
+    --text-primary: #e8e8ff;
+    --text-secondary: #8888aa;
+    --accent: #9966ff;
+    --accent-hover: #aa88ff;
+    --danger: #ff4466;
+    --success: #44ff88;
+    --warning: #ffaa00;
+
+    --font-body: 'Space Mono', monospace;
+    --font-display: 'Exo 2', sans-serif;
+}
+
+/* Star HP indicators */
+.hp-indicator::before {
+    content: '\2B50';
+    font-size: 1.25rem;
+}
+
+.hp-indicator--empty {
+    filter: grayscale(1) opacity(0.3);
+}
+
+/* Star field background */
+body {
+    background-image:
+        radial-gradient(white 1px, transparent 1px),
+        radial-gradient(white 1px, transparent 1px);
+    background-size: 100px 100px, 50px 50px;
+    background-position: 0 0, 25px 25px;
+}
+
+/* Constellation dividers */
+.nav {
+    border-bottom: 1px solid var(--accent);
+    box-shadow: 0 0 10px rgba(153, 102, 255, 0.3);
+}
+
+/* Light mode overrides */
+[data-mode="light"] {
+    --bg-primary: #f0f0ff;
+    --bg-secondary: #fff;
+    --text-primary: #1a1a3a;
+    --text-secondary: #6666aa;
+}

@@ -15,10 +15,10 @@ Use the uv python virtual environment and package manager
 ## Tech Stack
 
 - **Backend:** Python, FastAPI
-- **Frontend:** Vanilla HTML + CSS + JS (no frameworks, no build step)
+- **Frontend:** React + TypeScript + Vite
 - **Persistence:** Flat JSON files (`stories/` directory + `state.json`)
 - **Real-time:** Server-Sent Events (SSE) via `GET /api/events`
-- **No database.** No React. No build tools. Keep it simple.
+- **No database.** No authentication.
 
 ---
 
@@ -29,17 +29,50 @@ jb-rpg/
 ├── main.py                    # FastAPI app — all routes and SSE
 ├── stories/                   # One JSON file per story
 ├── state.json                 # Active session state
-├── static/
-│   ├── css/
-│   │   └── themes/            # One CSS file per theme (cyberpunk, fantasy, deep_space, modern, horror)
-│   ├── js/
-│   └── pages/
-│       ├── index.html         # Story library
-│       ├── editor.html        # Story editor
-│       ├── run.html           # Storyteller run view
-│       └── player.html        # Player status view
-└── docs/superpowers/specs/    # Design spec lives here
+├── .env.example               # Environment variable template
+├── frontend/                  # React app (Vite + TypeScript)
+│   ├── package.json
+│   ├── vite.config.ts         # Vite config with API proxy
+│   ├── src/
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── pages/             # Library, Editor, Run, Player
+│   │   ├── components/
+│   │   ├── hooks/             # useSSE, useTheme, api.ts
+│   │   ├── context/           # GameContext
+│   │   ├── types/             # TypeScript types
+│   │   └── styles/            # CSS (base + themes)
+│   └── dist/                  # Built output (gitignored)
+├── static/                    # Legacy vanilla JS (deprecated)
+├── Dockerfile                 # Multi-stage build (Node + Python)
+├── docker-compose.yml
+└── justfile                   # Development commands
 ```
+
+---
+
+## Development Workflow
+
+```bash
+# Install all dependencies
+just install
+
+# Run in separate terminals:
+just backend       # FastAPI on http://localhost:8000
+just frontend-dev  # Vite dev server on http://localhost:5173
+
+# Or see help:
+just dev
+```
+
+The Vite dev server proxies `/api/*` requests to the FastAPI backend, providing hot module replacement (HMR) for instant updates.
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and adjust as needed:
+- `BACKEND_PORT` / `VITE_PORT` — development server ports
+- `APP_PORT` / `HOST_PORT` — Docker ports
+- `DATA_DIR` / `DATA_PATH` — data directory location
 
 ---
 
@@ -88,9 +121,9 @@ madlib_in_progress  →  (POST /api/state/madlib × N fields)
 
 ## Themes
 
-Five themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`
+Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 
-Each is a CSS file in `static/css/themes/`. The theme name is a `ThemeName` enum — no arbitrary strings. HP indicators are theme-specific SVGs (lanterns for fantasy, memory chips for cyberpunk, stars for deep_space, eyes for horror, circles for modern).
+Theme CSS files are in `frontend/src/styles/themes/`. The theme name is a `ThemeName` enum — no arbitrary strings. HP indicators are theme-specific.
 
 ---
 
@@ -124,7 +157,6 @@ Global toggle, stored in `localStorage` on the client. Independent of theme. Bot
 ## Do Not
 
 - Do not add a database
-- Do not add a frontend framework or build step
 - Do not add authentication
 - Do not make damage amounts configurable (always 1 HP) — `Choice.amount` exists for forward-compatibility only
 - Do not store `connected_count` in `state.json` or return it from `GET /api/state` (SSE only)

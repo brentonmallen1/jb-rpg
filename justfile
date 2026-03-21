@@ -1,8 +1,11 @@
 # J&B's RPG development commands
 
+set dotenv-load
+
 # Default ports (can be overridden via env)
 backend_port := env_var_or_default("BACKEND_PORT", "8000")
 frontend_port := env_var_or_default("FRONTEND_PORT", "5173")
+
 
 # Default: show available commands
 default:
@@ -66,3 +69,23 @@ docker-up:
 # Stop Docker containers
 docker-down:
     docker compose down
+
+# Registry URL for releases
+registry_url := env_var_or_default("REGISTRY_URL", "")
+
+# Build and push Docker image to registry (linux/amd64)
+release tag="latest":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "{{registry_url}}" ]; then
+        echo "Error: REGISTRY_URL not set in .env"
+        exit 1
+    fi
+    image="{{registry_url}}/jb-rpg:{{tag}}"
+    echo "Building and pushing $image..."
+    docker buildx build \
+        --platform linux/amd64 \
+        -t "$image" \
+        --push \
+        .
+    echo "Released: $image"

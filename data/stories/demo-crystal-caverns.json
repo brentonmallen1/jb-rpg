@@ -1,24 +1,28 @@
 {
   "id": "demo-crystal-caverns",
   "title": "The Crystal Caverns",
-  "theme": "fantasy",
+  "theme": "deep_space",
   "settings": {
-    "starting_hp": 3
+    "starting_hp": 3,
+    "non_linear": false
   },
   "madlib_template": {
     "prompt": "{name}, a wanderer from {homeland}, has heard rumors of a legendary {treasure} hidden deep within the Crystal Caverns. The village elder waits at the gate...",
     "fields": [
       {
         "key": "name",
-        "label": "The tavern keeper asks who seeks the Crystal Caverns. What name do you give?"
+        "label": "The tavern keeper asks who seeks the Crystal Caverns. What name do you give?",
+        "hint": "a name"
       },
       {
         "key": "homeland",
-        "label": "The elder squints at your travel-worn boots. 'You've come a long way,' she says. 'From where?'"
+        "label": "The elder squints at your travel-worn boots. 'You've come a long way,' she says. 'From where?'",
+        "hint": "a place name"
       },
       {
         "key": "treasure",
-        "label": "Word travels fast in small villages. What legendary prize has drawn you here?"
+        "label": "Word travels fast in small villages. What legendary prize has drawn you here?",
+        "hint": "noun"
       }
     ]
   },
@@ -30,19 +34,22 @@
       "choices": [
         {
           "kind": "item",
-          "text": "Ask the elder for guidance before entering",
+          "display_text": "Do you choose to ask the elder for guidance before entering?",
+          "result_text": "The elder nods wisely and produces a worn parchment from her robes. 'This map was drawn by the last survivor. Use it well.' She presses it into your hands with a knowing look.",
           "amount": 1,
           "item_name": "Elder's Map"
         },
         {
           "kind": "damage",
-          "text": "Rush boldly into the darkness",
+          "display_text": "Do you choose to rush boldly into the darkness?",
+          "result_text": "You charge forward without hesitation—and immediately stumble over a hidden root. You tumble down the entrance slope, banging against rocks before sliding to a stop in the darkness. Your body aches, but your pride aches more.",
           "amount": 1,
           "item_name": null
         },
         {
           "kind": "level",
-          "text": "Study the entrance carvings for clues",
+          "display_text": "Do you choose to study the entrance carvings for clues?",
+          "result_text": "You pause to examine the ancient symbols carved into the stone archway. As you trace them with your fingers, their meaning becomes clear—a warning, but also instructions. Knowledge floods your mind, preparing you for what lies ahead.",
           "amount": 1,
           "item_name": null
         }
@@ -56,19 +63,22 @@
       "choices": [
         {
           "kind": "damage",
-          "text": "Taste one of the glowing mushrooms",
+          "display_text": "Do you choose to taste one of the glowing mushrooms?",
+          "result_text": "Curiosity overcomes caution. The mushroom tastes of honey and starlight—then fire. Your stomach lurches as the toxins take hold. You collapse, retching, as hallucinations swim before your eyes. When they clear, you're weakened but wiser.",
           "amount": 1,
           "item_name": null
         },
         {
           "kind": "item",
-          "text": "Carefully harvest the luminescent spores",
+          "display_text": "Do you choose to carefully harvest the luminescent spores?",
+          "result_text": "With gentle movements, you collect the glowing spores in an empty vial. They swirl like captive stars, providing their own soft light. This could prove invaluable in darker passages ahead.",
           "amount": 1,
           "item_name": "Moonspore Vial"
         },
         {
           "kind": "level",
-          "text": "Follow the dancing fireflies deeper",
+          "display_text": "Do you choose to follow the dancing fireflies deeper?",
+          "result_text": "The fireflies seem to beckon, their paths forming patterns in the air. You follow, trusting your instincts. They lead you through the safest route, and as you walk, you begin to understand the rhythm of this underground world.",
           "amount": 1,
           "item_name": null
         }
@@ -77,6 +87,8 @@
         {
           "condition": {
             "type": "scene_outcome",
+            "op": null,
+            "value": null,
             "scene_id": "scene_village_gate",
             "outcome": "item"
           },
@@ -91,19 +103,22 @@
       "choices": [
         {
           "kind": "damage",
-          "text": "Sprint across before it collapses",
+          "display_text": "Do you choose to sprint across before it collapses?",
+          "result_text": "You run! Planks crack beneath your feet. Ropes snap. You dive for the far edge as the bridge gives way behind you—and barely make it, scraped and bruised, clinging to the ledge as debris falls into the abyss.",
           "amount": 1,
           "item_name": null
         },
         {
           "kind": "item",
-          "text": "Search the pillars for useful tools",
+          "display_text": "Do you choose to search the pillars for useful tools?",
+          "result_text": "Among the debris near the pillars, you find a coil of rope left by a previous explorer. It's still sturdy, still useful. You secure it around your waist—a lifeline for whatever comes next.",
           "amount": 1,
           "item_name": "Climbing Rope"
         },
         {
           "kind": "level",
-          "text": "Decipher the runes to reveal a hidden mechanism",
+          "display_text": "Do you choose to decipher the runes to reveal a hidden mechanism?",
+          "result_text": "The runes tell a story of ancient builders who feared this crossing. Following their instructions, you press certain stones in sequence. A hidden mechanism groans to life, and a sturdy stone pathway rises from the depths.",
           "amount": 1,
           "item_name": null
         }
@@ -113,7 +128,9 @@
           "condition": {
             "type": "level",
             "op": "gte",
-            "value": 2
+            "value": 2,
+            "scene_id": null,
+            "outcome": null
           },
           "text": "Your growing experience in these caverns fills you with confidence. The bridge's construction seems clearer to you now."
         }
@@ -126,19 +143,22 @@
       "choices": [
         {
           "kind": "damage",
-          "text": "Draw your weapon and fight",
+          "display_text": "Do you choose to draw your weapon and fight?",
+          "result_text": "Your blade rings against stone—and shatters. The golem's fist catches you before you can dodge, sending you crashing against the wall. 'UNWORTHY,' it intones as you struggle to your feet, battered but alive.",
           "amount": 1,
           "item_name": null
         },
         {
           "kind": "item",
-          "text": "Offer something valuable in tribute",
+          "display_text": "Do you choose to offer something valuable in tribute?",
+          "result_text": "You bow and present your offering with respect. The golem's eyes flicker. 'YOUR GIFT IS ACCEPTED.' It steps aside, and something falls from its palm—a token of blessing, warm with ancient magic.",
           "amount": 1,
           "item_name": "Guardian's Blessing"
         },
         {
           "kind": "level",
-          "text": "Read the riddle inscribed on its chest",
+          "display_text": "Do you choose to read the riddle inscribed on its chest?",
+          "result_text": "You speak the riddle aloud and answer it with the wisdom gathered from your journey. The golem's eyes dim, then brighten. 'CORRECT. YOU MAY PASS.' It bows its great head in acknowledgment.",
           "amount": 1,
           "item_name": null
         }
@@ -147,6 +167,8 @@
         {
           "condition": {
             "type": "scene_outcome",
+            "op": null,
+            "value": null,
             "scene_id": "scene_mushroom_grove",
             "outcome": "item"
           },
@@ -161,19 +183,22 @@
       "choices": [
         {
           "kind": "damage",
-          "text": "Grab the largest, most dazzling crystal",
+          "display_text": "Do you choose to grab the largest, most dazzling crystal?",
+          "result_text": "Greed overwhelms you. You grasp the biggest crystal—and it burns! A defense mechanism, triggered by hasty hands. You drop it, skin smoking, lesson learned the hard way.",
           "amount": 1,
           "item_name": null
         },
         {
           "kind": "item",
-          "text": "Choose a modest but pure crystal",
+          "display_text": "Do you choose to select a modest but pure crystal?",
+          "result_text": "You study the crystals carefully and choose one that seems to pulse in harmony with your heartbeat. It comes free easily, warming your palm. This is the true treasure—power earned through wisdom.",
           "amount": 1,
           "item_name": "Heart Crystal"
         },
         {
           "kind": "level",
-          "text": "Attune yourself to the crystal's ancient magic",
+          "display_text": "Do you choose to attune yourself to the crystal's ancient magic?",
+          "result_text": "You sit before the pedestal and open your mind. The crystal's memories flow into you—thousands of years of accumulated knowledge. You understand now why this place exists, and what your role in its story must be.",
           "amount": 1,
           "item_name": null
         }
@@ -183,7 +208,9 @@
           "condition": {
             "type": "hp",
             "op": "lte",
-            "value": 1
+            "value": 1,
+            "scene_id": null,
+            "outcome": null
           },
           "text": "Your wounds ache terribly. You've come so far, {name}. The {treasure} is within reach, but one wrong move could be your last."
         },
@@ -191,7 +218,9 @@
           "condition": {
             "type": "level",
             "op": "gte",
-            "value": 3
+            "value": 3,
+            "scene_id": null,
+            "outcome": null
           },
           "text": "Your journey through the caverns has taught you much. You sense which crystals are stable and which are dangerously unstable."
         }
@@ -200,39 +229,28 @@
     {
       "id": "scene_ascent",
       "title": "The Ascent",
+      "is_finale": true,
       "base_text": "The cavern rumbles. Taking the crystal has awakened something deep below. Dust falls from the ceiling as cracks spider across the walls. You must escape before the caverns collapse! The way back is treacherous, but you can see daylight far above.",
-      "choices": [
-        {
-          "kind": "damage",
-          "text": "Climb as fast as you can",
-          "amount": 1,
-          "item_name": null
-        },
-        {
-          "kind": "item",
-          "text": "Use your gathered supplies wisely",
-          "amount": 1,
-          "item_name": "Hero's Medal"
-        },
-        {
-          "kind": "level",
-          "text": "Let the cavern's magic guide you to safety",
-          "amount": 1,
-          "item_name": null
-        }
-      ],
+      "finale_setup_text": "The caverns are collapsing around you! Rocks fall, passages seal, and the ground shakes beneath your feet. You must make one final roll to escape. Add your item count to a d20 roll. You have attempts equal to your level. You need 20 or higher to reach the surface alive!",
+      "victory_text": "Light! You burst from the cavern entrance just as it collapses behind you in a thundering roar of stone and dust. The village elder rushes to meet you, eyes wide with disbelief. 'You survived!' she cries. 'And the {treasure}—you found it!' You hold it up, its light reflecting in the faces of the gathered villagers. Your legend begins today.",
+      "defeat_text": "The rumbling grows louder. A massive boulder crashes down, blocking the exit. You turn to find another way, but the ceiling gives way. In your final moments, you clutch the treasure you sought—the {treasure} that will now become part of these caverns forever, waiting for the next seeker brave enough to claim it.",
+      "choices": [],
       "conditional_text": [
         {
           "condition": {
             "type": "items",
             "op": "gte",
-            "value": 3
+            "value": 3,
+            "scene_id": null,
+            "outcome": null
           },
           "text": "Your pack is heavy with treasures from the deep. The items you've collected along the way may prove useful in your escape."
         },
         {
           "condition": {
             "type": "scene_outcome",
+            "op": null,
+            "value": null,
             "scene_id": "scene_chasm_bridge",
             "outcome": "item"
           },
@@ -240,5 +258,6 @@
         }
       ]
     }
-  ]
+  ],
+  "opening_scene": null
 }

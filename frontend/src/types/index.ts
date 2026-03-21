@@ -2,7 +2,7 @@
 export type ThemeName = 'cyberpunk' | 'fantasy' | 'deep_space' | 'modern' | 'horror' | 'insanity'
 
 // Session status matching backend SessionStatus enum
-export type SessionStatus = 'madlib_in_progress' | 'opening_scene_active' | 'running' | 'awaiting_scene_selection' | 'game_over'
+export type SessionStatus = 'madlib_in_progress' | 'character_reveal' | 'opening_scene_active' | 'running' | 'awaiting_scene_selection' | 'game_over'
 
 // Choice outcome types
 export type ChoiceKind = 'damage' | 'item' | 'level'
@@ -38,7 +38,8 @@ export interface OpeningScene {
 
 export interface Choice {
   kind: ChoiceKind
-  text: string
+  display_text: string  // What players see when choosing
+  result_text: string   // What storyteller reads after choice is made
   amount: number
   item_name?: string
 }
@@ -46,14 +47,21 @@ export interface Choice {
 export interface Scene {
   id: string
   title: string
+  display_name?: string  // Poetic/descriptive name for scene selection
   base_text: string
-  choices: Choice[]
+  choices: Choice[]  // Empty for finale scenes
   conditional_text: ConditionalText[]
+  is_finale?: boolean  // If true, this is the final die-roll scene
+  finale_setup_text?: string  // Read before die roll
+  victory_text?: string  // Read on victory
+  defeat_text?: string  // Read on defeat
+  item_texts?: Record<string, { victory?: string; defeat?: string }>  // Item-conditional text blocks for finale
 }
 
 export interface MadLibField {
   key: string
   label: string
+  hint?: string  // Grammar hint (e.g., "verb, past tense")
 }
 
 export interface MadLibTemplate {
@@ -103,8 +111,9 @@ export interface GameState {
   history: HistoryEntry[]
   character?: Character
   outcome?: 'victory' | 'defeat'
+  outcome_revealed: boolean
   choices_revealed: boolean
-  shuffled_choices: string[]
+  shuffled_indices: number[]
 }
 
 // Resolved content sent from backend
@@ -112,6 +121,8 @@ export interface ResolvedContent {
   scene_text: string
   character_description?: string
   choices?: Choice[]  // Optional - backend doesn't send this, choices come from story.scenes
+  victory_text?: string
+  defeat_text?: string
 }
 
 // SSE payload from backend

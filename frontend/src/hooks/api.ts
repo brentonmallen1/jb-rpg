@@ -114,6 +114,18 @@ export async function submitMadlib(answer: string): Promise<GameState> {
   return res.json()
 }
 
+export async function proceedFromCharacter(): Promise<GameState> {
+  const res = await fetch('/api/state/proceed-from-character', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.detail || 'Failed to proceed')
+  }
+  return res.json()
+}
+
 export async function makeChoice(choiceIndex: number): Promise<GameState> {
   const res = await fetch('/api/state/choice', {
     method: 'POST',
@@ -152,6 +164,18 @@ export async function finish(outcome: 'victory' | 'defeat'): Promise<GameState> 
   return res.json()
 }
 
+export async function revealOutcome(): Promise<GameState> {
+  const res = await fetch('/api/state/reveal-outcome', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.detail || 'Failed to reveal outcome')
+  }
+  return res.json()
+}
+
 export async function restart(): Promise<void> {
   const res = await fetch('/api/state/restart', { method: 'POST' })
   if (!res.ok) {
@@ -174,11 +198,11 @@ export async function revealChoices(showToPlayers: boolean = true): Promise<Game
   return res.json()
 }
 
-export async function selectScene(sceneId: string): Promise<GameState> {
+export async function selectScene(sceneId: string, revisit: boolean = false): Promise<GameState> {
   const res = await fetch('/api/state/select-scene', {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ scene_id: sceneId }),
+    body: JSON.stringify({ scene_id: sceneId, revisit }),
   })
   if (!res.ok) {
     const err = await res.json()

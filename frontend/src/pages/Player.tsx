@@ -4,6 +4,7 @@ import { useGame } from '../context/GameContext'
 import { useSSE } from '../hooks/useSSE'
 import * as api from '../hooks/api'
 import { Modal, RulesModal, HPDisplay, StatsRow, ModeToggle } from '../components'
+import type { Story, Scene } from '../types'
 import '../styles/pages/player.css'
 
 export default function Player() {
@@ -17,6 +18,7 @@ export default function Player() {
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [sessionInvalid, setSessionInvalid] = useState(false)
   const [isValidating, setIsValidating] = useState(true)
+  const [story, setStory] = useState<Story | null>(null)
 
   // Validate session on mount
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function Player() {
   useEffect(() => {
     if (state?.story_id) {
       api.getStory(state.story_id).then((s) => {
+        setStory(s)
         setTheme(s.theme)
       }).catch(console.error)
     }
@@ -131,7 +134,7 @@ export default function Player() {
       <>
         <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
         <main className="player-layout">
-          {state.outcome ? (
+          {state.outcome && state.outcome_revealed ? (
             <div className="finale-section">
               <div
                 className={`finale-outcome font-bold ${state.outcome === 'victory' ? 'text-success' : 'text-danger'}`}
@@ -152,7 +155,9 @@ export default function Player() {
           ) : (
             <div className="finale-section">
               <h2>Final Showdown!</h2>
-              <p className="text-secondary">Waiting for the dice roll...</p>
+              <p className="text-secondary">
+                {state.outcome ? 'Awaiting results...' : 'Waiting for the dice roll...'}
+              </p>
               <div className="finale-roll-info">
                 <p>Roll a d20 + {state.items.length} (items)</p>
                 <p>You have {state.level} attempt(s)</p>
@@ -208,18 +213,26 @@ export default function Player() {
         )}
 
         {/* Revealed choices */}
-        {state.choices_revealed && state.shuffled_choices.length > 0 && (
-          <div className="revealed-choices">
-            <div className="revealed-choices-label text-sm text-secondary uppercase">
-              Current Choices
-            </div>
-            {state.shuffled_choices.map((text, i) => (
-              <div key={i} className="revealed-choice">
-                {text}
+        {state.choices_revealed && state.shuffled_indices.length > 0 && story && (() => {
+          const currentScene = story.scenes.find((s: Scene) => s.id === state.current_scene_id)
+          if (!currentScene) return null
+          return (
+            <div className="revealed-choices">
+              <div className="revealed-choices-label text-sm text-secondary uppercase">
+                Current Choices
               </div>
-            ))}
-          </div>
-        )}
+              {state.shuffled_indices.map((originalIndex, visualIndex) => {
+                const choice = currentScene.choices[originalIndex]
+                if (!choice) return null
+                return (
+                  <div key={visualIndex} className="revealed-choice">
+                    {choice.display_text}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {/* Connection status */}
         <ConnectionStatus storytellerConnected={storytellerConnected} playerCount={playerCount} />

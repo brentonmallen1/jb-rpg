@@ -31,13 +31,14 @@ interface GameContextValue {
   // Actions
   startSession: (storyId: string) => Promise<void>
   submitMadlib: (answer: string) => Promise<void>
+  proceedFromCharacter: () => Promise<void>
   makeChoice: (choiceIndex: number) => Promise<void>
   goBack: () => Promise<void>
   finish: (outcome: 'victory' | 'defeat') => Promise<void>
   restart: () => Promise<void>
   stopSession: () => Promise<void>
   revealChoices: (showToPlayers?: boolean) => Promise<void>
-  selectScene: (sceneId: string) => Promise<void>
+  selectScene: (sceneId: string, revisit?: boolean) => Promise<void>
   selectOpeningChoice: (choiceIndex: number | null) => Promise<void>
 }
 
@@ -98,6 +99,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     await api.submitMadlib(answer)
   }, [])
 
+  const proceedFromCharacter = useCallback(async () => {
+    await api.proceedFromCharacter()
+  }, [])
+
   const makeChoice = useCallback(async (choiceIndex: number) => {
     await api.makeChoice(choiceIndex)
   }, [])
@@ -126,8 +131,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     await api.revealChoices(showToPlayers)
   }, [])
 
-  const selectScene = useCallback(async (sceneId: string) => {
-    await api.selectScene(sceneId)
+  const selectScene = useCallback(async (sceneId: string, revisit: boolean = false) => {
+    await api.selectScene(sceneId, revisit)
   }, [])
 
   const selectOpeningChoice = useCallback(async (choiceIndex: number | null) => {
@@ -152,6 +157,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setCurrentStory,
     startSession,
     submitMadlib,
+    proceedFromCharacter,
     makeChoice,
     goBack,
     finish,

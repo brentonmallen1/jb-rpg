@@ -2,11 +2,65 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import * as api from '../hooks/api'
-import type { Story, Scene, Choice, ThemeName, ChoiceKind, OpeningScene, OpeningChoice } from '../types'
+import type { Story, Scene, Choice, ThemeName, ChoiceKind, OpeningScene, OpeningChoice, MadLibField } from '../types'
 import { ConfirmDialog, ModeToggle } from '../components'
 import '../styles/pages/editor.css'
 
 const THEMES: ThemeName[] = ['cyberpunk', 'fantasy', 'deep_space', 'modern', 'horror', 'insanity']
+
+// Built-in character creation presets with indirect, creative questions
+const BUILTIN_PRESETS: Record<string, { name: string; prompt: string; fields: MadLibField[] }> = {
+  classic_hero: {
+    name: 'Classic Hero',
+    prompt: '{name} the {profession} has a secret weakness: {weakness}. They journey forth to {quest}.',
+    fields: [
+      { key: 'name', label: 'If you could name a constellation, what would you call it?', hint: 'a name' },
+      { key: 'profession', label: "What job would you do if money didn't matter?", hint: 'a job or role' },
+      { key: 'weakness', label: 'What keeps you up at 3am?', hint: 'a fear or worry' },
+      { key: 'quest', label: 'If you had one wish, what would it be?', hint: 'a goal' }
+    ]
+  },
+  mysterious_stranger: {
+    name: 'Mysterious Stranger',
+    prompt: 'They go by {alias}, but no one knows their true name. They carry the weight of {secret} and fear nothing except {fear}. Now they seek {goal}.',
+    fields: [
+      { key: 'alias', label: 'What would your spy codename be?', hint: 'a name or title' },
+      { key: 'secret', label: "What's something you've never told anyone?", hint: 'a secret' },
+      { key: 'fear', label: 'What sound makes you uncomfortable?', hint: 'something unsettling' },
+      { key: 'goal', label: 'What would you search for in an abandoned library?', hint: 'something valuable' }
+    ]
+  },
+  unlikely_champion: {
+    name: 'Unlikely Champion',
+    prompt: '{name} was just a simple {job} until they discovered they could {talent}. Now, driven by {motivation}, they must become something more.',
+    fields: [
+      { key: 'name', label: 'What name would you give to a friendly ghost?', hint: 'a name' },
+      { key: 'job', label: "What's the most boring job you can think of?", hint: 'a mundane job' },
+      { key: 'talent', label: 'What would be an absurd superpower?', hint: 'an unusual ability' },
+      { key: 'motivation', label: 'What makes you get out of bed in the morning?', hint: 'a driving force' }
+    ]
+  },
+  fallen_noble: {
+    name: 'Fallen Noble',
+    prompt: 'Once known as {title}, they ruled over {domain}. But {downfall} stripped everything away. Now they wander, seeking {redemption}.',
+    fields: [
+      { key: 'title', label: 'What would your royal title be?', hint: 'a title or honorific' },
+      { key: 'domain', label: 'What place feels like home to you?', hint: 'a place' },
+      { key: 'downfall', label: "What's the worst way to lose a game?", hint: 'a way to fail' },
+      { key: 'redemption', label: 'What would you do with a second chance?', hint: 'an action or goal' }
+    ]
+  },
+  scrappy_survivor: {
+    name: 'Scrappy Survivor',
+    prompt: 'On the streets they call them {nickname}. They grew up in {origin} and learned to survive by {skill}. But deep down, they dream of {dream}.',
+    fields: [
+      { key: 'nickname', label: 'What nickname did you have as a kid?', hint: 'a nickname' },
+      { key: 'origin', label: 'Describe a place that smells like memories.', hint: 'a place description' },
+      { key: 'skill', label: "What's something you're surprisingly good at?", hint: 'a skill' },
+      { key: 'dream', label: 'What would you do if you won the lottery?', hint: 'a dream or wish' }
+    ]
+  }
+}
 
 export default function Editor() {
   const { storyId } = useParams<{ storyId: string }>()
@@ -18,8 +72,19 @@ export default function Editor() {
   const [saving, setSaving] = useState(false)
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
   const [editingOpeningScene, setEditingOpeningScene] = useState(false)
+  const [editingCharacterCreation, setEditingCharacterCreation] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [deleteSceneTarget, setDeleteSceneTarget] = useState<string | null>(null)
+  const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
+  const [showPreview, setShowPreview] = useState(false)
+  const [itemPreviewAcquired, setItemPreviewAcquired] = useState<Record<string, boolean>>({})
+
+  // Get all available item names from the story (for item_texts dropdowns)
+  const availableItems: string[] = story?.scenes.flatMap(scene =>
+    scene.choices
+      .filter(choice => choice.kind === 'item' && choice.item_name)
+      .map(choice => choice.item_name!)
+  ) ?? []
 
   useEffect(() => {
     if (storyId) {
@@ -29,16 +94,16 @@ export default function Editor() {
 
   // Close sidebar when a scene is selected (mobile)
   useEffect(() => {
-    if (selectedSceneId || editingOpeningScene) {
+    if (selectedSceneId || editingOpeningScene || editingCharacterCreation) {
       setSidebarOpen(false)
     }
-  }, [selectedSceneId, editingOpeningScene])
+  }, [selectedSceneId, editingOpeningScene, editingCharacterCreation])
 
   async function loadStory(id: string) {
     try {
       const data = await api.getStory(id)
       setStory(data)
-      setTheme(data.theme)
+      setTheme('modern')
       if (data.scenes.length > 0) {
         setSelectedSceneId(data.scenes[0].id)
       }
@@ -81,9 +146,9 @@ export default function Editor() {
       title: `Scene ${story.scenes.length + 1}`,
       base_text: 'Enter scene text...',
       choices: [
-        { kind: 'damage', text: 'Choice 1', amount: 1 },
-        { kind: 'item', text: 'Choice 2', amount: 1, item_name: 'Item' },
-        { kind: 'level', text: 'Choice 3', amount: 1 }
+        { kind: 'damage', display_text: 'Do you choose to...', result_text: 'The consequence...', amount: 1 },
+        { kind: 'item', display_text: 'Do you choose to...', result_text: 'The consequence...', amount: 1, item_name: 'Item' },
+        { kind: 'level', display_text: 'Do you choose to...', result_text: 'The consequence...', amount: 1 }
       ],
       conditional_text: []
     }
@@ -177,6 +242,100 @@ export default function Editor() {
         choices: story.opening_scene.choices.filter((_, i) => i !== index)
       }
     })
+  }
+
+  // Extract {key} placeholders from template text
+  function extractKeysFromTemplate(prompt: string): string[] {
+    const matches = prompt.match(/\{(\w+)\}/g) || []
+    return [...new Set(matches.map(m => m.slice(1, -1)))]
+  }
+
+  // Update template with auto-detection of fields
+  function updateMadLibTemplateWithAutoDetect(newPrompt: string) {
+    if (!story) return
+    const detectedKeys = extractKeysFromTemplate(newPrompt)
+
+    // Preserve existing field data where keys match
+    const existingFieldsMap = new Map(story.madlib_template.fields.map(f => [f.key, f]))
+
+    // Build new fields array: detected keys in order, preserving existing labels/hints
+    const newFields: MadLibField[] = detectedKeys.map(key => {
+      const existing = existingFieldsMap.get(key)
+      if (existing) return existing
+      return { key, label: `Enter a ${key}`, hint: '' }
+    })
+
+    setStory({
+      ...story,
+      madlib_template: { prompt: newPrompt, fields: newFields }
+    })
+  }
+
+  function updateMadLibField(index: number, updates: Partial<MadLibField>) {
+    if (!story) return
+    setStory({
+      ...story,
+      madlib_template: {
+        ...story.madlib_template,
+        fields: story.madlib_template.fields.map((f, i) => i === index ? { ...f, ...updates } : f)
+      }
+    })
+  }
+
+  function applyPreset(presetKey: string) {
+    if (!story) return
+    const preset = BUILTIN_PRESETS[presetKey]
+    if (!preset) return
+
+    setStory({
+      ...story,
+      madlib_template: {
+        prompt: preset.prompt,
+        fields: preset.fields.map(f => ({ ...f }))
+      }
+    })
+    setPreviewValues({})
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+  }
+
+  // Get preview text with sample values filled in
+  function getPreviewText(): string {
+    if (!story) return ''
+    let text = story.madlib_template.prompt
+    for (const field of story.madlib_template.fields) {
+      const value = previewValues[field.key] || `[${field.key}]`
+      text = text.replace(new RegExp(`\\{${field.key}\\}`, 'g'), value)
+    }
+    return text
+  }
+
+  // Find where each field key is used across scenes
+  function getVariableUsage(key: string): { sceneId: string; sceneTitle: string; location: string }[] {
+    if (!story) return []
+    const usages: { sceneId: string; sceneTitle: string; location: string }[] = []
+    const pattern = new RegExp(`\\{${key}\\}`)
+
+    for (const scene of story.scenes) {
+      if (pattern.test(scene.base_text)) {
+        usages.push({ sceneId: scene.id, sceneTitle: scene.title, location: 'scene text' })
+      }
+      for (const choice of scene.choices) {
+        if (pattern.test(choice.display_text) || pattern.test(choice.result_text)) {
+          usages.push({ sceneId: scene.id, sceneTitle: scene.title, location: 'choice' })
+          break
+        }
+      }
+      for (const ct of scene.conditional_text) {
+        if (pattern.test(ct.text)) {
+          usages.push({ sceneId: scene.id, sceneTitle: scene.title, location: 'conditional' })
+          break
+        }
+      }
+    }
+    return usages
   }
 
   const selectedScene = story?.scenes.find(s => s.id === selectedSceneId)
@@ -290,6 +449,30 @@ export default function Editor() {
             </div>
           </div>
 
+          {/* Character Creation - Compact Summary */}
+          <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+              <h3>Character Creation</h3>
+            </div>
+            <p className="text-sm text-secondary" style={{ marginBottom: 'var(--space-sm)' }}>
+              {story.madlib_template.fields.length === 0
+                ? 'No character questions defined'
+                : `${story.madlib_template.fields.length} question${story.madlib_template.fields.length === 1 ? '' : 's'} defined`
+              }
+            </p>
+            <button
+              className="btn btn--secondary"
+              onClick={() => {
+                setEditingCharacterCreation(true)
+                setEditingOpeningScene(false)
+                setSelectedSceneId(null)
+              }}
+              style={{ width: '100%' }}
+            >
+              Edit Character Creation
+            </button>
+          </div>
+
           {/* Opening Scene */}
           <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
@@ -353,7 +536,7 @@ export default function Editor() {
                     minHeight: '44px'
                   }}
                 >
-                  {i + 1}. {scene.title}
+                  {i + 1}. {scene.title} {scene.is_finale && <span className="text-xs" style={{ opacity: 0.7 }}>(finale)</span>}
                 </button>
               ))}
             </div>
@@ -362,6 +545,186 @@ export default function Editor() {
 
         {/* Main Editor */}
         <main className="editor-main">
+          {/* Character Creation Editor */}
+          {editingCharacterCreation && (
+            <div className="card">
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+                <h2 style={{ margin: 0 }}>Character Creation</h2>
+                <button
+                  className="btn btn--secondary"
+                  onClick={() => {
+                    setEditingCharacterCreation(false)
+                    if (story.scenes.length > 0) {
+                      setSelectedSceneId(story.scenes[0].id)
+                    }
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+
+              {/* Presets */}
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <label className="label">Start from a preset</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)', marginBottom: 'var(--space-sm)' }}>
+                  {Object.entries(BUILTIN_PRESETS).map(([key, preset]) => (
+                    <button
+                      key={key}
+                      className="btn btn--secondary text-sm"
+                      onClick={() => applyPreset(key)}
+                      style={{ padding: 'var(--space-xs) var(--space-md)' }}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-secondary">
+                  Click a preset to load it, then customize below.
+                </p>
+              </div>
+
+              {/* Template Text */}
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <label htmlFor="char-template" className="label">
+                  Character Description Template
+                </label>
+                <textarea
+                  id="char-template"
+                  className="input"
+                  value={story.madlib_template.prompt}
+                  onChange={e => updateMadLibTemplateWithAutoDetect(e.target.value)}
+                  rows={5}
+                  placeholder="Use {key} to define placeholders. Example: '{name} the {profession} seeks {goal}...'"
+                  style={{ width: '100%', resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}
+                />
+                <p className="text-xs text-secondary" style={{ marginTop: 'var(--space-xs)' }}>
+                  Type {'{key}'} to create placeholders. Fields are auto-detected.
+                </p>
+              </div>
+
+              {/* Preview Toggle */}
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <label className="text-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={showPreview}
+                    onChange={e => setShowPreview(e.target.checked)}
+                  />
+                  Show live preview
+                </label>
+                {showPreview && (
+                  <div style={{ marginTop: 'var(--space-md)', padding: 'var(--space-md)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontStyle: 'italic' }}>
+                    {getPreviewText() || <span className="text-secondary">Enter template text above...</span>}
+                  </div>
+                )}
+              </div>
+
+              {/* Fields */}
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                  <label className="label" style={{ margin: 0 }}>
+                    Fields ({story.madlib_template.fields.length})
+                  </label>
+                </div>
+
+                {story.madlib_template.fields.length === 0 ? (
+                  <p className="text-secondary" style={{ padding: 'var(--space-lg)', textAlign: 'center', border: '1px dashed var(--text-secondary)', borderRadius: 'var(--radius-md)' }}>
+                    No fields yet. Add {'{key}'} placeholders to the template above.
+                  </p>
+                ) : (
+                  <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                    {story.madlib_template.fields.map((field, i) => {
+                      const usages = getVariableUsage(field.key)
+                      return (
+                        <div key={field.key} className="card" style={{ padding: 'var(--space-md)', borderLeft: '3px solid var(--accent)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                            <code style={{ fontSize: '1.1rem', color: 'var(--accent)', fontWeight: 600 }}>
+                              {'{' + field.key + '}'}
+                            </code>
+                            <button
+                              className="btn btn--secondary text-xs"
+                              onClick={() => copyToClipboard(`{${field.key}}`)}
+                              title="Copy to clipboard"
+                              style={{ padding: 'var(--space-xs) var(--space-sm)' }}
+                            >
+                              Copy
+                            </button>
+                          </div>
+
+                          <div style={{ marginBottom: 'var(--space-sm)' }}>
+                            <label className="label label--xs">Question shown to players</label>
+                            <input
+                              type="text"
+                              className="input"
+                              value={field.label}
+                              onChange={e => updateMadLibField(i, { label: e.target.value })}
+                              placeholder="Write an indirect question..."
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+
+                          <div style={{ marginBottom: 'var(--space-sm)' }}>
+                            <label className="label label--xs">Hint (grammar guidance)</label>
+                            <input
+                              type="text"
+                              className="input"
+                              value={field.hint || ''}
+                              onChange={e => updateMadLibField(i, { hint: e.target.value })}
+                              placeholder="e.g., a name, verb past tense, noun plural"
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+
+                          {showPreview && (
+                            <div style={{ marginBottom: 'var(--space-sm)' }}>
+                              <label className="label label--xs">Preview value</label>
+                              <input
+                                type="text"
+                                className="input"
+                                value={previewValues[field.key] || ''}
+                                onChange={e => setPreviewValues(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                placeholder={`Sample ${field.key}...`}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                          )}
+
+                          {usages.length > 0 && (
+                            <p className="text-xs text-secondary">
+                              Used in: {usages.map(u => u.sceneTitle).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Question Writing Tips */}
+              <details style={{ marginBottom: 'var(--space-lg)', border: '1px solid var(--text-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 500, color: 'var(--accent)' }}>
+                  Question Writing Tips
+                </summary>
+                <div style={{ marginTop: 'var(--space-md)', color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+                  <p style={{ marginBottom: 'var(--space-sm)' }}>
+                    <strong>Make questions indirect!</strong> Don't reveal how answers will be used.
+                  </p>
+                  <ul style={{ marginLeft: 'var(--space-md)', marginBottom: 'var(--space-sm)' }}>
+                    <li>Instead of "What's your weakness?" ask "What keeps you up at 3am?"</li>
+                    <li>Instead of "What's your goal?" ask "If you had one wish, what would it be?"</li>
+                    <li>Instead of "What's your job?" ask "What would you do if money didn't matter?"</li>
+                    <li>Instead of "What's your fear?" ask "What sound makes you uncomfortable?"</li>
+                    <li>Instead of "Where are you from?" ask "Describe a place that smells like memories."</li>
+                  </ul>
+                  <p>The magic happens when players don't know how their answers will be woven into the story!</p>
+                </div>
+              </details>
+            </div>
+          )}
+
           {/* Opening Scene Editor */}
           {editingOpeningScene && story.opening_scene && (
             <div className="card">
@@ -439,7 +802,7 @@ export default function Editor() {
                         >
                           <option value="">Scene Selection (player chooses)</option>
                           {story.scenes.map(s => (
-                            <option key={s.id} value={s.id}>{s.title}</option>
+                            <option key={s.id} value={s.id}>{s.display_name || s.title}</option>
                           ))}
                         </select>
                       </div>
@@ -478,6 +841,243 @@ export default function Editor() {
                 </button>
               </div>
 
+              {/* Display Name (for scene selection) */}
+              <div style={{ marginBottom: 'var(--space-md)' }}>
+                <label htmlFor="scene-display-name" className="label">
+                  Display Name <span className="text-secondary text-xs">(poetic name for scene selection)</span>
+                </label>
+                <input
+                  id="scene-display-name"
+                  type="text"
+                  className="input"
+                  value={selectedScene.display_name || ''}
+                  onChange={e => updateScene(selectedScene.id, { display_name: e.target.value || undefined })}
+                  placeholder="e.g., The door with the cracked mirror symbol..."
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              {/* Finale Scene Toggle */}
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <label className="text-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedScene.is_finale || false}
+                    onChange={e => updateScene(selectedScene.id, {
+                      is_finale: e.target.checked,
+                      // Clear choices when marking as finale
+                      choices: e.target.checked ? [] : selectedScene.choices
+                    })}
+                  />
+                  This is a finale scene (die-roll ending, no choices)
+                </label>
+              </div>
+
+              {/* Finale Fields - only shown when is_finale is true */}
+              {selectedScene.is_finale && (
+                <div style={{ marginBottom: 'var(--space-lg)', padding: 'var(--space-md)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                  <h4 style={{ marginBottom: 'var(--space-md)' }}>Finale Settings</h4>
+
+                  {/* Items Reference */}
+                  {availableItems.length > 0 && (
+                    <div style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-sm)', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--text-secondary)' }}>
+                      <div className="text-xs text-secondary" style={{ marginBottom: 'var(--space-xs)' }}>
+                        Items in this story (use in text as {'{item_text:Name}'}):
+                      </div>
+                      <div className="text-sm" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
+                        {availableItems.map(item => (
+                          <span
+                            key={item}
+                            style={{
+                              padding: '2px 6px',
+                              background: 'var(--bg-secondary)',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: 'var(--text-xs)'
+                            }}
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: 'var(--space-md)' }}>
+                    <label htmlFor="finale-setup" className="label">
+                      Setup Text <span className="text-secondary text-xs">(read before die roll)</span>
+                    </label>
+                    <textarea
+                      id="finale-setup"
+                      className="input"
+                      value={selectedScene.finale_setup_text || ''}
+                      onChange={e => updateScene(selectedScene.id, { finale_setup_text: e.target.value })}
+                      rows={3}
+                      placeholder="Explain the final challenge and die roll mechanics..."
+                      style={{ width: '100%', resize: 'vertical' }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: 'var(--space-md)' }}>
+                    <label htmlFor="victory-text" className="label">
+                      Victory Text <span className="text-secondary text-xs">(read on successful roll)</span>
+                    </label>
+                    <textarea
+                      id="victory-text"
+                      className="input"
+                      value={selectedScene.victory_text || ''}
+                      onChange={e => updateScene(selectedScene.id, { victory_text: e.target.value })}
+                      rows={4}
+                      placeholder="The triumphant ending..."
+                      style={{ width: '100%', resize: 'vertical' }}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="defeat-text" className="label">
+                      Defeat Text <span className="text-secondary text-xs">(read on failed roll)</span>
+                    </label>
+                    <textarea
+                      id="defeat-text"
+                      className="input"
+                      value={selectedScene.defeat_text || ''}
+                      onChange={e => updateScene(selectedScene.id, { defeat_text: e.target.value })}
+                      rows={4}
+                      placeholder="The tragic ending..."
+                      style={{ width: '100%', resize: 'vertical' }}
+                    />
+                  </div>
+
+                  {/* Item Text Blocks */}
+                  <div style={{ marginTop: 'var(--space-lg)', paddingTop: 'var(--space-md)', borderTop: '1px solid var(--text-secondary)' }}>
+                    <h5 style={{ marginBottom: 'var(--space-sm)' }}>
+                      Item-Conditional Text
+                      <span className="text-secondary text-xs" style={{ marginLeft: 'var(--space-sm)', fontWeight: 'normal' }}>
+                        Use {'{item_text:ItemName}'} in victory/defeat text
+                      </span>
+                    </h5>
+                    <p className="text-secondary text-xs" style={{ marginBottom: 'var(--space-md)' }}>
+                      Add text snippets that only appear when specific items were collected.
+                    </p>
+
+                    {/* Existing item text blocks */}
+                    {Object.entries(selectedScene.item_texts || {}).map(([itemName, itemEntry]) => (
+                      <div key={itemName} className="card" style={{ marginBottom: 'var(--space-sm)', padding: 'var(--space-sm)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xs)' }}>
+                          <strong className="text-sm">{itemName}</strong>
+                          <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
+                            <label className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                              <input
+                                type="checkbox"
+                                checked={itemPreviewAcquired[itemName] || false}
+                                onChange={e => setItemPreviewAcquired(prev => ({ ...prev, [itemName]: e.target.checked }))}
+                              />
+                              Preview
+                            </label>
+                            <button
+                              className="btn btn--secondary btn--sm"
+                              onClick={() => {
+                                const newItemTexts = { ...selectedScene.item_texts }
+                                delete newItemTexts[itemName]
+                                updateScene(selectedScene.id, { item_texts: newItemTexts })
+                              }}
+                              style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xs)' }}>
+                          <div>
+                            <label className="text-xs text-secondary">Victory</label>
+                            <textarea
+                              className="input"
+                              value={itemEntry?.victory || ''}
+                              onChange={e => updateScene(selectedScene.id, {
+                                item_texts: {
+                                  ...selectedScene.item_texts,
+                                  [itemName]: { ...itemEntry, victory: e.target.value }
+                                }
+                              })}
+                              rows={2}
+                              placeholder="Text shown on victory..."
+                              style={{ width: '100%', resize: 'vertical', fontSize: 'var(--text-sm)' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-secondary">Defeat</label>
+                            <textarea
+                              className="input"
+                              value={itemEntry?.defeat || ''}
+                              onChange={e => updateScene(selectedScene.id, {
+                                item_texts: {
+                                  ...selectedScene.item_texts,
+                                  [itemName]: { ...itemEntry, defeat: e.target.value }
+                                }
+                              })}
+                              rows={2}
+                              placeholder="Text shown on defeat..."
+                              style={{ width: '100%', resize: 'vertical', fontSize: 'var(--text-sm)' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add new item text block */}
+                    {availableItems.filter(item => !selectedScene.item_texts?.[item]).length > 0 && (
+                      <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
+                        <select
+                          className="input"
+                          style={{ flex: 1 }}
+                          defaultValue=""
+                          onChange={e => {
+                            if (e.target.value) {
+                              updateScene(selectedScene.id, {
+                                item_texts: { ...(selectedScene.item_texts || {}), [e.target.value]: { victory: '', defeat: '' } }
+                              })
+                              e.target.value = ''
+                            }
+                          }}
+                        >
+                          <option value="">Add item text block...</option>
+                          {availableItems
+                            .filter(item => !selectedScene.item_texts?.[item])
+                            .map(item => (
+                              <option key={item} value={item}>{item}</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                    )}
+
+                    {availableItems.length === 0 && (
+                      <p className="text-secondary text-xs">
+                        No items defined in this story yet. Add item choices to scenes first.
+                      </p>
+                    )}
+
+                    {/* Live Preview */}
+                    {(selectedScene.victory_text || selectedScene.defeat_text) && Object.keys(selectedScene.item_texts || {}).length > 0 && (
+                      <div style={{ marginTop: 'var(--space-md)', padding: 'var(--space-sm)', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--text-secondary)' }}>
+                        <div className="text-xs text-secondary" style={{ marginBottom: 'var(--space-xs)' }}>Preview (toggle items above):</div>
+                        <div className="text-sm">
+                          <strong>Victory:</strong>{' '}
+                          {(selectedScene.victory_text || '').replace(
+                            /\{item_text:([\w\s_:-]+)\}/g,
+                            (_, itemName) => itemPreviewAcquired[itemName] ? (selectedScene.item_texts?.[itemName]?.victory || '') : ''
+                          )}
+                        </div>
+                        <div className="text-sm" style={{ marginTop: 'var(--space-xs)' }}>
+                          <strong>Defeat:</strong>{' '}
+                          {(selectedScene.defeat_text || '').replace(
+                            /\{item_text:([\w\s_:-]+)\}/g,
+                            (_, itemName) => itemPreviewAcquired[itemName] ? (selectedScene.item_texts?.[itemName]?.defeat || '') : ''
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Scene Text */}
               <div style={{ marginBottom: 'var(--space-lg)' }}>
                 <label htmlFor="scene-text" className="label">
@@ -493,62 +1093,78 @@ export default function Editor() {
                 />
               </div>
 
-              {/* Choices */}
-              <div>
-                <h4 style={{ marginBottom: 'var(--space-md)' }}>Choices</h4>
-                {selectedScene.choices.map((choice, i) => (
-                  <div key={i} className="card" style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md)' }}>
-                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 'var(--space-md)', alignItems: 'start' }}>
-                      <div>
-                        <label className="label label--xs">
-                          Type
-                        </label>
-                        <select
-                          className="input"
-                          value={choice.kind}
-                          onChange={e => updateChoice(selectedScene.id, i, { kind: e.target.value as ChoiceKind })}
-                          style={{ width: '100%' }}
-                        >
-                          <option value="damage">Damage</option>
-                          <option value="item">Item</option>
-                          <option value="level">Level</option>
-                        </select>
+              {/* Choices - only shown for non-finale scenes */}
+              {!selectedScene.is_finale && (
+                <div>
+                  <h4 style={{ marginBottom: 'var(--space-md)' }}>Choices</h4>
+                  {selectedScene.choices.map((choice, i) => (
+                    <div key={i} className="card" style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md)' }}>
+                      <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 'var(--space-md)', alignItems: 'start' }}>
+                        <div>
+                          <label className="label label--xs">
+                            Type
+                          </label>
+                          <select
+                            className="input"
+                            value={choice.kind}
+                            onChange={e => updateChoice(selectedScene.id, i, { kind: e.target.value as ChoiceKind })}
+                            style={{ width: '100%' }}
+                          >
+                            <option value="damage">Damage</option>
+                            <option value="item">Item</option>
+                            <option value="level">Level</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label label--xs">
+                            Display Text (shown to players)
+                          </label>
+                          <input
+                            type="text"
+                            className="input"
+                            value={choice.display_text}
+                            onChange={e => updateChoice(selectedScene.id, i, { display_text: e.target.value })}
+                            placeholder="Do you choose to..."
+                            style={{ width: '100%' }}
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="label label--xs">
-                          Text
-                        </label>
-                        <input
-                          type="text"
-                          className="input"
-                          value={choice.text}
-                          onChange={e => updateChoice(selectedScene.id, i, { text: e.target.value })}
-                          style={{ width: '100%' }}
-                        />
-                      </div>
-                    </div>
-                    {choice.kind === 'item' && (
                       <div style={{ marginTop: 'var(--space-sm)' }}>
                         <label className="label label--xs">
-                          Item Name
+                          Result Text (read after choice)
                         </label>
-                        <input
-                          type="text"
+                        <textarea
                           className="input"
-                          value={choice.item_name || ''}
-                          onChange={e => updateChoice(selectedScene.id, i, { item_name: e.target.value })}
-                          style={{ width: '100%', maxWidth: '200px' }}
+                          value={choice.result_text}
+                          onChange={e => updateChoice(selectedScene.id, i, { result_text: e.target.value })}
+                          placeholder="What happens when this choice is made..."
+                          rows={3}
+                          style={{ width: '100%', resize: 'vertical' }}
                         />
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {choice.kind === 'item' && (
+                        <div style={{ marginTop: 'var(--space-sm)' }}>
+                          <label className="label label--xs">
+                            Item Name
+                          </label>
+                          <input
+                            type="text"
+                            className="input"
+                            value={choice.item_name || ''}
+                            onChange={e => updateChoice(selectedScene.id, i, { item_name: e.target.value })}
+                            style={{ width: '100%', maxWidth: '200px' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Empty state when nothing selected */}
-          {!selectedScene && !editingOpeningScene && (
+          {!selectedScene && !editingOpeningScene && !editingCharacterCreation && (
             <div className="card" style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
               <p className="text-secondary">Select a scene to edit or add a new one.</p>
             </div>

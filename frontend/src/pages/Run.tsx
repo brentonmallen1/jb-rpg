@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import * as api from '../hooks/api'
-import type { Story } from '../types'
+import type { Story, Choice, Scene, HistoryEntry, ThemeName } from '../types'
 import { Modal, ConfirmDialog, RulesModal, HPDisplay, StatsRow, ModeToggle } from '../components'
+import { getThemeVars } from '../styles/themeVars'
 import '../styles/pages/run.css'
 
 export default function Run() {
@@ -14,7 +15,9 @@ export default function Run() {
     playerCount,
     toggleColorMode,
     colorMode,
+    setTheme,
     submitMadlib,
+    proceedFromCharacter,
     makeChoice,
     goBack,
     finish,
@@ -34,6 +37,9 @@ export default function Run() {
   const [copyFeedback, setCopyFeedback] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [storytellerChoicesRevealed, setStorytellerChoicesRevealed] = useState(false)
+  const [pendingChoice, setPendingChoice] = useState<{ visualIndex: number; choice: Choice } | null>(null)
+  const [pendingRevisit, setPendingRevisit] = useState<{ sceneId: string; sceneTitle: string; outcome: string } | null>(null)
+  const [pendingOutcome, setPendingOutcome] = useState<{ outcome: 'victory' | 'defeat'; text: string } | null>(null)
 
   // Load story data
   useEffect(() => {
@@ -46,6 +52,18 @@ export default function Run() {
   useEffect(() => {
     setStorytellerChoicesRevealed(false)
   }, [state?.current_scene_id])
+
+  // Force modern theme for storyteller's Run page
+  useEffect(() => {
+    setTheme('modern')
+  }, [setTheme])
+
+  // Load story's theme CSS for themed stats display
+  useEffect(() => {
+    if (story?.theme && story.theme !== 'modern') {
+      import(`../styles/themes/${story.theme}.css`)
+    }
+  }, [story?.theme])
 
   // Still connecting to SSE
   if (isInitializing) {
@@ -87,22 +105,40 @@ export default function Run() {
     }
   }
 
-  async function handleChoice(index: number) {
+  function handleChoice(visualIndex: number, choice: Choice) {
+    // Show confirmation modal instead of immediately making choice
+    setPendingChoice({ visualIndex, choice })
+  }
+
+  async function confirmChoice() {
+    if (!pendingChoice) return
     try {
-      await makeChoice(index)
+      await makeChoice(pendingChoice.visualIndex)
+      setPendingChoice(null)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to make choice')
     }
   }
 
+  function cancelChoice() {
+    setPendingChoice(null)
+  }
+
   async function handleFinish(outcome: 'victory' | 'defeat') {
     try {
       await finish(outcome)
       setError(null)
+      setPendingOutcome(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to finish game')
     }
+  }
+
+  function showFinaleOutcome(outcome: 'victory' | 'defeat') {
+    // Use resolved text from backend (has variable injection applied)
+    const text = outcome === 'victory' ? resolved?.victory_text : resolved?.defeat_text
+    setPendingOutcome({ outcome, text: text || '' })
   }
 
   async function handleRestart() {
@@ -133,7 +169,10 @@ export default function Run() {
 
   return (
     <>
-      <nav className="nav">
+      <nav
+        className={`nav ${story?.theme || 'modern'}`}
+        style={story ? getThemeVars(story.theme as ThemeName, colorMode) : undefined}
+      >
         <span className="nav__title">J&B's RPG</span>
         <div className="nav__actions">
           <span className="text-secondary text-sm" aria-live="polite">
@@ -208,6 +247,14 @@ export default function Run() {
               >
                 {currentField.label}
               </label>
+              {currentField.hint && (
+                <div className="text-secondary text-sm" style={{ marginBottom: 'var(--space-sm)', fontStyle: 'italic' }}>
+                  ({currentField.hint})
+                </div>
+              )}
+              <div className="text-secondary text-sm" style={{ marginBottom: 'var(--space-sm)' }}>
+                → fills <code style={{ background: 'var(--bg-secondary)', padding: '0 4px', borderRadius: '4px' }}>{'{' + currentField.key + '}'}</code>
+              </div>
               <input
                 key={state.madlib_step}
                 id={madlibInputId}
@@ -222,6 +269,24 @@ export default function Run() {
                 Submit
               </button>
             </form>
+          </div>
+        )}
+
+        {/* Character Reveal Phase */}
+        {state.status === 'character_reveal' && state.character && (
+          <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+            <h1 style={{ marginBottom: 'var(--space-lg)' }}>Read to Players</h1>
+            <div className="card" style={{ marginBottom: 'var(--space-lg)', textAlign: 'left' }}>
+              <div className="font-semibold" style={{ marginBottom: 'var(--space-sm)', fontSize: 'var(--text-xl)' }}>
+                {state.character.name}
+              </div>
+              <p className="prose" style={{ lineHeight: 1.6 }}>
+                {state.character.description}
+              </p>
+            </div>
+            <button className="btn" onClick={() => proceedFromCharacter()}>
+              Continue
+            </button>
           </div>
         )}
 
@@ -261,12 +326,25 @@ export default function Run() {
         {/* Scene Selection Phase */}
         {state.status === 'awaiting_scene_selection' && story && (
           <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <h1 style={{ marginBottom: 'var(--space-lg)' }}>Select Next Scene</h1>
+            <h1 style={{ marginBottom: 'var(--space-md)' }}>Select Next Scene</h1>
+
+            {/* Player Stats (themed) */}
+            <div className={story.theme} style={getThemeVars(story.theme as ThemeName, colorMode)}>
+              <div style={{ marginBottom: 'var(--space-lg)', display: 'flex', justifyContent: 'center', gap: 'var(--space-lg)', flexWrap: 'wrap' }}>
+                <HPDisplay hp={state.hp} />
+                <StatsRow level={state.level} itemCount={state.items.length} />
+              </div>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
               {story.scenes.map(scene => {
                 const historyEntry = state.history.find(h => h.scene_id === scene.id)
                 const isPlayed = !!historyEntry
                 const choiceMade = isPlayed ? scene.choices[historyEntry.choice_index] : null
+                const isFinale = scene.is_finale
+                const nonFinaleScenes = story.scenes.filter((s: Scene) => !s.is_finale)
+                const playedIds = new Set(state.history.map((h: HistoryEntry) => h.scene_id))
+                const allNonFinalesPlayed = nonFinaleScenes.every((s: Scene) => playedIds.has(s.id))
+                const isFinaleDisabled = isFinale && !allNonFinalesPlayed
 
                 const getOutcomeDisplay = (choice: { kind: string; item_name?: string }) => {
                   if (choice.kind === 'damage') return '-1 HP'
@@ -275,22 +353,45 @@ export default function Run() {
                   return ''
                 }
 
+                const handleSceneClick = () => {
+                  if (isFinaleDisabled) {
+                    setError('Complete all scenes before accessing the finale')
+                    return
+                  }
+                  if (isPlayed && choiceMade) {
+                    // Show confirmation for revisit
+                    setPendingRevisit({
+                      sceneId: scene.id,
+                      sceneTitle: scene.display_name || scene.title,
+                      outcome: getOutcomeDisplay(choiceMade)
+                    })
+                  } else {
+                    selectScene(scene.id)
+                  }
+                }
+
                 return (
                   <button
                     key={scene.id}
                     className="card"
-                    onClick={() => selectScene(scene.id)}
+                    onClick={handleSceneClick}
                     style={{
                       textAlign: 'left',
-                      cursor: 'pointer',
+                      cursor: isFinaleDisabled ? 'not-allowed' : 'pointer',
                       border: scene.id === state.current_scene_id ? '2px solid var(--accent)' : undefined,
-                      opacity: isPlayed ? 0.7 : 1
+                      opacity: isFinaleDisabled ? 0.4 : isPlayed ? 0.7 : 1
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xs)' }}>
-                      <div className="font-semibold">{scene.title}</div>
+                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {scene.display_name || scene.title}
+                        {isFinale && <span className="text-sm text-secondary"> (Finale)</span>}
+                      </div>
                       {isPlayed && (
                         <span className="text-sm text-secondary" style={{ fontStyle: 'italic' }}>Played</span>
+                      )}
+                      {isFinaleDisabled && (
+                        <span className="text-sm text-secondary" style={{ fontStyle: 'italic' }}>🔒</span>
                       )}
                     </div>
                     {isPlayed && choiceMade ? (
@@ -320,14 +421,14 @@ export default function Run() {
               </div>
             )}
 
-            {/* HP Display */}
-            <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <HPDisplay hp={state.hp} />
-            </div>
-
-            {/* Stats */}
-            <div style={{ marginBottom: 'var(--space-lg)' }}>
-              <StatsRow level={state.level} itemCount={state.items.length} />
+            {/* HP Display & Stats (themed) */}
+            <div className={story.theme} style={getThemeVars(story.theme as ThemeName, colorMode)}>
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <HPDisplay hp={state.hp} />
+              </div>
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <StatsRow level={state.level} itemCount={state.items.length} />
+              </div>
             </div>
 
             {/* Scene text */}
@@ -335,7 +436,7 @@ export default function Run() {
               <p className="prose">{resolved.scene_text}</p>
             </div>
 
-            {/* Choices */}
+            {/* Choices or Finale */}
             {(() => {
               const currentScene = story.scenes.find(s => s.id === state.current_scene_id)
               const getOutcomeLabel = (choice: { kind: string; item_name?: string }) => {
@@ -345,8 +446,34 @@ export default function Run() {
                 return ''
               }
 
+              // Finale scene - show setup text and outcome buttons instead of choices
+              if (currentScene?.is_finale) {
+                return (
+                  <div style={{ textAlign: 'center' }}>
+                    {currentScene.finale_setup_text && (
+                      <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+                        <p className="prose">{currentScene.finale_setup_text}</p>
+                      </div>
+                    )}
+                    <div style={{ marginBottom: 'var(--space-lg)' }}>
+                      <p className="text-secondary">Roll a d20 and add {state.items.length} (items)</p>
+                      <p className="text-secondary">You have {state.level} roll attempt(s)</p>
+                      <p className="text-secondary">Need 20+ total to win!</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+                      <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
+                        Victory!
+                      </button>
+                      <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
+                        Defeat
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
               // Storyteller hasn't revealed choices yet - show reveal button
-              if (!storytellerChoicesRevealed && !state.shuffled_choices.length) {
+              if (!storytellerChoicesRevealed && !state.shuffled_indices.length) {
                 return (
                   <div style={{ textAlign: 'center' }}>
                     <button
@@ -366,21 +493,20 @@ export default function Run() {
               return (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                    {state.shuffled_choices.map((text, i) => {
-                      const choice = currentScene?.choices.find(c => c.text === text)
+                    {state.shuffled_indices.map((originalIndex: number, visualIndex: number) => {
+                      const choice = currentScene?.choices[originalIndex]
+                      if (!choice) return null
                       return (
                         <button
-                          key={i}
-                          className={`btn choice-btn choice-btn--${choice?.kind ?? 'damage'}`}
-                          onClick={() => handleChoice(i)}
+                          key={visualIndex}
+                          className={`btn choice-btn choice-btn--${choice.kind}`}
+                          onClick={() => handleChoice(visualIndex, choice)}
                           style={{ padding: 'var(--space-md)', textAlign: 'left' }}
                         >
-                          <div>{text}</div>
-                          {choice && (
-                            <div className="text-sm" style={{ opacity: 0.8, marginTop: 'var(--space-xs)' }}>
-                              {getOutcomeLabel(choice)}
-                            </div>
-                          )}
+                          <div>{choice.display_text}</div>
+                          <div className="text-sm" style={{ opacity: 0.8, marginTop: 'var(--space-xs)' }}>
+                            {getOutcomeLabel(choice)}
+                          </div>
                         </button>
                       )
                     })}
@@ -397,8 +523,8 @@ export default function Run() {
               )
             })()}
 
-            {/* Back button */}
-            {state.history.length > 0 && (
+            {/* Back button - only for linear stories, not for non-linear (scene replay is done from scene selection) */}
+            {state.history.length > 0 && !story?.settings.non_linear && (
               <div style={{ marginTop: 'var(--space-lg)', textAlign: 'center' }}>
                 <button className="btn btn--secondary" onClick={() => goBack()}>
                   Go Back
@@ -427,9 +553,24 @@ export default function Run() {
                     <p className="text-secondary">{state.items.join(', ')}</p>
                   )}
                 </div>
-                <button className="btn" onClick={handleRestart}>
-                  Return to Library
-                </button>
+                {!state.outcome_revealed ? (
+                  <button
+                    className="btn btn--success"
+                    onClick={async () => {
+                      try {
+                        await api.revealOutcome()
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Failed to reveal outcome')
+                      }
+                    }}
+                  >
+                    Reveal to Players
+                  </button>
+                ) : (
+                  <button className="btn" onClick={handleRestart}>
+                    Return to Library
+                  </button>
+                )}
               </>
             ) : (
               <>
@@ -444,10 +585,10 @@ export default function Run() {
                   <p>Need 20+ total to win!</p>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
-                  <button className="btn btn--success" onClick={() => handleFinish('victory')}>
+                  <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
                     Victory!
                   </button>
-                  <button className="btn btn--danger" onClick={() => handleFinish('defeat')}>
+                  <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
                     Defeat
                   </button>
                 </div>
@@ -456,6 +597,35 @@ export default function Run() {
           </div>
         )}
       </main>
+
+      {/* Finale Outcome Modal */}
+      <Modal
+        isOpen={!!pendingOutcome}
+        onClose={() => setPendingOutcome(null)}
+        title={pendingOutcome?.outcome === 'victory' ? 'Victory!' : 'Defeat'}
+      >
+        <div style={{ marginBottom: 'var(--space-lg)' }}>
+          {pendingOutcome?.text ? (
+            <p className="prose">{pendingOutcome.text}</p>
+          ) : (
+            <p className="text-secondary">No text provided for this outcome.</p>
+          )}
+        </div>
+        <p className="text-secondary text-sm" style={{ marginBottom: 'var(--space-lg)' }}>
+          Read the text above to your players, then click Continue.
+        </p>
+        <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+          <button className="btn btn--secondary" onClick={() => setPendingOutcome(null)}>
+            Cancel
+          </button>
+          <button
+            className={pendingOutcome?.outcome === 'victory' ? 'btn btn--success' : 'btn btn--danger'}
+            onClick={() => pendingOutcome && handleFinish(pendingOutcome.outcome)}
+          >
+            Continue
+          </button>
+        </div>
+      </Modal>
 
       {/* Share Modal */}
       <Modal
@@ -513,6 +683,60 @@ export default function Run() {
         confirmText="End Session"
         variant="danger"
       />
+
+      {/* Scene Revisit Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={!!pendingRevisit}
+        onConfirm={async () => {
+          if (pendingRevisit) {
+            try {
+              await selectScene(pendingRevisit.sceneId, true)
+              setPendingRevisit(null)
+              setError(null)
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Failed to revisit scene')
+            }
+          }
+        }}
+        onCancel={() => setPendingRevisit(null)}
+        title="Revisit Scene?"
+        message={pendingRevisit ? `Revisiting "${pendingRevisit.sceneTitle}" will revert: ${pendingRevisit.outcome}` : ''}
+        confirmText="Revisit"
+        variant="default"
+      />
+
+      {/* Choice Confirmation Modal */}
+      <Modal
+        isOpen={!!pendingChoice}
+        onClose={cancelChoice}
+        title="Choice Result"
+      >
+        {pendingChoice && (
+          <>
+            <div
+              className={`text-${pendingChoice.choice.kind === 'damage' ? 'danger' : pendingChoice.choice.kind === 'item' ? 'success' : 'warning'}`}
+              style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-md)', textAlign: 'center' }}
+            >
+              {pendingChoice.choice.kind === 'damage' && '−1 HP'}
+              {pendingChoice.choice.kind === 'item' && (pendingChoice.choice.item_name || 'Item Gained')}
+              {pendingChoice.choice.kind === 'level' && 'Level Up!'}
+            </div>
+            <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+              <p className="prose" style={{ lineHeight: 1.6 }}>
+                {pendingChoice.choice.result_text}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+              <button className="btn" onClick={confirmChoice}>
+                Continue
+              </button>
+              <button className="btn btn--secondary" onClick={cancelChoice}>
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
 
       {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />

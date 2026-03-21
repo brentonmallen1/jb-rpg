@@ -36,6 +36,7 @@ class ThemeName(str, Enum):
 
 class SessionStatus(str, Enum):
     MADLIB_IN_PROGRESS = "madlib_in_progress"
+    CHARACTER_REVEAL = "character_reveal"  # Storyteller reads character to players
     OPENING_SCENE_ACTIVE = "opening_scene_active"
     RUNNING = "running"
     AWAITING_SCENE_SELECTION = "awaiting_scene_selection"
@@ -82,7 +83,8 @@ class OpeningScene(BaseModel):
 
 class Choice(BaseModel):
     kind: ChoiceKind
-    text: str
+    display_text: str  # What players see when choosing (e.g., "Do you choose to...")
+    result_text: str   # What storyteller reads after choice is made
     amount: int = 1
     item_name: Optional[str] = None
 
@@ -90,14 +92,22 @@ class Choice(BaseModel):
 class Scene(BaseModel):
     id: str
     title: str
+    display_name: Optional[str] = None  # Poetic/descriptive name for scene selection
     base_text: str
-    choices: list[Choice]
+    choices: list[Choice] = []  # Empty for finale scenes
     conditional_text: list[ConditionalText] = []
+    is_finale: bool = False  # If true, this is the final die-roll scene
+    finale_setup_text: Optional[str] = None  # Read before die roll
+    victory_text: Optional[str] = None  # Read on victory
+    defeat_text: Optional[str] = None  # Read on defeat
+    # Item-conditional text blocks for finale: { "ItemName": { "victory": "...", "defeat": "..." } }
+    item_texts: dict[str, dict[str, str]] = {}
 
 
 class MadLibField(BaseModel):
     key: str
     label: str
+    hint: Optional[str] = None  # Grammar hint (e.g., "verb, past tense")
 
 
 class MadLibTemplate(BaseModel):
@@ -147,20 +157,42 @@ class GameState(BaseModel):
     history: list[HistoryEntry] = []
     character: Optional[Character] = None
     outcome: Optional[Literal["victory", "defeat"]] = None
+    outcome_revealed: bool = False
     choices_revealed: bool = False
-    shuffled_choices: list[str] = []
+    shuffled_indices: list[int] = []
 
 
-def inject_variables(text: str, fields: dict[str, str] | None) -> str:
-    """Replace {key} placeholders with values from fields dict."""
-    if not fields:
-        return text
+def inject_variables(
+    text: str,
+    fields: dict[str, str] | None,
+    state: "GameState | None" = None,
+    item_texts: dict[str, dict[str, str]] | None = None,
+    outcome: Literal["victory", "defeat"] | None = None,
+) -> str:
+    """Replace {key} placeholders with values from fields dict and item_text references."""
 
     def replace(match):
         key = match.group(1)
-        return fields.get(key, match.group(0))
 
-    return re.sub(r"\{(\w+)\}", replace, text)
+        # Check for item_text:ItemName syntax
+        if key.startswith("item_text:"):
+            item_name = key[10:]  # strip "item_text:" prefix
+            if state and item_name in state.items and item_texts and item_name in item_texts:
+                item_entry = item_texts[item_name]
+                # Get text for the specific outcome, or empty if not defined
+                if outcome and outcome in item_entry:
+                    return item_entry[outcome]
+                # Fall back to victory text if defeat not defined, or vice versa
+                return item_entry.get("victory", item_entry.get("defeat", ""))
+            return ""  # remove placeholder if item not collected
+
+        # Fall back to mad lib fields
+        if fields:
+            return fields.get(key, match.group(0))
+        return match.group(0)
+
+    # Regex allows word chars, spaces, colons, hyphens, underscores for item names
+    return re.sub(r"\{([\w\s:_-]+)\}", replace, text)
 
 
 def evaluate_condition(condition: Condition, state: GameState) -> bool:
@@ -361,6 +393,9 @@ app.add_middleware(AdminAuthMiddleware)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Vite builds assets to /assets/ - mount separately for production (only if exists)
+if (STATIC_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
 
 # ---------------------------------------------------------------------------
@@ -435,7 +470,19 @@ def build_resolved(state: "GameState | None") -> "dict | None":
     if scene is None:
         return None
     scene_text = resolve_scene_text(scene, state)
-    return {"scene_text": scene_text, "character_description": char_desc}
+    resolved = {"scene_text": scene_text, "character_description": char_desc}
+
+    # Include resolved finale text with variable injection and item_text support
+    if scene.victory_text:
+        resolved["victory_text"] = inject_variables(
+            scene.victory_text, fields, state, scene.item_texts, "victory"
+        )
+    if scene.defeat_text:
+        resolved["defeat_text"] = inject_variables(
+            scene.defeat_text, fields, state, scene.item_texts, "defeat"
+        )
+
+    return resolved
 
 
 # In-memory SSE connection tracking
@@ -750,6 +797,7 @@ class FinishRequest(BaseModel):
 
 class SelectSceneRequest(BaseModel):
     scene_id: str
+    revisit: bool = False  # If true, this is a revisit of an already-played scene
 
 
 # ---------------------------------------------------------------------------
@@ -867,11 +915,35 @@ async def submit_madlib(request: MadlibRequest, _: bool = Depends(verify_storyte
             description=description,
             fields=fields_dict,
         )
-        # Check for opening scene before going to running
-        if story.opening_scene:
-            state.status = SessionStatus.OPENING_SCENE_ACTIVE
-        else:
-            state.status = SessionStatus.RUNNING
+        # Go to character reveal so storyteller can read to players
+        state.status = SessionStatus.CHARACTER_REVEAL
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# POST /api/state/proceed-from-character - Continue after character reveal
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/state/proceed-from-character")
+async def proceed_from_character(_: bool = Depends(verify_storyteller)) -> GameState:
+    """Proceed from character reveal to opening scene or running."""
+    state = load_state()
+    if state is None or state.status != SessionStatus.CHARACTER_REVEAL:
+        raise HTTPException(status_code=409, detail="Not in character_reveal status")
+
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+
+    # Check for opening scene before going to running
+    if story.opening_scene:
+        state.status = SessionStatus.OPENING_SCENE_ACTIVE
+    else:
+        state.status = SessionStatus.RUNNING
 
     save_state(state)
     await broadcast_state()
@@ -900,7 +972,12 @@ async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storytell
     if request.choice_index < 0 or request.choice_index >= len(scene.choices):
         raise HTTPException(status_code=422, detail="Invalid choice index")
 
-    choice = scene.choices[request.choice_index]
+    # Map visual index to original index if choices were shuffled
+    original_index = request.choice_index
+    if state.shuffled_indices and request.choice_index < len(state.shuffled_indices):
+        original_index = state.shuffled_indices[request.choice_index]
+
+    choice = scene.choices[original_index]
 
     # Validate item choices have item_name
     if choice.kind == ChoiceKind.ITEM and not choice.item_name:
@@ -917,11 +994,11 @@ async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storytell
     elif choice.kind == ChoiceKind.LEVEL:
         state.level += 1
 
-    # Record history
+    # Record history (use original_index for replay consistency)
     entry = HistoryEntry(
         scene_id=state.current_scene_id,
         outcome=choice.kind,
-        choice_index=request.choice_index,
+        choice_index=original_index,
         item_name=item_name,
         damage_amount=choice.amount,
     )
@@ -958,7 +1035,7 @@ async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storytell
 
     # Reset choice reveal state for next scene
     state.choices_revealed = False
-    state.shuffled_choices = []
+    state.shuffled_indices = []
 
     save_state(state)
     await broadcast_state()
@@ -1032,15 +1109,33 @@ async def select_scene(request: SelectSceneRequest, _: bool = Depends(verify_sto
     if not scene:
         raise HTTPException(status_code=400, detail=f"Scene not found: {request.scene_id}")
 
-    # Validate scene not already played
+    # Check if this is a finale scene and validate access
+    if scene.is_finale:
+        non_finale_scenes = [s for s in story.scenes if not s.is_finale]
+        played_ids = {h.scene_id for h in state.history}
+        unplayed_non_finale = [s for s in non_finale_scenes if s.id not in played_ids]
+        if unplayed_non_finale:
+            raise HTTPException(
+                status_code=400,
+                detail="Complete all scenes before accessing the finale"
+            )
+
+    # Check if scene was already played
     played_ids = {h.scene_id for h in state.history}
     if request.scene_id in played_ids:
-        raise HTTPException(status_code=400, detail=f"Scene already played: {request.scene_id}")
+        if not request.revisit:
+            raise HTTPException(status_code=400, detail=f"Scene already played: {request.scene_id}")
+        # Revisit: remove this scene's history entry and recalculate state
+        state.history = [h for h in state.history if h.scene_id != request.scene_id]
+        hp, level, items = replay_history(state.history, story.settings.starting_hp)
+        state.hp = hp
+        state.level = level
+        state.items = items
 
     state.current_scene_id = request.scene_id
     state.status = SessionStatus.RUNNING
     state.choices_revealed = False
-    state.shuffled_choices = []
+    state.shuffled_indices = []
 
     save_state(state)
     await broadcast_state()
@@ -1074,10 +1169,10 @@ async def reveal_choices(
         raise HTTPException(status_code=404, detail="Scene not found")
 
     # Only shuffle on first reveal - preserve order for subsequent calls
-    if not state.shuffled_choices:
-        choice_texts = [c.text for c in scene.choices]
-        random.shuffle(choice_texts)
-        state.shuffled_choices = choice_texts
+    if not state.shuffled_indices:
+        indices = list(range(len(scene.choices)))
+        random.shuffle(indices)
+        state.shuffled_indices = indices
 
     if show_to_players:
         state.choices_revealed = True
@@ -1156,6 +1251,22 @@ async def finish_session(request: FinishRequest, _: bool = Depends(verify_storyt
         raise HTTPException(status_code=409, detail="Not in game_over status")
 
     state.outcome = request.outcome
+    state.outcome_revealed = False
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+@app.post("/api/state/reveal-outcome")
+async def reveal_outcome(_: bool = Depends(verify_storyteller)) -> GameState:
+    """Reveal the outcome to players after storyteller has read the narrative."""
+    state = load_state()
+    if state is None or state.status != SessionStatus.GAME_OVER:
+        raise HTTPException(status_code=409, detail="Not in game_over status")
+    if state.outcome is None:
+        raise HTTPException(status_code=409, detail="Outcome not set yet")
+
+    state.outcome_revealed = True
     save_state(state)
     await broadcast_state()
     return state

@@ -41,6 +41,14 @@ export default function Run() {
   const [pendingRevisit, setPendingRevisit] = useState<{ sceneId: string; sceneTitle: string; outcome: string } | null>(null)
   const [pendingOutcome, setPendingOutcome] = useState<{ outcome: 'victory' | 'defeat'; text: string } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [madlibInputNode, setMadlibInputNode] = useState<HTMLInputElement | null>(null)
+
+  // Focus madlib input when it mounts AND isSubmitting is false
+  useEffect(() => {
+    if (madlibInputNode && !isSubmitting && state?.status === 'madlib_in_progress') {
+      madlibInputNode.focus()
+    }
+  }, [madlibInputNode, isSubmitting, state?.status, state?.madlib_step])
 
   // Load story data
   useEffect(() => {
@@ -240,6 +248,7 @@ export default function Run() {
                 → fills <code className="code-inline">{'{' + currentField.key + '}'}</code>
               </div>
               <input
+                ref={setMadlibInputNode}
                 key={state.madlib_step}
                 id={madlibInputId}
                 type="text"
@@ -553,32 +562,22 @@ export default function Run() {
                 )}
               </>
             ) : (
-              (() => {
-                const finaleScene = story?.scenes.find(s => s.id === state.current_scene_id)
-                return (
-                  <>
-                    <h1 className="mb-lg">Final Showdown!</h1>
-                    {finaleScene?.finale_setup_text && (
-                      <div className="card mb-lg">
-                        <p className="prose">{finaleScene.finale_setup_text}</p>
-                      </div>
-                    )}
-                    <div className="card mb-lg">
-                      <p className="mb-md">Roll a d20 and add {state.items.length} (items)</p>
-                      <p className="mb-md">You have {state.level} roll attempt(s)</p>
-                      <p>Need 20+ total to win!</p>
-                    </div>
-                    <div className="btn-group">
-                      <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
-                        Victory!
-                      </button>
-                      <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
-                        Defeat
-                      </button>
-                    </div>
-                  </>
-                )
-              })()
+              <>
+                <h1 className="mb-lg">Final Showdown!</h1>
+                <div className="card mb-lg">
+                  <p className="mb-md">Roll a d20 and add {state.items.length} (items)</p>
+                  <p className="mb-md">You have {state.level} roll attempt(s)</p>
+                  <p>Need 20+ total to win!</p>
+                </div>
+                <div className="btn-group">
+                  <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
+                    Victory!
+                  </button>
+                  <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
+                    Defeat
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}

@@ -1009,6 +1009,7 @@ async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storytell
         state.hp = 0
         state.status = SessionStatus.GAME_OVER
         state.outcome = "defeat"
+        state.outcome_revealed = True
     else:
         # Check how many scenes remain unplayed
         played_scene_ids = {h.scene_id for h in state.history}
@@ -1031,13 +1032,7 @@ async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storytell
                 state.status = SessionStatus.GAME_OVER
                 state.outcome = None  # awaiting physical dice roll
             else:
-                next_scene_id = scene_ids[current_index + 1]
-                next_scene = next((s for s in story.scenes if s.id == next_scene_id), None)
-                state.current_scene_id = next_scene_id
-                # If next scene is finale, go directly to game_over
-                if next_scene and next_scene.is_finale:
-                    state.status = SessionStatus.GAME_OVER
-                    state.outcome = None
+                state.current_scene_id = scene_ids[current_index + 1]
 
     # Reset choice reveal state for next scene
     state.choices_revealed = False
@@ -1139,12 +1134,7 @@ async def select_scene(request: SelectSceneRequest, _: bool = Depends(verify_sto
         state.items = items
 
     state.current_scene_id = request.scene_id
-    # Finale scenes go directly to game_over awaiting dice roll
-    if scene.is_finale:
-        state.status = SessionStatus.GAME_OVER
-        state.outcome = None
-    else:
-        state.status = SessionStatus.RUNNING
+    state.status = SessionStatus.RUNNING
     state.choices_revealed = False
     state.shuffled_indices = []
 
@@ -1258,11 +1248,27 @@ async def make_opening_choice(
 @app.post("/api/state/finish")
 async def finish_session(request: FinishRequest, _: bool = Depends(verify_storyteller)) -> GameState:
     state = load_state()
-    if state is None or state.status != SessionStatus.GAME_OVER:
-        raise HTTPException(status_code=409, detail="Not in game_over status")
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+
+    # Accept game_over status OR running status on a finale scene
+    if state.status == SessionStatus.GAME_OVER:
+        pass  # Already in game_over, proceed
+    elif state.status == SessionStatus.RUNNING:
+        # Check if current scene is a finale
+        story_path = STORIES_DIR / f"{state.story_id}.json"
+        with open(story_path) as f:
+            story = Story(**json.load(f))
+        current_scene = next((s for s in story.scenes if s.id == state.current_scene_id), None)
+        if not current_scene or not current_scene.is_finale:
+            raise HTTPException(status_code=409, detail="Can only finish from finale scene or game_over status")
+        # Transition to game_over
+        state.status = SessionStatus.GAME_OVER
+    else:
+        raise HTTPException(status_code=409, detail=f"Cannot finish in status: {state.status}")
 
     state.outcome = request.outcome
-    state.outcome_revealed = False
+    state.outcome_revealed = True
     save_state(state)
     await broadcast_state()
     return state

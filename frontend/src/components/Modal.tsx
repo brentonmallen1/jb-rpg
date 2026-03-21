@@ -162,7 +162,7 @@ export function ConfirmDialog({
       <p style={{ marginBottom: 'var(--space-lg)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
         {message}
       </p>
-      <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
+      <div className="flex justify-end gap-md">
         <button className="btn btn--secondary" onClick={onCancel}>
           {cancelText}
         </button>
@@ -188,6 +188,8 @@ interface InputDialogProps {
   submitText?: string
   cancelText?: string
   initialValue?: string
+  /** Whether the field is required */
+  required?: boolean
 }
 
 /**
@@ -202,7 +204,8 @@ export function InputDialog({
   placeholder = '',
   submitText = 'Submit',
   cancelText = 'Cancel',
-  initialValue = ''
+  initialValue = '',
+  required = true
 }: InputDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const inputId = useRef(`input-dialog-${Math.random().toString(36).slice(2, 9)}`)
@@ -219,20 +222,33 @@ export function InputDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const value = inputRef.current?.value.trim()
-    if (value) {
-      onSubmit(value)
+    const value = inputRef.current?.value.trim() || ''
+
+    // Only validate that required fields are non-empty
+    if (required && !value) {
+      inputRef.current?.setCustomValidity('Please enter a value')
+      inputRef.current?.reportValidity()
+      return
     }
+
+    inputRef.current?.setCustomValidity('')
+    onSubmit(value)
+  }
+
+  const handleInput = () => {
+    // Clear custom validity on input
+    inputRef.current?.setCustomValidity('')
   }
 
   return (
     <Modal isOpen={isOpen} onClose={onCancel} title={title}>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <label
           htmlFor={inputId.current}
           style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-secondary)' }}
         >
           {label}
+          {required && <span className="text-danger" aria-hidden="true"> *</span>}
         </label>
         <input
           ref={inputRef}
@@ -241,9 +257,11 @@ export function InputDialog({
           className="input"
           placeholder={placeholder}
           defaultValue={initialValue}
+          required={required}
+          onInput={handleInput}
           style={{ width: '100%', marginBottom: 'var(--space-lg)' }}
         />
-        <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
+        <div className="flex justify-end gap-md">
           <button type="button" className="btn btn--secondary" onClick={onCancel}>
             {cancelText}
           </button>

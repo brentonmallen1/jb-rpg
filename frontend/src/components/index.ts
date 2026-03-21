@@ -6,6 +6,10 @@
 
 // Layout
 export { PageNav } from './PageNav'
+export { PageMessage } from './PageMessage'
+export { Section, ContentBox } from './Section'
+export { ErrorBoundary } from './ErrorBoundary'
+export { Collapsible } from './Collapsible'
 
 // Forms
 export { InputField, SelectField, TextareaField, CheckboxField } from './FormField'

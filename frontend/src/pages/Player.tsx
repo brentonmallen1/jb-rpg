@@ -44,13 +44,18 @@ export default function Player() {
       .finally(() => setIsValidating(false))
   }, [sessionId])
 
+  const [storyError, setStoryError] = useState(false)
+
   // Load story data and apply theme
   useEffect(() => {
     if (state?.story_id) {
+      setStoryError(false)
       api.getStory(state.story_id).then((s) => {
         setStory(s)
         setTheme(s.theme)
-      }).catch(console.error)
+      }).catch(() => {
+        setStoryError(true)
+      })
     }
   }, [state?.story_id, setTheme])
 
@@ -176,6 +181,13 @@ export default function Player() {
     <>
       <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
       <main className="player-layout">
+        {/* Story load error */}
+        {storyError && (
+          <div className="alert alert--warning mb-lg" role="alert">
+            Could not load story details
+          </div>
+        )}
+
         {/* Character section - now a proper button */}
         {state.character && (
           <button
@@ -184,11 +196,11 @@ export default function Player() {
             onClick={() => setShowCharacterModal(true)}
             aria-label={`View details for ${state.character.name}`}
           >
-            <div className="character-name font-bold">
+            <div className="character-name font-bold truncate">
               {state.character.name}
             </div>
-            <div className="character-description-preview text-secondary">
-              {state.character.description.slice(0, 100)}...
+            <div className="character-description-preview text-secondary line-clamp-2">
+              {state.character.description}
             </div>
           </button>
         )}

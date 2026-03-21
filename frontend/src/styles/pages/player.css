@@ -10,7 +10,8 @@
   padding: var(--space-lg);
   text-align: center;
   width: 100%;
-  max-width: 80%;
+  /* Constrain width with both percentage and pixel cap */
+  max-width: min(90%, 900px);
   margin: 0 auto;
   /* Larger base font for player view */
   font-size: var(--text-lg);
@@ -116,7 +117,6 @@
   color: inherit;
   text-align: center;
   width: 100%;
-  max-width: 80%;
   backdrop-filter: blur(10px);
 }
 
@@ -144,7 +144,7 @@
 .player-layout .items-list {
   list-style: none;
   margin-bottom: var(--space-xl);
-  max-width: 80%;
+  width: 100%;
   font-size: var(--text-lg);
 }
 
@@ -157,7 +157,6 @@
 .player-layout .revealed-choices {
   margin-top: var(--space-lg);
   width: 100%;
-  max-width: 80%;
 }
 
 .player-layout .revealed-choices-label {
@@ -187,4 +186,71 @@
 
 .character-modal-close {
   margin-top: var(--space-lg);
+}
+
+/* ========================================
+   Responsive Styles
+   ======================================== */
+
+/* Mobile: < 768px */
+@media (max-width: 767px) {
+  .player-layout {
+    padding: var(--space-md);
+    font-size: var(--text-base);
+  }
+
+  /* Scale down large headings */
+  .player-layout .session-error h1,
+  .player-layout .creation-header h1,
+  .player-layout .character-name {
+    font-size: var(--text-3xl);
+  }
+
+  .player-layout .finale-outcome {
+    font-size: var(--text-4xl);
+  }
+
+  .player-layout .session-error p,
+  .player-layout .creation-header p,
+  .player-layout .creation-footer p {
+    font-size: var(--text-lg);
+  }
+
+  .player-layout .waiting-state,
+  .player-layout .character-description-preview,
+  .player-layout .revealed-choice {
+    font-size: var(--text-base);
+  }
+
+  .player-layout .finale-roll-info {
+    padding: var(--space-md);
+    font-size: var(--text-base);
+  }
+
+  .player-layout .finale-roll-info h2 {
+    font-size: var(--text-2xl);
+  }
+
+  /* Toolbar button sizing for mobile */
+  .player-toolbar {
+    padding: var(--space-sm);
+  }
+}
+
+/* Small mobile: < 400px */
+@media (max-width: 399px) {
+  .player-layout {
+    padding: var(--space-sm);
+    max-width: 100%;
+  }
+
+  .player-layout .session-error h1,
+  .player-layout .creation-header h1,
+  .player-layout .character-name {
+    font-size: var(--text-2xl);
+  }
+
+  .player-layout .finale-outcome {
+    font-size: var(--text-3xl);
+  }
 }

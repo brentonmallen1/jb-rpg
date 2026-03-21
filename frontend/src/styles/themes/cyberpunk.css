@@ -53,5 +53,5 @@ body.cyberpunk::before {
     --bg-primary: #e8f8f8;
     --bg-secondary: #fff;
     --text-primary: #0a4a4a;
-    --text-secondary: #446;
+    --text-secondary: #3a5566; /* Darkened for 4.5:1 contrast ratio */
 }

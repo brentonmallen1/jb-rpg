@@ -93,21 +93,27 @@ export default function Library() {
     }
   }
 
+  async function handleExport(storyId: string) {
+    try {
+      const story = await api.getStory(storyId)
+      api.downloadStoryAsJson(story)
+    } catch (err) {
+      console.error('Failed to export story:', err)
+      setError('Failed to export story. Please try again.')
+    }
+  }
+
   return (
     <>
       {/* Skip link for keyboard navigation */}
-      <a href="#main-content" className="visually-hidden" style={{ position: 'absolute', top: 0, left: 0, padding: 'var(--space-sm)', background: 'var(--accent)', color: 'var(--text-on-accent)', zIndex: 9999 }}>
+      <a href="#main-content" className="visually-hidden">
         Skip to content
       </a>
 
       <nav className="nav">
         <span className="nav__title">J&B's RPG</span>
-        <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
-          <button
-            className="btn btn--secondary"
-            onClick={() => setShowRules(true)}
-            style={{ padding: 'var(--space-xs) var(--space-sm)', fontSize: 'var(--text-sm)' }}
-          >
+        <div className="row gap-sm">
+          <button className="btn btn--secondary text-sm" onClick={() => setShowRules(true)}>
             Rules
           </button>
           <ModeToggle colorMode={colorMode} onToggle={toggleColorMode} />
@@ -115,32 +121,16 @@ export default function Library() {
       </nav>
 
       <main id="main-content" className="container">
-        <div className="library-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+        <div className="library-header row-between mb-sm">
           <h1>Story Library</h1>
           <button className="btn" onClick={() => setShowCreateDialog(true)}>New Story</button>
         </div>
 
         {/* Error message */}
         {error && (
-          <div
-            role="alert"
-            style={{
-              background: 'var(--danger)',
-              color: 'var(--text-on-danger)',
-              padding: 'var(--space-md)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 'var(--space-lg)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}
-          >
+          <div className="alert alert--danger mb-lg" role="alert">
             <span>{error}</span>
-            <button
-              className="btn btn--secondary"
-              onClick={() => setError(null)}
-              style={{ padding: 'var(--space-xs) var(--space-sm)', fontSize: 'var(--text-sm)' }}
-            >
+            <button className="btn btn--secondary text-sm" onClick={() => setError(null)}>
               Dismiss
             </button>
           </div>
@@ -148,32 +138,25 @@ export default function Library() {
 
         {loading ? (
           <div className="empty-state card" aria-live="polite" aria-busy="true">
+            <div className="page-loader mb-md" aria-hidden="true"><span /></div>
             <p>Loading stories...</p>
+          </div>
+        ) : error && stories.length === 0 ? (
+          <div className="empty-state card">
+            <p className="text-danger mb-md">Failed to load stories</p>
+            <button className="btn" onClick={loadStories}>Try Again</button>
           </div>
         ) : stories.length === 0 ? (
           <div className="empty-state card">
             <p>No stories yet. Create your first adventure!</p>
           </div>
         ) : (
-          <div className="story-grid" style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: 'var(--space-lg)',
-            marginTop: 'var(--space-lg)'
-          }}>
+          <div className="story-grid mt-lg">
             {stories.map(story => (
               <article
                 key={story.id}
                 className={`card story-card story-card--${story.theme} ${state?.story_id === story.id ? 'story-card--active' : ''}`}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-md)',
-                  position: 'relative',
-                  ...getThemeVars(story.theme as ThemeName, colorMode),
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                }}
+                style={getThemeVars(story.theme as ThemeName, colorMode)}
               >
                 {state?.story_id === story.id && (
                   <span
@@ -193,25 +176,12 @@ export default function Library() {
                     Active
                   </span>
                 )}
-                <h2 className="font-semibold" style={{ fontSize: 'var(--text-xl)', margin: 0, color: 'var(--text-primary)' }}>{story.title}</h2>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-                  <span
-                    className="text-xs"
-                    style={{
-                      display: 'inline-block',
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      textTransform: 'capitalize',
-                      marginRight: 'var(--space-sm)',
-                      background: 'var(--accent)',
-                      color: 'var(--bg-primary)',
-                    }}
-                  >
-                    {story.theme.replace('_', ' ')}
-                  </span>
+                <h2 className="font-semibold text-xl truncate" title={story.title}>{story.title}</h2>
+                <div className="story-card-meta">
+                  <span className="theme-badge">{story.theme.replace('_', ' ')}</span>
                   {story.scene_count} scenes
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'auto', flexWrap: 'wrap' }}>
+                <div className="story-card-actions">
                   {state?.story_id === story.id ? (
                     // This story has an active session
                     isInitializing || isValidatingToken ? (
@@ -247,6 +217,13 @@ export default function Library() {
                   )}
                   <button className="btn btn--secondary" onClick={() => navigate(`/editor/${story.id}`)}>
                     Edit
+                  </button>
+                  <button
+                    className="btn btn--secondary"
+                    onClick={() => handleExport(story.id)}
+                    aria-label={`Export ${story.title}`}
+                  >
+                    Export
                   </button>
                   <button
                     className="btn btn--secondary text-danger"

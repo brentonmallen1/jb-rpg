@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 interface HPDisplayProps {
   /** Current HP value */
   hp: number
@@ -11,24 +13,18 @@ interface HPDisplayProps {
 
 /**
  * Accessible HP display with visual indicators.
- * Includes screen reader text for current HP state.
+ * Memoized to prevent unnecessary re-renders.
  */
-export function HPDisplay({
+export const HPDisplay = memo(function HPDisplay({
   hp,
   maxHp = 3,
   indicatorSize = 40,
   showLabel = false
 }: HPDisplayProps) {
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div className="text-center">
       {showLabel && (
-        <div style={{
-          color: 'var(--text-secondary)',
-          fontSize: 'var(--text-lg)',
-          marginBottom: 'var(--space-sm)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em'
-        }}>
+        <div className="text-secondary text-lg uppercase mb-sm" style={{ letterSpacing: '0.1em' }}>
           Health
         </div>
       )}
@@ -39,7 +35,7 @@ export function HPDisplay({
       </span>
 
       {/* Visual indicators */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-md)' }}>
+      <div className="center gap-md">
         {Array.from({ length: maxHp }).map((_, i) => (
           <span
             key={i}
@@ -51,4 +47,4 @@ export function HPDisplay({
       </div>
     </div>
   )
-}
+})

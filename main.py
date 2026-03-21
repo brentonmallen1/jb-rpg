@@ -191,8 +191,8 @@ def inject_variables(
             return fields.get(key, match.group(0))
         return match.group(0)
 
-    # Regex allows word chars, spaces, colons, hyphens, underscores for item names
-    return re.sub(r"\{([\w\s:_-]+)\}", replace, text)
+    # Regex allows word chars, spaces, colons, hyphens, underscores, apostrophes for item names
+    return re.sub(r"\{([\w\s:_'\-]+)\}", replace, text)
 
 
 def evaluate_condition(condition: Condition, state: GameState) -> bool:

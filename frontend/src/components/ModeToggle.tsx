@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 type ColorMode = 'light' | 'dark'
 
 interface ModeToggleProps {
@@ -7,9 +9,9 @@ interface ModeToggleProps {
 
 /**
  * Light/dark mode toggle button.
- * Displays sun in dark mode, moon in light mode.
+ * Memoized to prevent unnecessary re-renders.
  */
-export function ModeToggle({ colorMode, onToggle }: ModeToggleProps) {
+export const ModeToggle = memo(function ModeToggle({ colorMode, onToggle }: ModeToggleProps) {
   return (
     <button
       className="btn btn--secondary mode-toggle"
@@ -19,4 +21,4 @@ export function ModeToggle({ colorMode, onToggle }: ModeToggleProps) {
       {colorMode === 'dark' ? '☀️' : '🌙'}
     </button>
   )
-}
+})

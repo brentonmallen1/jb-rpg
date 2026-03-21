@@ -54,6 +54,8 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-lg);
   margin-top: var(--space-lg);
+  /* Performance: hint browser to optimize off-screen content */
+  contain: layout style;
 }
 
 /* Story card - enhanced styling */
@@ -62,6 +64,8 @@
   flex-direction: column;
   gap: var(--space-md);
   position: relative;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .story-card h2 {
@@ -110,4 +114,39 @@
 
 .story-card-loading {
   padding: var(--space-xs) 0;
+}
+
+/* ========================================
+   Responsive Styles
+   ======================================== */
+
+/* Mobile: < 768px */
+@media (max-width: 767px) {
+  /* Single column grid on mobile */
+  .story-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stack header on mobile */
+  .library-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
+  }
+
+  /* Stack nav actions */
+  .library-nav-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* Small mobile: < 400px */
+@media (max-width: 399px) {
+  .story-card-actions {
+    flex-direction: column;
+  }
+
+  .story-card-actions .btn {
+    width: 100%;
+  }
 }

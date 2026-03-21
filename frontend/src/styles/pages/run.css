@@ -180,3 +180,98 @@
   text-align: center;
   margin-top: var(--space-sm);
 }
+
+/* Content containers */
+.run-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.run-content--narrow {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Section title */
+.run-title {
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+/* Stats display */
+.run-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-lg);
+}
+
+/* Button groups */
+.btn-group {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.btn-group--stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ========================================
+   Responsive Styles
+   ======================================== */
+
+/* Mobile: < 768px */
+@media (max-width: 767px) {
+  /* Scale down outcome title */
+  .run-outcome-title {
+    font-size: var(--text-4xl);
+  }
+
+  /* Stack finale buttons on mobile */
+  .run-finale-buttons {
+    flex-direction: column;
+  }
+
+  .run-finale-buttons .btn {
+    width: 100%;
+  }
+
+  /* Stack share buttons */
+  .run-share-buttons {
+    flex-direction: column;
+  }
+
+  .run-share-buttons .btn {
+    width: 100%;
+  }
+
+  /* Reduce madlib label size */
+  .run-madlib-label {
+    font-size: var(--text-lg);
+  }
+
+  /* Full-width button groups */
+  .btn-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-group .btn {
+    width: 100%;
+  }
+}
+
+/* Small mobile: < 400px */
+@media (max-width: 399px) {
+  .run-outcome-title {
+    font-size: var(--text-3xl);
+  }
+
+  .run-centered h1 {
+    font-size: var(--text-2xl);
+  }
+}

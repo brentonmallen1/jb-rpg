@@ -59,7 +59,7 @@ export const themeVars: Record<ThemeName, CSSProperties> = {
     '--text-secondary': '#886666',
     '--accent': '#8b0000',
     '--accent-hover': '#a00000',
-    '--danger': '#ff0000',
+    '--danger': '#ff4444', /* Softened for better luminance balance */
     '--success': '#228b22',
     '--warning': '#ff6600',
   } as CSSProperties,
@@ -83,7 +83,7 @@ export const themeVarsLight: Record<ThemeName, CSSProperties> = {
     '--bg-primary': '#e8f8f8',
     '--bg-secondary': '#fff',
     '--text-primary': '#0a4a4a',
-    '--text-secondary': '#446',
+    '--text-secondary': '#3a5566', /* Darkened for 4.5:1 contrast ratio */
     '--accent': '#f0f',
     '--accent-hover': '#f5f',
     '--danger': '#f00',

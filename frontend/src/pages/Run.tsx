@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import * as api from '../hooks/api'
 import type { Story, Choice, Scene, HistoryEntry, ThemeName } from '../types'
-import { Modal, ConfirmDialog, RulesModal, HPDisplay, StatsRow, ModeToggle } from '../components'
+import { Modal, ConfirmDialog, RulesModal, HPDisplay, StatsRow, ModeToggle, PageMessage, ContentBox } from '../components'
 import { getThemeVars } from '../styles/themeVars'
 import '../styles/pages/run.css'
 
@@ -40,6 +40,7 @@ export default function Run() {
   const [pendingChoice, setPendingChoice] = useState<{ visualIndex: number; choice: Choice } | null>(null)
   const [pendingRevisit, setPendingRevisit] = useState<{ sceneId: string; sceneTitle: string; outcome: string } | null>(null)
   const [pendingOutcome, setPendingOutcome] = useState<{ outcome: 'victory' | 'defeat'; text: string } | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Load story data
   useEffect(() => {
@@ -67,25 +68,17 @@ export default function Run() {
 
   // Still connecting to SSE
   if (isInitializing) {
-    return (
-      <main className="container" style={{ textAlign: 'center', paddingTop: 'var(--space-xl)' }}>
-        <p className="text-secondary">Connecting...</p>
-      </main>
-    )
+    return <PageMessage message="Connecting..." />
   }
 
   // No active session (confirmed after SSE connected)
   if (!state) {
     return (
-      <main className="container" style={{ textAlign: 'center', paddingTop: 'var(--space-xl)' }}>
-        <h1>No Active Session</h1>
-        <p className="text-secondary" style={{ marginBottom: 'var(--space-lg)' }}>
-          Start a session from the library to begin playing.
-        </p>
-        <button className="btn" onClick={() => navigate('/')}>
-          Go to Library
-        </button>
-      </main>
+      <PageMessage
+        title="No Active Session"
+        message="Start a session from the library to begin playing."
+        action={<button className="btn" onClick={() => navigate('/')}>Go to Library</button>}
+      />
     )
   }
 
@@ -95,13 +88,16 @@ export default function Run() {
 
   async function handleMadlibSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!madlibInput.trim()) return
+    if (!madlibInput.trim() || isSubmitting) return
+    setIsSubmitting(true)
     try {
       await submitMadlib(madlibInput.trim())
       setMadlibInput('')
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -111,13 +107,16 @@ export default function Run() {
   }
 
   async function confirmChoice() {
-    if (!pendingChoice) return
+    if (!pendingChoice || isSubmitting) return
+    setIsSubmitting(true)
     try {
       await makeChoice(pendingChoice.visualIndex)
       setPendingChoice(null)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to make choice')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -126,12 +125,16 @@ export default function Run() {
   }
 
   async function handleFinish(outcome: 'victory' | 'defeat') {
+    if (isSubmitting) return
+    setIsSubmitting(true)
     try {
       await finish(outcome)
       setError(null)
       setPendingOutcome(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to finish game')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -204,19 +207,7 @@ export default function Run() {
       <main className="container">
         {/* Error Banner */}
         {error && (
-          <div
-            className="card"
-            style={{
-              background: 'var(--danger)',
-              color: 'white',
-              padding: 'var(--space-md)',
-              marginBottom: 'var(--space-md)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}
-            role="alert"
-          >
+          <div className="alert alert--danger mb-md" role="alert">
             <span>{error}</span>
             <button
               className="btn btn--secondary"
@@ -230,30 +221,23 @@ export default function Run() {
 
         {/* Character Creation Phase */}
         {state.status === 'madlib_in_progress' && currentField && (
-          <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-            <h1 style={{ marginBottom: 'var(--space-lg)' }}>Character Creation</h1>
-            <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-              <p className="prose" style={{ lineHeight: 1.6 }}>
-                {story?.madlib_template.prompt}
-              </p>
+          <ContentBox width="narrow" centered>
+            <h1 className="mb-lg">Character Creation</h1>
+            <div className="card mb-lg">
+              <p className="prose">{story?.madlib_template.prompt}</p>
             </div>
-            <div className="text-secondary" style={{ marginBottom: 'var(--space-md)' }}>
+            <div className="text-secondary mb-md">
               Field {state.madlib_step + 1} of {story?.madlib_template.fields.length}
             </div>
             <form onSubmit={handleMadlibSubmit}>
-              <label
-                htmlFor={madlibInputId}
-                style={{ display: 'block', marginBottom: 'var(--space-sm)', fontSize: 'var(--text-xl)' }}
-              >
+              <label htmlFor={madlibInputId} className="text-xl mb-sm" style={{ display: 'block' }}>
                 {currentField.label}
               </label>
               {currentField.hint && (
-                <div className="text-secondary text-sm" style={{ marginBottom: 'var(--space-sm)', fontStyle: 'italic' }}>
-                  ({currentField.hint})
-                </div>
+                <div className="text-secondary text-sm mb-sm italic">({currentField.hint})</div>
               )}
-              <div className="text-secondary text-sm" style={{ marginBottom: 'var(--space-sm)' }}>
-                → fills <code style={{ background: 'var(--bg-secondary)', padding: '0 4px', borderRadius: '4px' }}>{'{' + currentField.key + '}'}</code>
+              <div className="text-secondary text-sm mb-sm">
+                → fills <code className="code-inline">{'{' + currentField.key + '}'}</code>
               </div>
               <input
                 key={state.madlib_step}
@@ -261,60 +245,55 @@ export default function Run() {
                 type="text"
                 value={madlibInput}
                 onChange={e => setMadlibInput(e.target.value)}
-                className="input"
-                style={{ width: '100%', marginBottom: 'var(--space-md)' }}
+                className="input w-full mb-md"
                 autoFocus
+                disabled={isSubmitting}
               />
-              <button type="submit" className="btn" disabled={!madlibInput.trim()}>
-                Submit
+              <button type="submit" className="btn" disabled={!madlibInput.trim() || isSubmitting}>
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             </form>
-          </div>
+          </ContentBox>
         )}
 
         {/* Character Reveal Phase */}
         {state.status === 'character_reveal' && state.character && (
-          <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-            <h1 style={{ marginBottom: 'var(--space-lg)' }}>Read to Players</h1>
-            <div className="card" style={{ marginBottom: 'var(--space-lg)', textAlign: 'left' }}>
+          <ContentBox width="narrow" centered>
+            <h1 className="mb-lg">Read to Players</h1>
+            <div className="card mb-lg text-left">
               <div className="font-semibold" style={{ marginBottom: 'var(--space-sm)', fontSize: 'var(--text-xl)' }}>
                 {state.character.name}
               </div>
-              <p className="prose" style={{ lineHeight: 1.6 }}>
-                {state.character.description}
-              </p>
+              <p className="prose">{state.character.description}</p>
             </div>
             <button className="btn" onClick={() => proceedFromCharacter()}>
               Continue
             </button>
-          </div>
+          </ContentBox>
         )}
 
         {/* Opening Scene Phase */}
         {state.status === 'opening_scene_active' && resolved && story?.opening_scene && (
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <h1 style={{ marginBottom: 'var(--space-lg)', textAlign: 'center' }}>
-              {story.opening_scene.title}
-            </h1>
-            <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+          <div className="run-content">
+            <h1 className="run-title">{story.opening_scene.title}</h1>
+            <div className="card mb-lg">
               <p className="prose">{resolved.scene_text}</p>
             </div>
 
             {story.opening_scene.choices.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+              <div className="btn-group--stack">
                 {story.opening_scene.choices.map((choice, index) => (
                   <button
                     key={index}
-                    className="btn"
+                    className="btn w-full"
                     onClick={() => selectOpeningChoice(index)}
-                    style={{ width: '100%' }}
                   >
                     {choice.text}
                   </button>
                 ))}
               </div>
             ) : (
-              <div style={{ textAlign: 'center' }}>
+              <div className="text-center">
                 <button className="btn" onClick={() => selectOpeningChoice(null)}>
                   Choose Your Path
                 </button>
@@ -325,17 +304,17 @@ export default function Run() {
 
         {/* Scene Selection Phase */}
         {state.status === 'awaiting_scene_selection' && story && (
-          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <h1 style={{ marginBottom: 'var(--space-md)' }}>Select Next Scene</h1>
+          <div className="run-content--narrow">
+            <h1 className="mb-md">Select Next Scene</h1>
 
             {/* Player Stats (themed) */}
             <div className={story.theme} style={getThemeVars(story.theme as ThemeName, colorMode)}>
-              <div style={{ marginBottom: 'var(--space-lg)', display: 'flex', justifyContent: 'center', gap: 'var(--space-lg)', flexWrap: 'wrap' }}>
+              <div className="run-stats-row">
                 <HPDisplay hp={state.hp} />
                 <StatsRow level={state.level} itemCount={state.items.length} />
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <div className="stack gap-md">
               {story.scenes.map(scene => {
                 const historyEntry = state.history.find(h => h.scene_id === scene.id)
                 const isPlayed = !!historyEntry
@@ -375,6 +354,8 @@ export default function Run() {
                     key={scene.id}
                     className="card"
                     onClick={handleSceneClick}
+                    aria-current={scene.id === state.current_scene_id ? 'true' : undefined}
+                    aria-disabled={isFinaleDisabled}
                     style={{
                       textAlign: 'left',
                       cursor: isFinaleDisabled ? 'not-allowed' : 'pointer',
@@ -412,27 +393,27 @@ export default function Run() {
 
         {/* Running Phase */}
         {state.status === 'running' && resolved && story && (
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <div className="run-content">
             {/* Character info */}
             {state.character && (
-              <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-                <div className="font-semibold" style={{ marginBottom: 'var(--space-xs)' }}>{state.character.name}</div>
+              <div className="card mb-lg">
+                <div className="font-semibold mb-xs">{state.character.name}</div>
                 <div className="text-secondary">{resolved.character_description}</div>
               </div>
             )}
 
             {/* HP Display & Stats (themed) */}
             <div className={story.theme} style={getThemeVars(story.theme as ThemeName, colorMode)}>
-              <div style={{ marginBottom: 'var(--space-lg)' }}>
+              <div className="mb-lg">
                 <HPDisplay hp={state.hp} />
               </div>
-              <div style={{ marginBottom: 'var(--space-lg)' }}>
+              <div className="mb-lg">
                 <StatsRow level={state.level} itemCount={state.items.length} />
               </div>
             </div>
 
             {/* Scene text */}
-            <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="card mb-lg">
               <p className="prose">{resolved.scene_text}</p>
             </div>
 
@@ -449,18 +430,18 @@ export default function Run() {
               // Finale scene - show setup text and outcome buttons instead of choices
               if (currentScene?.is_finale) {
                 return (
-                  <div style={{ textAlign: 'center' }}>
+                  <div className="text-center">
                     {currentScene.finale_setup_text && (
-                      <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+                      <div className="card mb-lg">
                         <p className="prose">{currentScene.finale_setup_text}</p>
                       </div>
                     )}
-                    <div style={{ marginBottom: 'var(--space-lg)' }}>
+                    <div className="mb-lg">
                       <p className="text-secondary">Roll a d20 and add {state.items.length} (items)</p>
                       <p className="text-secondary">You have {state.level} roll attempt(s)</p>
                       <p className="text-secondary">Need 20+ total to win!</p>
                     </div>
-                    <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+                    <div className="btn-group">
                       <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
                         Victory!
                       </button>
@@ -475,7 +456,7 @@ export default function Run() {
               // Storyteller hasn't revealed choices yet - show reveal button
               if (!storytellerChoicesRevealed && !state.shuffled_indices.length) {
                 return (
-                  <div style={{ textAlign: 'center' }}>
+                  <div className="text-center">
                     <button
                       className="btn"
                       onClick={async () => {
@@ -492,26 +473,26 @@ export default function Run() {
               // Choices revealed to storyteller - show choice buttons + player controls
               return (
                 <>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                  <div className="stack gap-md">
                     {state.shuffled_indices.map((originalIndex: number, visualIndex: number) => {
                       const choice = currentScene?.choices[originalIndex]
                       if (!choice) return null
                       return (
                         <button
                           key={visualIndex}
-                          className={`btn choice-btn choice-btn--${choice.kind}`}
+                          className={`btn choice-btn choice-btn--${choice.kind} text-left`}
                           onClick={() => handleChoice(visualIndex, choice)}
-                          style={{ padding: 'var(--space-md)', textAlign: 'left' }}
+                          style={{ padding: 'var(--space-md)' }}
                         >
                           <div>{choice.display_text}</div>
-                          <div className="text-sm" style={{ opacity: 0.8, marginTop: 'var(--space-xs)' }}>
+                          <div className="text-sm mt-xs" style={{ opacity: 0.8 }}>
                             {getOutcomeLabel(choice)}
                           </div>
                         </button>
                       )
                     })}
                   </div>
-                  <div style={{ textAlign: 'center', marginTop: 'var(--space-md)' }}>
+                  <div className="text-center mt-md">
                     <button
                       className={`btn ${state.choices_revealed ? 'btn--secondary' : ''}`}
                       onClick={() => revealChoices(true)} // Show to players
@@ -525,7 +506,7 @@ export default function Run() {
 
             {/* Back button - only for linear stories, not for non-linear (scene replay is done from scene selection) */}
             {state.history.length > 0 && !story?.settings.non_linear && (
-              <div style={{ marginTop: 'var(--space-lg)', textAlign: 'center' }}>
+              <div className="text-center mt-lg">
                 <button className="btn btn--secondary" onClick={() => goBack()}>
                   Go Back
                 </button>
@@ -536,17 +517,16 @@ export default function Run() {
 
         {/* Game Over Phase */}
         {state.status === 'game_over' && (
-          <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+          <div className="run-content--narrow text-center">
             {state.outcome ? (
               <>
                 <h1
-                  className={state.outcome === 'victory' ? 'text-success' : 'text-danger'}
-                  style={{ fontSize: 'var(--text-5xl)', marginBottom: 'var(--space-lg)' }}
+                  className={`text-5xl mb-lg ${state.outcome === 'victory' ? 'text-success' : 'text-danger'}`}
                   aria-live="assertive"
                 >
                   {state.outcome === 'victory' ? 'VICTORY!' : 'DEFEAT'}
                 </h1>
-                <div style={{ marginBottom: 'var(--space-xl)' }}>
+                <div className="mb-xl">
                   <p>Level: {state.level}</p>
                   <p>Items: {state.items.length}</p>
                   {state.items.length > 0 && (
@@ -574,17 +554,13 @@ export default function Run() {
               </>
             ) : (
               <>
-                <h1 style={{ marginBottom: 'var(--space-lg)' }}>Final Showdown!</h1>
-                <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-                  <p style={{ marginBottom: 'var(--space-md)' }}>
-                    Roll a d20 and add {state.items.length} (items)
-                  </p>
-                  <p style={{ marginBottom: 'var(--space-md)' }}>
-                    You have {state.level} roll attempt(s)
-                  </p>
+                <h1 className="mb-lg">Final Showdown!</h1>
+                <div className="card mb-lg">
+                  <p className="mb-md">Roll a d20 and add {state.items.length} (items)</p>
+                  <p className="mb-md">You have {state.level} roll attempt(s)</p>
                   <p>Need 20+ total to win!</p>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+                <div className="btn-group">
                   <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
                     Victory!
                   </button>
@@ -604,17 +580,17 @@ export default function Run() {
         onClose={() => setPendingOutcome(null)}
         title={pendingOutcome?.outcome === 'victory' ? 'Victory!' : 'Defeat'}
       >
-        <div style={{ marginBottom: 'var(--space-lg)' }}>
+        <div className="mb-lg">
           {pendingOutcome?.text ? (
             <p className="prose">{pendingOutcome.text}</p>
           ) : (
             <p className="text-secondary">No text provided for this outcome.</p>
           )}
         </div>
-        <p className="text-secondary text-sm" style={{ marginBottom: 'var(--space-lg)' }}>
+        <p className="text-secondary text-sm mb-lg">
           Read the text above to your players, then click Continue.
         </p>
-        <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+        <div className="btn-group">
           <button className="btn btn--secondary" onClick={() => setPendingOutcome(null)}>
             Cancel
           </button>
@@ -633,27 +609,16 @@ export default function Run() {
         onClose={() => setShowShare(false)}
         title="Share with Players"
       >
-        <p className="text-secondary" style={{ marginBottom: 'var(--space-md)' }}>
-          Players can join using this link:
-        </p>
+        <p className="text-secondary mb-md">Players can join using this link:</p>
         <input
           type="text"
           readOnly
           value={`${window.location.origin}/player/${state.session_id}`}
           aria-label="Player join link"
-          style={{
-            width: '100%',
-            padding: 'var(--space-sm)',
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--text-secondary)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text-primary)',
-            marginBottom: 'var(--space-md)',
-            textAlign: 'center'
-          }}
+          className="input text-center mb-md"
           onClick={e => (e.target as HTMLInputElement).select()}
         />
-        <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+        <div className="btn-group">
           <button className="btn" onClick={handleCopyLink}>
             {copyFeedback ? 'Copied!' : 'Copy Link'}
           </button>
@@ -662,12 +627,7 @@ export default function Run() {
           </button>
         </div>
         {copyFeedback && (
-          <p
-            role="status"
-            aria-live="polite"
-            className="text-success text-sm"
-            style={{ textAlign: 'center', marginTop: 'var(--space-sm)' }}
-          >
+          <p role="status" aria-live="polite" className="text-success text-sm text-center mt-sm">
             Link copied to clipboard
           </p>
         )}
@@ -721,12 +681,10 @@ export default function Run() {
               {pendingChoice.choice.kind === 'item' && (pendingChoice.choice.item_name || 'Item Gained')}
               {pendingChoice.choice.kind === 'level' && 'Level Up!'}
             </div>
-            <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-              <p className="prose" style={{ lineHeight: 1.6 }}>
-                {pendingChoice.choice.result_text}
-              </p>
+            <div className="card mb-lg">
+              <p className="prose">{pendingChoice.choice.result_text}</p>
             </div>
-            <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+            <div className="btn-group">
               <button className="btn" onClick={confirmChoice}>
                 Continue
               </button>

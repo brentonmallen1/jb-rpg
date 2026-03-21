@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 interface StatBlockProps {
   /** The numeric value to display */
   value: number
@@ -9,22 +11,20 @@ interface StatBlockProps {
 
 /**
  * Displays a stat value with a label underneath.
- * Used for Level, Items count, etc.
+ * Memoized to prevent unnecessary re-renders.
  */
-export function StatBlock({ value, label, size = 'default' }: StatBlockProps) {
-  const fontSize = size === 'large' ? 'var(--text-4xl)' : 'var(--text-3xl)'
-
+export const StatBlock = memo(function StatBlock({ value, label, size = 'default' }: StatBlockProps) {
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize, fontWeight: 'bold', color: 'var(--accent)' }}>
+    <div className="text-center">
+      <div className={`font-bold text-accent ${size === 'large' ? 'text-4xl' : 'text-3xl'}`}>
         {value}
       </div>
-      <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+      <div className="text-secondary text-sm">
         {label}
       </div>
     </div>
   )
-}
+})
 
 interface StatsRowProps {
   level: number
@@ -34,13 +34,13 @@ interface StatsRowProps {
 
 /**
  * Displays Level and Items stats in a row.
- * Common pattern used in Run and Player views.
+ * Memoized to prevent unnecessary re-renders.
  */
-export function StatsRow({ level, itemCount, size = 'default' }: StatsRowProps) {
+export const StatsRow = memo(function StatsRow({ level, itemCount, size = 'default' }: StatsRowProps) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-xl)' }}>
+    <div className="center gap-xl">
       <StatBlock value={level} label="Level" size={size} />
       <StatBlock value={itemCount} label="Items" size={size} />
     </div>
   )
-}
+})

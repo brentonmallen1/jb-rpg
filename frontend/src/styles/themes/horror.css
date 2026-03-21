@@ -8,7 +8,7 @@
     --text-secondary: #886666;
     --accent: #8b0000;
     --accent-hover: #a00000;
-    --danger: #ff0000;
+    --danger: #ff4444; /* Softened for better luminance balance */
     --success: #228b22;
     --warning: #ff6600;
 

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import * as api from '../hooks/api'
-import type { Story, Scene, Choice, ThemeName, ChoiceKind, OpeningScene, OpeningChoice, MadLibField } from '../types'
-import { ConfirmDialog, ModeToggle } from '../components'
+import { useAutoSave } from '../hooks/useAutoSave'
+import type { Story, Scene, Choice, ThemeName, OpeningScene, OpeningChoice, MadLibField } from '../types'
+import { ConfirmDialog, ModeToggle, Collapsible } from '../components'
 import '../styles/pages/editor.css'
 
 const THEMES: ThemeName[] = ['cyberpunk', 'fantasy', 'deep_space', 'modern', 'horror', 'insanity']
@@ -69,7 +70,6 @@ export default function Editor() {
 
   const [story, setStory] = useState<Story | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
   const [editingOpeningScene, setEditingOpeningScene] = useState(false)
   const [editingCharacterCreation, setEditingCharacterCreation] = useState(false)
@@ -78,6 +78,11 @@ export default function Editor() {
   const [previewValues, setPreviewValues] = useState<Record<string, string>>({})
   const [showPreview, setShowPreview] = useState(false)
   const [itemPreviewAcquired, setItemPreviewAcquired] = useState<Record<string, boolean>>({})
+
+  // Refs for finale textareas to support click-to-insert
+  const victoryTextRef = useRef<HTMLTextAreaElement>(null)
+  const defeatTextRef = useRef<HTMLTextAreaElement>(null)
+  const activeFinaleTextarea = useRef<'victory' | 'defeat' | null>(null)
 
   // Get all available item names from the story (for item_texts dropdowns)
   const availableItems: string[] = story?.scenes.flatMap(scene =>
@@ -114,17 +119,40 @@ export default function Editor() {
     }
   }
 
-  async function saveStory() {
+  // Save function for auto-save hook
+  const saveStory = useCallback(async () => {
     if (!story) return
-    setSaving(true)
-    try {
-      await api.updateStory(story.id, story)
-    } catch (err) {
-      console.error('Failed to save story:', err)
-    } finally {
-      setSaving(false)
+    await api.updateStory(story.id, story)
+  }, [story])
+
+  // Auto-save with debounce
+  const { status: saveStatus, saveNow, statusRef, saveNowRef } = useAutoSave({
+    data: story,
+    onSave: saveStory,
+    debounceMs: 2000,
+    enabled: !loading && story !== null
+  })
+
+  // Warn on browser/tab close if unsaved
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (statusRef.current === 'unsaved') {
+        e.preventDefault()
+        return ''
+      }
     }
-  }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [statusRef])
+
+  // Save on unmount (navigation away)
+  useEffect(() => {
+    return () => {
+      if (statusRef.current === 'unsaved') {
+        saveNowRef.current()
+      }
+    }
+  }, [statusRef, saveNowRef])
 
   function updateStory(updates: Partial<Story>) {
     if (!story) return
@@ -301,6 +329,29 @@ export default function Editor() {
     navigator.clipboard.writeText(text)
   }
 
+  // Insert item template at cursor position in the active finale textarea
+  function insertItemTemplate(itemName: string) {
+    const template = `{item_text:${itemName}}`
+    const ref = activeFinaleTextarea.current === 'victory' ? victoryTextRef : defeatTextRef
+    const textarea = ref.current
+    if (!textarea || !selectedSceneId) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const currentValue = textarea.value
+    const newValue = currentValue.slice(0, start) + template + currentValue.slice(end)
+
+    const field = activeFinaleTextarea.current === 'victory' ? 'victory_text' : 'defeat_text'
+    updateScene(selectedSceneId, { [field]: newValue })
+
+    // Restore cursor position after the inserted template
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const newPos = start + template.length
+      textarea.setSelectionRange(newPos, newPos)
+    })
+  }
+
   // Get preview text with sample values filled in
   function getPreviewText(): string {
     if (!story) return ''
@@ -358,9 +409,9 @@ export default function Editor() {
   }
 
   return (
-    <>
+    <div className="editor-page">
       <nav className="nav">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', minWidth: 0 }}>
+        <div className="editor-nav-left">
           <button
             className="sidebar-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -375,8 +426,13 @@ export default function Editor() {
           <button className="btn btn--secondary" onClick={() => navigate('/')}>
             Back
           </button>
-          <button className="btn" onClick={saveStory} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
+          <span className={`save-status save-status--${saveStatus}`}>
+            {saveStatus === 'saving' && 'Saving...'}
+            {saveStatus === 'saved' && 'Saved'}
+            {saveStatus === 'unsaved' && 'Unsaved'}
+          </span>
+          <button className="btn" onClick={saveNow} disabled={saveStatus === 'saving'}>
+            Save Now
           </button>
           <ModeToggle colorMode={colorMode} onToggle={toggleColorMode} />
         </div>
@@ -389,13 +445,13 @@ export default function Editor() {
         aria-hidden="true"
       />
 
-      <div className="container editor-layout">
+      <div className="editor-body">
         {/* Sidebar */}
         <aside className={`editor-sidebar ${sidebarOpen ? 'is-open' : ''}`}>
           {/* Story Settings */}
-          <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-            <h3 style={{ marginBottom: 'var(--space-md)' }}>Story Settings</h3>
-            <div style={{ marginBottom: 'var(--space-md)' }}>
+          <div className="card">
+            <h3>Story Settings</h3>
+            <div className="editor-field">
               <label htmlFor="story-title" className="label">Title</label>
               <input
                 id="story-title"
@@ -403,10 +459,9 @@ export default function Editor() {
                 className="input"
                 value={story.title}
                 onChange={e => updateStory({ title: e.target.value })}
-                style={{ width: '100%' }}
               />
             </div>
-            <div style={{ marginBottom: 'var(--space-md)' }}>
+            <div className="editor-field">
               <label htmlFor="story-theme" className="label">Theme</label>
               <select
                 id="story-theme"
@@ -417,14 +472,13 @@ export default function Editor() {
                   updateStory({ theme })
                   setTheme(theme)
                 }}
-                style={{ width: '100%' }}
               >
                 {THEMES.map(t => (
                   <option key={t} value={t}>{t.replace('_', ' ')}</option>
                 ))}
               </select>
             </div>
-            <div style={{ marginBottom: 'var(--space-md)' }}>
+            <div className="editor-field">
               <label htmlFor="starting-hp" className="label">Starting HP</label>
               <input
                 id="starting-hp"
@@ -434,11 +488,10 @@ export default function Editor() {
                 onChange={e => updateStory({ settings: { ...story.settings, starting_hp: parseInt(e.target.value) || 3 } })}
                 min={1}
                 max={10}
-                style={{ width: '100%' }}
               />
             </div>
             <div>
-              <label className="text-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
+              <label className="editor-checkbox">
                 <input
                   type="checkbox"
                   checked={story.settings.non_linear}
@@ -450,10 +503,8 @@ export default function Editor() {
           </div>
 
           {/* Character Creation - Compact Summary */}
-          <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
-              <h3>Character Creation</h3>
-            </div>
+          <div className="card">
+            <h3>Character Creation</h3>
             <p className="text-sm text-secondary" style={{ marginBottom: 'var(--space-sm)' }}>
               {story.madlib_template.fields.length === 0
                 ? 'No character questions defined'
@@ -461,23 +512,22 @@ export default function Editor() {
               }
             </p>
             <button
-              className="btn btn--secondary"
+              className="btn btn--secondary btn--full"
               onClick={() => {
                 setEditingCharacterCreation(true)
                 setEditingOpeningScene(false)
                 setSelectedSceneId(null)
               }}
-              style={{ width: '100%' }}
             >
               Edit Character Creation
             </button>
           </div>
 
           {/* Opening Scene */}
-          <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+          <div className="card">
+            <div className="editor-opening-header">
               <h3>Opening Scene</h3>
-              <label className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', cursor: 'pointer' }}>
+              <label className="editor-opening-enable">
                 <input
                   type="checkbox"
                   checked={!!story.opening_scene}
@@ -488,20 +538,11 @@ export default function Editor() {
             </div>
             {story.opening_scene && (
               <button
+                className={`editor-scene-btn ${editingOpeningScene ? 'editor-scene-btn--selected' : 'editor-scene-btn--default'}`}
                 onClick={() => {
                   setEditingOpeningScene(true)
                   setSelectedSceneId(null)
-                }}
-                style={{
-                  width: '100%',
-                  padding: 'var(--space-sm)',
-                  textAlign: 'left',
-                  background: editingOpeningScene ? 'var(--accent)' : 'var(--bg-primary)',
-                  color: editingOpeningScene ? 'var(--text-on-accent)' : 'var(--text-primary)',
-                  border: 'none',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
-                  minHeight: '44px'
+                  setEditingCharacterCreation(false)
                 }}
               >
                 {story.opening_scene.title}
@@ -511,29 +552,21 @@ export default function Editor() {
 
           {/* Scene List */}
           <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+            <div className="editor-scenes-header">
               <h3>Scenes</h3>
-              <button className="btn btn--secondary text-sm" onClick={addScene} style={{ padding: 'var(--space-xs) var(--space-sm)' }}>
+              <button className="btn btn--secondary btn--sm" onClick={addScene}>
                 + Add
               </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+            <div className="editor-scene-list">
               {story.scenes.map((scene, i) => (
                 <button
                   key={scene.id}
+                  className={`editor-scene-btn ${selectedSceneId === scene.id && !editingOpeningScene ? 'editor-scene-btn--selected' : 'editor-scene-btn--default'}`}
                   onClick={() => {
                     setSelectedSceneId(scene.id)
                     setEditingOpeningScene(false)
-                  }}
-                  style={{
-                    padding: 'var(--space-sm)',
-                    textAlign: 'left',
-                    background: selectedSceneId === scene.id && !editingOpeningScene ? 'var(--accent)' : 'var(--bg-primary)',
-                    color: selectedSceneId === scene.id && !editingOpeningScene ? 'var(--text-on-accent)' : 'var(--text-primary)',
-                    border: 'none',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                    minHeight: '44px'
+                    setEditingCharacterCreation(false)
                   }}
                 >
                   {i + 1}. {scene.title} {scene.is_finale && <span className="text-xs" style={{ opacity: 0.7 }}>(finale)</span>}
@@ -633,15 +666,17 @@ export default function Editor() {
                   </p>
                 ) : (
                   <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
                     {story.madlib_template.fields.map((field, i) => {
                       const usages = getVariableUsage(field.key)
                       return (
-                        <div key={field.key} className="card" style={{ padding: 'var(--space-md)', borderLeft: '3px solid var(--accent)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
-                            <code style={{ fontSize: '1.1rem', color: 'var(--accent)', fontWeight: 600 }}>
-                              {'{' + field.key + '}'}
-                            </code>
+                        <Collapsible
+                          key={field.key}
+                          title={<code style={{ color: 'var(--accent)', fontWeight: 600 }}>{'{' + field.key + '}'}</code>}
+                          preview={field.label || 'No question yet...'}
+                          defaultOpen={i === 0}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-sm)' }}>
                             <button
                               className="btn btn--secondary text-xs"
                               onClick={() => copyToClipboard(`{${field.key}}`)}
@@ -652,7 +687,7 @@ export default function Editor() {
                             </button>
                           </div>
 
-                          <div style={{ marginBottom: 'var(--space-sm)' }}>
+                          <div className="editor-choice-field">
                             <label className="label label--xs">Question shown to players</label>
                             <input
                               type="text"
@@ -660,11 +695,10 @@ export default function Editor() {
                               value={field.label}
                               onChange={e => updateMadLibField(i, { label: e.target.value })}
                               placeholder="Write an indirect question..."
-                              style={{ width: '100%' }}
                             />
                           </div>
 
-                          <div style={{ marginBottom: 'var(--space-sm)' }}>
+                          <div className="editor-choice-field">
                             <label className="label label--xs">Hint (grammar guidance)</label>
                             <input
                               type="text"
@@ -672,12 +706,11 @@ export default function Editor() {
                               value={field.hint || ''}
                               onChange={e => updateMadLibField(i, { hint: e.target.value })}
                               placeholder="e.g., a name, verb past tense, noun plural"
-                              style={{ width: '100%' }}
                             />
                           </div>
 
                           {showPreview && (
-                            <div style={{ marginBottom: 'var(--space-sm)' }}>
+                            <div className="editor-choice-field">
                               <label className="label label--xs">Preview value</label>
                               <input
                                 type="text"
@@ -685,7 +718,6 @@ export default function Editor() {
                                 value={previewValues[field.key] || ''}
                                 onChange={e => setPreviewValues(prev => ({ ...prev, [field.key]: e.target.value }))}
                                 placeholder={`Sample ${field.key}...`}
-                                style={{ width: '100%' }}
                               />
                             </div>
                           )}
@@ -695,7 +727,7 @@ export default function Editor() {
                               Used in: {usages.map(u => u.sceneTitle).join(', ')}
                             </p>
                           )}
-                        </div>
+                        </Collapsible>
                       )
                     })}
                   </div>
@@ -823,14 +855,13 @@ export default function Editor() {
           {/* Scene Editor */}
           {selectedScene && !editingOpeningScene && (
             <div className="card">
-              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+              <div className="editor-card-header">
                 <input
                   type="text"
-                  className="input font-semibold"
+                  className="input"
                   value={selectedScene.title}
                   onChange={e => updateScene(selectedScene.id, { title: e.target.value })}
                   aria-label="Scene title"
-                  style={{ fontSize: 'var(--text-xl)', flex: '1 1 200px', minWidth: 0 }}
                 />
                 <button
                   className="btn btn--secondary text-danger"
@@ -842,7 +873,7 @@ export default function Editor() {
               </div>
 
               {/* Display Name (for scene selection) */}
-              <div style={{ marginBottom: 'var(--space-md)' }}>
+              <div className="editor-field">
                 <label htmlFor="scene-display-name" className="label">
                   Display Name <span className="text-secondary text-xs">(poetic name for scene selection)</span>
                 </label>
@@ -853,13 +884,26 @@ export default function Editor() {
                   value={selectedScene.display_name || ''}
                   onChange={e => updateScene(selectedScene.id, { display_name: e.target.value || undefined })}
                   placeholder="e.g., The door with the cracked mirror symbol..."
-                  style={{ width: '100%' }}
+                />
+              </div>
+
+              {/* Scene Text - shown for all scenes */}
+              <div className="editor-section editor-scene-text">
+                <label htmlFor="scene-text" className="label">
+                  Scene Text
+                </label>
+                <textarea
+                  id="scene-text"
+                  className="input"
+                  value={selectedScene.base_text}
+                  onChange={e => updateScene(selectedScene.id, { base_text: e.target.value })}
+                  rows={6}
                 />
               </div>
 
               {/* Finale Scene Toggle */}
-              <div style={{ marginBottom: 'var(--space-lg)' }}>
-                <label className="text-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
+              <div className="editor-field">
+                <label className="editor-checkbox">
                   <input
                     type="checkbox"
                     checked={selectedScene.is_finale || false}
@@ -882,21 +926,27 @@ export default function Editor() {
                   {availableItems.length > 0 && (
                     <div style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-sm)', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--text-secondary)' }}>
                       <div className="text-xs text-secondary" style={{ marginBottom: 'var(--space-xs)' }}>
-                        Items in this story (use in text as {'{item_text:Name}'}):
+                        Items in this story (click to insert at cursor in victory/defeat text blocks):
                       </div>
                       <div className="text-sm" style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
                         {availableItems.map(item => (
-                          <span
+                          <button
                             key={item}
+                            type="button"
+                            onClick={() => insertItemTemplate(item)}
                             style={{
                               padding: '2px 6px',
                               background: 'var(--bg-secondary)',
                               borderRadius: 'var(--radius-sm)',
-                              fontSize: 'var(--text-xs)'
+                              fontSize: 'var(--text-xs)',
+                              border: '1px solid var(--text-secondary)',
+                              color: 'var(--text-primary)',
+                              cursor: 'pointer'
                             }}
+                            title={`Insert {item_text:${item}}`}
                           >
                             {item}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -921,10 +971,12 @@ export default function Editor() {
                       Victory Text <span className="text-secondary text-xs">(read on successful roll)</span>
                     </label>
                     <textarea
+                      ref={victoryTextRef}
                       id="victory-text"
                       className="input"
                       value={selectedScene.victory_text || ''}
                       onChange={e => updateScene(selectedScene.id, { victory_text: e.target.value })}
+                      onFocus={() => activeFinaleTextarea.current = 'victory'}
                       rows={4}
                       placeholder="The triumphant ending..."
                       style={{ width: '100%', resize: 'vertical' }}
@@ -935,10 +987,12 @@ export default function Editor() {
                       Defeat Text <span className="text-secondary text-xs">(read on failed roll)</span>
                     </label>
                     <textarea
+                      ref={defeatTextRef}
                       id="defeat-text"
                       className="input"
                       value={selectedScene.defeat_text || ''}
                       onChange={e => updateScene(selectedScene.id, { defeat_text: e.target.value })}
+                      onFocus={() => activeFinaleTextarea.current = 'defeat'}
                       rows={4}
                       placeholder="The tragic ending..."
                       style={{ width: '100%', resize: 'vertical' }}
@@ -1061,14 +1115,14 @@ export default function Editor() {
                         <div className="text-sm">
                           <strong>Victory:</strong>{' '}
                           {(selectedScene.victory_text || '').replace(
-                            /\{item_text:([\w\s_:-]+)\}/g,
+                            /\{item_text:([\w\s_:'\-]+)\}/g,
                             (_, itemName) => itemPreviewAcquired[itemName] ? (selectedScene.item_texts?.[itemName]?.victory || '') : ''
                           )}
                         </div>
                         <div className="text-sm" style={{ marginTop: 'var(--space-xs)' }}>
                           <strong>Defeat:</strong>{' '}
                           {(selectedScene.defeat_text || '').replace(
-                            /\{item_text:([\w\s_:-]+)\}/g,
+                            /\{item_text:([\w\s_:'\-]+)\}/g,
                             (_, itemName) => itemPreviewAcquired[itemName] ? (selectedScene.item_texts?.[itemName]?.defeat || '') : ''
                           )}
                         </div>
@@ -1078,58 +1132,30 @@ export default function Editor() {
                 </div>
               )}
 
-              {/* Scene Text */}
-              <div style={{ marginBottom: 'var(--space-lg)' }}>
-                <label htmlFor="scene-text" className="label">
-                  Scene Text
-                </label>
-                <textarea
-                  id="scene-text"
-                  className="input"
-                  value={selectedScene.base_text}
-                  onChange={e => updateScene(selectedScene.id, { base_text: e.target.value })}
-                  rows={6}
-                  style={{ width: '100%', resize: 'vertical' }}
-                />
-              </div>
-
               {/* Choices - only shown for non-finale scenes */}
               {!selectedScene.is_finale && (
-                <div>
-                  <h4 style={{ marginBottom: 'var(--space-md)' }}>Choices</h4>
+                <div className="editor-section">
+                  <h4>Choices</h4>
                   {selectedScene.choices.map((choice, i) => (
-                    <div key={i} className="card" style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-md)' }}>
-                      <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 'var(--space-md)', alignItems: 'start' }}>
-                        <div>
-                          <label className="label label--xs">
-                            Type
-                          </label>
-                          <select
-                            className="input"
-                            value={choice.kind}
-                            onChange={e => updateChoice(selectedScene.id, i, { kind: e.target.value as ChoiceKind })}
-                            style={{ width: '100%' }}
-                          >
-                            <option value="damage">Damage</option>
-                            <option value="item">Item</option>
-                            <option value="level">Level</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="label label--xs">
-                            Display Text (shown to players)
-                          </label>
-                          <input
-                            type="text"
-                            className="input"
-                            value={choice.display_text}
-                            onChange={e => updateChoice(selectedScene.id, i, { display_text: e.target.value })}
-                            placeholder="Do you choose to..."
-                            style={{ width: '100%' }}
-                          />
-                        </div>
+                    <Collapsible
+                      key={i}
+                      title={<span className={`choice-badge choice-badge--${choice.kind}`}>{choice.kind}</span>}
+                      preview={choice.display_text || 'No display text yet...'}
+                      defaultOpen={i === 0}
+                    >
+                      <div className="editor-choice-field">
+                        <label className="label label--xs">
+                          Display Text (shown to players)
+                        </label>
+                        <input
+                          type="text"
+                          className="input"
+                          value={choice.display_text}
+                          onChange={e => updateChoice(selectedScene.id, i, { display_text: e.target.value })}
+                          placeholder="Do you choose to..."
+                        />
                       </div>
-                      <div style={{ marginTop: 'var(--space-sm)' }}>
+                      <div className="editor-choice-field">
                         <label className="label label--xs">
                           Result Text (read after choice)
                         </label>
@@ -1139,11 +1165,10 @@ export default function Editor() {
                           onChange={e => updateChoice(selectedScene.id, i, { result_text: e.target.value })}
                           placeholder="What happens when this choice is made..."
                           rows={3}
-                          style={{ width: '100%', resize: 'vertical' }}
                         />
                       </div>
                       {choice.kind === 'item' && (
-                        <div style={{ marginTop: 'var(--space-sm)' }}>
+                        <div className="editor-choice-field editor-choice-item-name">
                           <label className="label label--xs">
                             Item Name
                           </label>
@@ -1152,11 +1177,10 @@ export default function Editor() {
                             className="input"
                             value={choice.item_name || ''}
                             onChange={e => updateChoice(selectedScene.id, i, { item_name: e.target.value })}
-                            style={{ width: '100%', maxWidth: '200px' }}
                           />
                         </div>
                       )}
-                    </div>
+                    </Collapsible>
                   ))}
                 </div>
               )}
@@ -1182,6 +1206,6 @@ export default function Editor() {
         confirmText="Delete"
         variant="danger"
       />
-    </>
+    </div>
   )
 }

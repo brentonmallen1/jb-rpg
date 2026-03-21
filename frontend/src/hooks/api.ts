@@ -223,3 +223,22 @@ export async function openingChoice(choiceIndex: number | null): Promise<GameSta
   }
   return res.json()
 }
+
+// Export story as JSON file download
+export function downloadStoryAsJson(story: Story): void {
+  const json = JSON.stringify(story, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  // Sanitize title for filename
+  const filename = story.title
+    .replace(/[^a-z0-9\s-]/gi, '')
+    .replace(/\s+/g, '-')
+    .toLowerCase()
+  a.download = `${filename || story.id}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

@@ -3,14 +3,21 @@ import json
 import os
 import random
 import re
+import string
 import uuid
 
 import secrets
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+import base64
+
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response as StarletteResponse
+from contextlib import asynccontextmanager
 from pathlib import Path
 from enum import Enum
 from typing import Optional, Literal
@@ -29,6 +36,7 @@ class ThemeName(str, Enum):
 
 class SessionStatus(str, Enum):
     MADLIB_IN_PROGRESS = "madlib_in_progress"
+    OPENING_SCENE_ACTIVE = "opening_scene_active"
     RUNNING = "running"
     AWAITING_SCENE_SELECTION = "awaiting_scene_selection"
     GAME_OVER = "game_over"
@@ -58,6 +66,18 @@ class Condition(BaseModel):
 class ConditionalText(BaseModel):
     condition: Condition
     text: str
+
+
+class OpeningChoice(BaseModel):
+    text: str
+    target_scene_id: Optional[str] = None  # None = go to scene selection
+
+
+class OpeningScene(BaseModel):
+    title: str
+    base_text: str
+    choices: list[OpeningChoice] = []
+    conditional_text: list[ConditionalText] = []
 
 
 class Choice(BaseModel):
@@ -97,6 +117,7 @@ class Story(BaseModel):
     settings: StorySettings = StorySettings()
     madlib_template: MadLibTemplate
     scenes: list[Scene]
+    opening_scene: Optional[OpeningScene] = None
 
 
 class HistoryEntry(BaseModel):
@@ -114,6 +135,7 @@ class Character(BaseModel):
 
 
 class GameState(BaseModel):
+    session_id: str = ""  # Nanoid-style identifier for player URLs
     story_id: str
     status: SessionStatus = SessionStatus.MADLIB_IN_PROGRESS
     madlib_step: int = 0
@@ -200,7 +222,23 @@ def replay_history(
     return hp, level, items
 
 
-app = FastAPI(title="J&B's RPG")
+DATA_DIR = Path(os.getenv("DATA_DIR", Path(__file__).parent))
+STATIC_DIR = Path(__file__).parent / "static"
+STORIES_DIR = DATA_DIR / "stories"
+STATE_FILE = DATA_DIR / "state.json"
+
+
+@asynccontextmanager
+async def lifespan(app):
+    # Clear any orphaned session on startup - prevents stale sessions from
+    # persisting after app restarts (storyteller token is lost but state.json remains)
+    if STATE_FILE.exists():
+        with open(STATE_FILE, "w") as f:
+            f.write("{}")
+    yield
+
+
+app = FastAPI(title="J&B's RPG", lifespan=lifespan)
 
 # Allow local network access for multi-device play
 app.add_middleware(
@@ -210,16 +248,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATA_DIR = Path(os.getenv("DATA_DIR", Path(__file__).parent))
-STATIC_DIR = Path(__file__).parent / "static"
-STORIES_DIR = DATA_DIR / "stories"
-STATE_FILE = DATA_DIR / "state.json"
+# Admin authentication configuration
+ADMIN_USER = os.getenv("ADMIN_USER", "")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+AUTH_DISABLED = os.getenv("AUTH_DISABLED", "").lower() in ("true", "1", "yes")
+BASE_URL = os.getenv("BASE_URL", "")
 
 # Ensure directories exist
 STORIES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Session token for storyteller authentication (in-memory, resets on server restart)
 _session_token: Optional[str] = None
+
+# HTTP Basic Auth security
+security = HTTPBasic(auto_error=False)
 
 
 def get_session_token():
@@ -237,6 +279,86 @@ def verify_storyteller(x_session_token: Optional[str] = Header(None)):
     return True
 
 
+def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
+    """Dependency to verify admin credentials via HTTP Basic Auth."""
+    if AUTH_DISABLED:
+        return True
+    if not ADMIN_USER or not ADMIN_PASSWORD:
+        # No admin credentials configured - allow access
+        return True
+    if not credentials:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Basic realm='Admin'"},
+        )
+    if secrets.compare_digest(credentials.username, ADMIN_USER) and secrets.compare_digest(
+        credentials.password, ADMIN_PASSWORD
+    ):
+        return True
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid credentials",
+        headers={"WWW-Authenticate": "Basic realm='Admin'"},
+    )
+
+
+class AdminAuthMiddleware(BaseHTTPMiddleware):
+    """Middleware to protect static admin routes with HTTP Basic Auth."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        # Protected paths (admin-only static routes)
+        protected_prefixes = ["/editor", "/run"]
+        protected_exact = ["/"]
+
+        is_protected = path in protected_exact or any(
+            path.startswith(p) for p in protected_prefixes
+        )
+
+        if not is_protected:
+            return await call_next(request)
+
+        # Skip auth if disabled or not configured
+        if AUTH_DISABLED or not ADMIN_USER or not ADMIN_PASSWORD:
+            return await call_next(request)
+
+        # Check Basic Auth header
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Basic "):
+            return StarletteResponse(
+                status_code=401,
+                headers={"WWW-Authenticate": "Basic realm='Admin'"},
+                content="Authentication required",
+            )
+
+        try:
+            encoded = auth_header[6:]  # Strip "Basic "
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            username, password = decoded.split(":", 1)
+        except Exception:
+            return StarletteResponse(
+                status_code=401,
+                headers={"WWW-Authenticate": "Basic realm='Admin'"},
+                content="Invalid authorization header",
+            )
+
+        if secrets.compare_digest(username, ADMIN_USER) and secrets.compare_digest(
+            password, ADMIN_PASSWORD
+        ):
+            return await call_next(request)
+
+        return StarletteResponse(
+            status_code=401,
+            headers={"WWW-Authenticate": "Basic realm='Admin'"},
+            content="Invalid credentials",
+        )
+
+
+# Add admin auth middleware (must be added before routes are registered)
+app.add_middleware(AdminAuthMiddleware)
+
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -244,6 +366,12 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
+
+
+def generate_session_id(length: int = 10) -> str:
+    """Generate a URL-safe nanoid-style session identifier."""
+    alphabet = string.ascii_lowercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def load_state() -> "GameState | None":
@@ -254,6 +382,11 @@ def load_state() -> "GameState | None":
             data = json.load(f)
             if not data:
                 return None
+            # Migration: add session_id if missing (existing sessions)
+            if "session_id" not in data or not data["session_id"]:
+                data["session_id"] = generate_session_id()
+                with open(STATE_FILE, "w") as fw:
+                    json.dump(data, fw, indent=2)
             return GameState(**data)
     except (json.JSONDecodeError, Exception):
         return None
@@ -283,11 +416,25 @@ def build_resolved(state: "GameState | None") -> "dict | None":
         return None
     with open(story_path) as f:
         story = Story(**json.load(f))
+
+    char_desc = state.character.description if state.character else None
+    fields = state.character.fields if state.character else None
+
+    # Handle opening scene
+    if state.status == SessionStatus.OPENING_SCENE_ACTIVE and story.opening_scene:
+        base_text = inject_variables(story.opening_scene.base_text, fields)
+        # Evaluate conditional text for opening scene
+        conditional_parts = []
+        for ct in story.opening_scene.conditional_text:
+            if evaluate_condition(ct.condition, state):
+                conditional_parts.append(inject_variables(ct.text, fields))
+        scene_text = base_text + "".join(conditional_parts)
+        return {"scene_text": scene_text, "character_description": char_desc}
+
     scene = get_current_scene(story, state.current_scene_id)
     if scene is None:
         return None
     scene_text = resolve_scene_text(scene, state)
-    char_desc = state.character.description if state.character else None
     return {"scene_text": scene_text, "character_description": char_desc}
 
 
@@ -302,7 +449,7 @@ async def broadcast_state():
     resolved = build_resolved(state)
 
     async with sse_lock:
-        connected = len(sse_connections)
+        player_count = len(sse_connections) - len(storyteller_connections)
         storyteller_connected = len(storyteller_connections) > 0
         queues = list(sse_connections)
 
@@ -310,7 +457,7 @@ async def broadcast_state():
         "type": "state",
         "state": state.model_dump() if state else None,
         "resolved": resolved,
-        "connected_count": connected,
+        "player_count": player_count,
         "storyteller_connected": storyteller_connected,
     }
     message = f"data: {json.dumps(payload)}\n\n"
@@ -333,7 +480,7 @@ class CreateStoryRequest(BaseModel):
 
 # Task 2.1: List Stories
 @app.get("/api/stories")
-async def list_stories() -> list[dict]:
+async def list_stories(_: bool = Depends(verify_admin)) -> list[dict]:
     stories = []
     for path in STORIES_DIR.glob("*.json"):
         with open(path) as f:
@@ -351,7 +498,7 @@ async def list_stories() -> list[dict]:
 
 # Task 2.2: Create Story
 @app.post("/api/stories")
-async def create_story(request: CreateStoryRequest) -> Story:
+async def create_story(request: CreateStoryRequest, _: bool = Depends(verify_admin)) -> Story:
     title = request.title.strip()
     if not title:
         raise HTTPException(status_code=422, detail="Title cannot be empty")
@@ -373,7 +520,7 @@ async def create_story(request: CreateStoryRequest) -> Story:
 
 # Task 2.3: Get Single Story
 @app.get("/api/stories/{story_id}")
-async def get_story(story_id: str) -> Story:
+async def get_story(story_id: str, _: bool = Depends(verify_admin)) -> Story:
     story_path = STORIES_DIR / f"{story_id}.json"
     if not story_path.exists():
         raise HTTPException(status_code=404, detail="Story not found")
@@ -383,7 +530,7 @@ async def get_story(story_id: str) -> Story:
 
 # Task 2.4: Update Story
 @app.put("/api/stories/{story_id}")
-async def update_story(story_id: str, story: Story) -> Story:
+async def update_story(story_id: str, story: Story, _: bool = Depends(verify_admin)) -> Story:
     story_path = STORIES_DIR / f"{story_id}.json"
     if not story_path.exists():
         raise HTTPException(status_code=404, detail="Story not found")
@@ -394,7 +541,7 @@ async def update_story(story_id: str, story: Story) -> Story:
 
 # Task 2.5: Delete Story
 @app.delete("/api/stories/{story_id}")
-async def delete_story(story_id: str):
+async def delete_story(story_id: str, _: bool = Depends(verify_admin)):
     story_path = STORIES_DIR / f"{story_id}.json"
     if not story_path.exists():
         raise HTTPException(status_code=404, detail="Story not found")
@@ -412,6 +559,21 @@ async def delete_story(story_id: str):
 
     story_path.unlink()
     return {"status": "deleted"}
+
+
+# ---------------------------------------------------------------------------
+# Configuration endpoint (public)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/config")
+async def get_config():
+    """Return public configuration values for frontend."""
+    state = load_state()
+    return {
+        "base_url": BASE_URL or None,
+        "session_id": state.session_id if state else None,
+    }
 
 
 # SPA routes - serve index.html for client-side routing
@@ -444,12 +606,57 @@ async def run():
     return FileResponse(STATIC_DIR / "pages" / "run.html")
 
 
-@app.get("/player")
-async def player():
+@app.get("/player/{session_id}")
+async def player_with_session(session_id: str):
+    """Player view with session validation."""
+    state = load_state()
+    if state is None or state.session_id != session_id:
+        return HTMLResponse(
+            content="""<!DOCTYPE html>
+<html>
+<head>
+    <title>Session Not Found</title>
+    <style>
+        body { font-family: system-ui, sans-serif; text-align: center; padding: 50px; background: #1a1a2e; color: #eee; }
+        h1 { color: #ff6b6b; }
+        p { color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>Session Not Found</h1>
+    <p>This session link is invalid or has expired.</p>
+    <p>Ask the storyteller for a new link.</p>
+</body>
+</html>""",
+            status_code=404,
+        )
     react_index = STATIC_DIR / "index.html"
     if react_index.exists():
         return FileResponse(react_index)
     return FileResponse(STATIC_DIR / "pages" / "player.html")
+
+
+@app.get("/player")
+async def player_redirect():
+    """Redirect bare /player to require session_id."""
+    return HTMLResponse(
+        content="""<!DOCTYPE html>
+<html>
+<head>
+    <title>Session Link Required</title>
+    <style>
+        body { font-family: system-ui, sans-serif; text-align: center; padding: 50px; background: #1a1a2e; color: #eee; }
+        h1 { color: #f9ca24; }
+        p { color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>Session Link Required</h1>
+    <p>Please use the link provided by your storyteller to join the game.</p>
+</body>
+</html>""",
+        status_code=400,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -458,9 +665,18 @@ async def player():
 
 
 @app.get("/api/events")
-async def sse_events(token: Optional[str] = None):
-    queue = asyncio.Queue()
+async def sse_events(token: Optional[str] = None, s: Optional[str] = None):
+    """SSE endpoint. Storyteller uses token param, players use s (session_id) param."""
     is_storyteller = token is not None and token == _session_token
+
+    # Players must provide valid session_id (unless auth is disabled or no session exists)
+    if not is_storyteller and not AUTH_DISABLED:
+        state = load_state()
+        # Allow if no active session (nothing to protect) or valid session_id
+        if state is not None and s != state.session_id:
+            raise HTTPException(status_code=403, detail="Invalid session")
+
+    queue = asyncio.Queue()
 
     async with sse_lock:
         sse_connections.add(queue)
@@ -471,7 +687,7 @@ async def sse_events(token: Optional[str] = None):
         try:
             # Send initial state
             async with sse_lock:
-                connected = len(sse_connections)
+                player_count = len(sse_connections) - len(storyteller_connections)
                 storyteller_connected = len(storyteller_connections) > 0
 
             state = load_state()
@@ -480,7 +696,7 @@ async def sse_events(token: Optional[str] = None):
                 "type": "state",
                 "state": state.model_dump() if state else None,
                 "resolved": resolved,
-                "connected_count": connected,
+                "player_count": player_count,
                 "storyteller_connected": storyteller_connected,
             }
             yield f"data: {json.dumps(payload)}\n\n"
@@ -542,8 +758,19 @@ class SelectSceneRequest(BaseModel):
 
 
 @app.get("/api/state")
-async def get_state():
+async def get_state(s: Optional[str] = None, x_session_token: Optional[str] = Header(None)):
+    """Get current state. Requires either valid session_id (player) or token (storyteller)."""
     state = load_state()
+
+    # Determine access level
+    is_storyteller = x_session_token and x_session_token == _session_token
+    has_valid_session = s and state and state.session_id == s
+    no_active_session = state is None  # Nothing to protect
+
+    # Allow if: storyteller, valid session_id, no active session, or auth disabled
+    if not is_storyteller and not has_valid_session and not no_active_session and not AUTH_DISABLED:
+        raise HTTPException(status_code=403, detail="Authentication required")
+
     resolved = build_resolved(state)
     async with sse_lock:
         storyteller_connected = len(storyteller_connections) > 0
@@ -560,7 +787,7 @@ async def get_state():
 
 
 @app.post("/api/state/start")
-async def start_session(request: StartRequest) -> StartResponse:
+async def start_session(request: StartRequest, _: bool = Depends(verify_admin)) -> StartResponse:
     global _session_token
 
     story_path = STORIES_DIR / f"{request.story_id}.json"
@@ -577,10 +804,13 @@ async def start_session(request: StartRequest) -> StartResponse:
 
     if story.madlib_template.fields:
         status = SessionStatus.MADLIB_IN_PROGRESS
+    elif story.opening_scene:
+        status = SessionStatus.OPENING_SCENE_ACTIVE
     else:
         status = SessionStatus.RUNNING
 
     state = GameState(
+        session_id=generate_session_id(),
         story_id=request.story_id,
         status=status,
         madlib_step=0,
@@ -637,7 +867,11 @@ async def submit_madlib(request: MadlibRequest, _: bool = Depends(verify_storyte
             description=description,
             fields=fields_dict,
         )
-        state.status = SessionStatus.RUNNING
+        # Check for opening scene before going to running
+        if story.opening_scene:
+            state.status = SessionStatus.OPENING_SCENE_ACTIVE
+        else:
+            state.status = SessionStatus.RUNNING
 
     save_state(state)
     await broadcast_state()
@@ -819,7 +1053,15 @@ async def select_scene(request: SelectSceneRequest, _: bool = Depends(verify_sto
 
 
 @app.post("/api/state/reveal-choices")
-async def reveal_choices(_: bool = Depends(verify_storyteller)) -> GameState:
+async def reveal_choices(
+    show_to_players: bool = True,
+    _: bool = Depends(verify_storyteller),
+) -> GameState:
+    """Shuffle and optionally reveal choices to players.
+
+    - show_to_players=false: Just shuffle (for storyteller's local reveal)
+    - show_to_players=true: Shuffle + broadcast to players
+    """
     state = load_state()
     if state is None or state.status != SessionStatus.RUNNING:
         raise HTTPException(status_code=409, detail="No running session")
@@ -831,12 +1073,71 @@ async def reveal_choices(_: bool = Depends(verify_storyteller)) -> GameState:
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
 
-    # Get choice texts and shuffle them
-    choice_texts = [c.text for c in scene.choices]
-    random.shuffle(choice_texts)
+    # Only shuffle on first reveal - preserve order for subsequent calls
+    if not state.shuffled_choices:
+        choice_texts = [c.text for c in scene.choices]
+        random.shuffle(choice_texts)
+        state.shuffled_choices = choice_texts
 
-    state.choices_revealed = True
-    state.shuffled_choices = choice_texts
+    if show_to_players:
+        state.choices_revealed = True
+
+    save_state(state)
+    await broadcast_state()
+    return state
+
+
+# ---------------------------------------------------------------------------
+# POST /api/state/opening-choice - Handle opening scene choice
+# ---------------------------------------------------------------------------
+
+
+class OpeningChoiceRequest(BaseModel):
+    choice_index: Optional[int] = None  # None = "proceed" button clicked
+
+
+@app.post("/api/state/opening-choice")
+async def make_opening_choice(
+    request: OpeningChoiceRequest, _: bool = Depends(verify_storyteller)
+) -> GameState:
+    state = load_state()
+    if state is None or state.status != SessionStatus.OPENING_SCENE_ACTIVE:
+        raise HTTPException(status_code=409, detail="Not in opening_scene_active status")
+
+    story_path = STORIES_DIR / f"{state.story_id}.json"
+    with open(story_path) as f:
+        story = Story(**json.load(f))
+
+    if not story.opening_scene:
+        raise HTTPException(status_code=500, detail="Story has no opening scene")
+
+    first_scene_id = story.scenes[0].id if story.scenes else None
+
+    if request.choice_index is not None:
+        # Validate choice index
+        if request.choice_index < 0 or request.choice_index >= len(story.opening_scene.choices):
+            raise HTTPException(status_code=422, detail="Invalid choice index")
+
+        choice = story.opening_scene.choices[request.choice_index]
+
+        if choice.target_scene_id:
+            # Validate target scene exists
+            scene_ids = {s.id for s in story.scenes}
+            if choice.target_scene_id not in scene_ids:
+                raise HTTPException(status_code=422, detail="Invalid target scene")
+            state.current_scene_id = choice.target_scene_id
+            state.status = SessionStatus.RUNNING
+        else:
+            # No target - go to scene selection
+            state.status = SessionStatus.AWAITING_SCENE_SELECTION
+    else:
+        # No choice made (proceed button or no choices available)
+        if story.settings.non_linear:
+            state.status = SessionStatus.AWAITING_SCENE_SELECTION
+        else:
+            if first_scene_id:
+                state.current_scene_id = first_scene_id
+            state.status = SessionStatus.RUNNING
 
     save_state(state)
     await broadcast_state()
@@ -864,16 +1165,29 @@ async def finish_session(request: FinishRequest, _: bool = Depends(verify_storyt
 async def validate_token(x_session_token: Optional[str] = Header(None)):
     """Check if the provided token is valid for the current session."""
     if _session_token is None:
-        return {"valid": False, "reason": "no_session"}
+        return {"valid": False, "reason": "no_session", "is_storyteller": False}
     if x_session_token == _session_token:
-        return {"valid": True}
-    return {"valid": False, "reason": "invalid_token"}
+        return {"valid": True, "is_storyteller": True}
+    return {"valid": False, "reason": "invalid_token", "is_storyteller": False}
 
 
 @app.post("/api/state/restart")
 async def restart_session():
     """Restart clears the session. No auth required - anyone can reset."""
     global _session_token
+
+    # Broadcast session_ended to all clients BEFORE clearing token
+    # This ensures players receive the notification before being disconnected
+    async with sse_lock:
+        queues = list(sse_connections)
+    payload = {"type": "session_ended"}
+    message = f"data: {json.dumps(payload)}\n\n"
+    for queue in queues:
+        try:
+            await queue.put(message)
+        except Exception:
+            pass
+
     _session_token = None
     # Clear storyteller connections since token is now invalid
     async with sse_lock:

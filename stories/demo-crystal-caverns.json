@@ -1,10 +1,10 @@
 {
   "id": "demo-crystal-caverns",
   "title": "The Crystal Caverns",
-  "theme": "fantasy",
+  "theme": "deep_space",
   "settings": {
     "starting_hp": 3,
-    "non_linear": true
+    "non_linear": false
   },
   "madlib_template": {
     "prompt": "{name}, a wanderer from {homeland}, has heard rumors of a legendary {treasure} hidden deep within the Crystal Caverns. The village elder waits at the gate...",
@@ -255,5 +255,6 @@
         }
       ]
     }
-  ]
+  ],
+  "opening_scene": null
 }

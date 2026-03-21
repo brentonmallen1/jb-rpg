@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
 
-/* static/css/themes/fantasy.css */
-:root {
+/* Fantasy theme - scoped to .fantasy class on html element */
+.fantasy {
     --bg-primary: #1a1410;
     --bg-secondary: #2a2018;
     --text-primary: #f4e8d8;
@@ -16,37 +16,37 @@
     --font-display: 'Cinzel', 'Trajan Pro', 'Palatino Linotype', serif;
 }
 
-.card {
+.fantasy .card {
     border: 2px solid var(--accent);
     border-image: linear-gradient(135deg, var(--accent), transparent, var(--accent)) 1;
 }
 
 /* Lantern HP indicators */
-.hp-indicator::before {
+.fantasy .hp-indicator::before {
     content: '\1F4A1';
     font-size: 1.25rem;
 }
 
-.hp-indicator--empty {
+.fantasy .hp-indicator--empty {
     filter: grayscale(1) opacity(0.3);
 }
 
-.hp-indicator--empty::before {
+.fantasy .hp-indicator--empty::before {
     content: '\1F4A1';
 }
 
-h1, h2, .nav__title, .character-name {
+.fantasy h1, .fantasy h2, .fantasy .nav__title, .fantasy .character-name {
     font-family: var(--font-display);
     letter-spacing: 0.05em;
 }
 
-.scene-text {
+.fantasy .scene-text {
     font-family: var(--font-body);
     font-size: 1.2rem;
 }
 
 /* Drop cap */
-.scene-text::first-letter {
+.fantasy .scene-text::first-letter {
     font-size: 2em;
     float: left;
     line-height: 1;
@@ -56,17 +56,17 @@ h1, h2, .nav__title, .character-name {
 }
 
 /* Double border for choices */
-.choice-btn {
+.fantasy .choice-btn {
     border-style: double;
     border-width: 4px;
 }
 
-.nav {
+.fantasy .nav {
     border-bottom: 2px solid var(--accent);
 }
 
 /* Light mode overrides */
-[data-mode="light"] {
+.fantasy[data-mode="light"] {
     --bg-primary: #f8f4e8;
     --bg-secondary: #fff;
     --text-primary: #2a1810;

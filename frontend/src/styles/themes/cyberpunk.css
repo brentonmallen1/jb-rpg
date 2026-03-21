@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Share+Tech+Mono&display=swap');
 
-/* static/css/themes/cyberpunk.css */
-:root {
+/* Cyberpunk theme - scoped to .cyberpunk class on html element */
+.cyberpunk {
     --bg-primary: #0a0a12;
     --bg-secondary: #12121f;
     --text-primary: #0ff;
@@ -17,17 +17,18 @@
 }
 
 /* Memory chip HP indicators */
-.hp-indicator::before {
+.cyberpunk .hp-indicator::before {
     content: '\1F4BE';
     font-size: 1.25rem;
 }
 
-.hp-indicator--empty {
+.cyberpunk .hp-indicator--empty {
     filter: grayscale(1) opacity(0.3);
 }
 
 /* Scanline effect */
-body::before {
+.cyberpunk body::before,
+body.cyberpunk::before {
     content: '';
     position: fixed;
     inset: 0;
@@ -43,12 +44,12 @@ body::before {
 }
 
 /* Clipped corners on cards */
-.card {
+.cyberpunk .card {
     clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }
 
 /* Light mode overrides */
-[data-mode="light"] {
+.cyberpunk[data-mode="light"] {
     --bg-primary: #e8f8f8;
     --bg-secondary: #fff;
     --text-primary: #0a4a4a;

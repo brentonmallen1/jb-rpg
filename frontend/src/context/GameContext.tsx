@@ -8,13 +8,15 @@ interface GameContextValue {
   // State from SSE
   state: GameState | null
   resolved: ResolvedContent | null
-  connectedCount: number
+  playerCount: number
   storytellerConnected: boolean
   isConnected: boolean
+  isInitializing: boolean
 
   // Session token
   sessionToken: string | null
   isStoryteller: boolean
+  isValidatingToken: boolean
 
   // Theme
   theme: ThemeName
@@ -33,8 +35,10 @@ interface GameContextValue {
   goBack: () => Promise<void>
   finish: (outcome: 'victory' | 'defeat') => Promise<void>
   restart: () => Promise<void>
-  revealChoices: () => Promise<void>
+  stopSession: () => Promise<void>
+  revealChoices: (showToPlayers?: boolean) => Promise<void>
   selectScene: (sceneId: string) => Promise<void>
+  selectOpeningChoice: (choiceIndex: number | null) => Promise<void>
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
@@ -42,28 +46,37 @@ const GameContext = createContext<GameContextValue | null>(null)
 export function GameProvider({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(api.getSessionToken)
   const [isStoryteller, setIsStoryteller] = useState(false)
+  const [isValidatingToken, setIsValidatingToken] = useState(false)
   const [currentStory, setCurrentStory] = useState<Story | null>(null)
 
-  // Theme management
+  // Theme management - default to 'modern' when no story is active (e.g., Library page)
   const { theme, colorMode, setTheme, toggleColorMode } = useTheme(
-    currentStory?.theme ?? 'cyberpunk'
+    currentStory?.theme ?? 'modern'
   )
 
   // SSE connection
-  const { state, resolved, connectedCount, storytellerConnected, isConnected } = useSSE({
+  const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing } = useSSE({
     token: sessionToken,
   })
 
   // Validate token on mount
   useEffect(() => {
     if (sessionToken) {
-      api.validateToken().then(result => {
-        setIsStoryteller(result.is_storyteller)
-        if (!result.valid) {
+      setIsValidatingToken(true)
+      api.validateToken()
+        .then(result => {
+          setIsStoryteller(result.is_storyteller ?? false)
+          if (!result.valid) {
+            api.setSessionToken(null)
+            setSessionToken(null)
+          }
+        })
+        .catch(() => {
           api.setSessionToken(null)
           setSessionToken(null)
-        }
-      })
+          setIsStoryteller(false)
+        })
+        .finally(() => setIsValidatingToken(false))
     }
   }, [sessionToken])
 
@@ -103,22 +116,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setIsStoryteller(false)
   }, [])
 
-  const revealChoices = useCallback(async () => {
-    await api.revealChoices()
+  const stopSession = useCallback(async () => {
+    await api.restart()
+    setSessionToken(null)
+    setIsStoryteller(false)
+  }, [])
+
+  const revealChoices = useCallback(async (showToPlayers: boolean = true) => {
+    await api.revealChoices(showToPlayers)
   }, [])
 
   const selectScene = useCallback(async (sceneId: string) => {
     await api.selectScene(sceneId)
   }, [])
 
+  const selectOpeningChoice = useCallback(async (choiceIndex: number | null) => {
+    await api.openingChoice(choiceIndex)
+  }, [])
+
   const value: GameContextValue = {
     state,
     resolved,
-    connectedCount,
+    playerCount,
     storytellerConnected,
     isConnected,
+    isInitializing,
     sessionToken,
     isStoryteller,
+    isValidatingToken,
     theme,
     colorMode,
     setTheme,
@@ -131,8 +156,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     goBack,
     finish,
     restart,
+    stopSession,
     revealChoices,
     selectScene,
+    selectOpeningChoice,
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

@@ -1,14 +1,15 @@
 services:
   app:
-    build:
-      context: .
-      args:
-        APP_PORT: ${APP_PORT:-8000}
+    build: .
     ports:
-      - "${HOST_PORT:-8000}:${APP_PORT:-8000}"
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
     volumes:
-      - ${DATA_PATH:-./data}:/data
+      - ${DATA_DIR:-./data}:/data
     environment:
+      - BACKEND_PORT=${BACKEND_PORT:-8000}
       - DATA_DIR=/data
-      - APP_PORT=${APP_PORT:-8000}
+      - ADMIN_USER=${ADMIN_USER:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - AUTH_DISABLED=${AUTH_DISABLED:-false}
+      - BASE_URL=${BASE_URL:-}
     restart: unless-stopped

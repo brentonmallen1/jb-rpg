@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Sorts+Mill+Goudy&display=swap');
 
-/* static/css/themes/insanity.css */
-:root {
+/* Insanity theme - scoped to .insanity class on html element */
+.insanity {
     --bg-primary: #0a1a1a;
     --bg-secondary: #0f2828;
     --text-primary: #c4d9d4;
@@ -17,28 +17,28 @@
 }
 
 /* Brain HP indicators */
-.hp-indicator::before {
+.insanity .hp-indicator::before {
     content: '\1F9E0';
     font-size: 1.25rem;
 }
 
-.hp-indicator--empty {
+.insanity .hp-indicator--empty {
     filter: grayscale(1) opacity(0.3);
 }
 
 /* Eldritch glow on accent elements */
-.btn:hover {
+.insanity .btn:hover {
     box-shadow: 0 0 15px rgba(45, 217, 180, 0.4);
 }
 
 /* Wavy/tentacle-like borders */
-.card {
+.insanity .card {
     border: 2px solid var(--accent);
     border-radius: 2px 12px 2px 12px;
 }
 
 /* Light mode overrides */
-[data-mode="light"] {
+.insanity[data-mode="light"] {
     --bg-primary: #f4f1e8;
     --bg-secondary: #fff;
     --text-primary: #0f2828;

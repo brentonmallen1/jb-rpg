@@ -4,6 +4,13 @@ let state = null;
 let storytellerConnected = false;
 let pollInterval = null;
 
+// Extract session_id from URL path: /player/{session_id}
+function getSessionId() {
+    const match = window.location.pathname.match(/^\/player\/([a-z0-9]+)$/);
+    return match ? match[1] : null;
+}
+
+const sessionId = getSessionId();
 const sse = new SSEClient(handleStateUpdate);
 
 // Theme-specific waiting messages
@@ -39,8 +46,8 @@ function getCreationMessage() {
 }
 
 async function init() {
-    // Start SSE for instant updates
-    sse.connect();
+    // Start SSE for instant updates (pass sessionId for player auth)
+    sse.connect(null, sessionId);
 
     // Also poll every 3 seconds as primary reliability mechanism
     pollInterval = setInterval(pollForUpdates, 3000);
@@ -51,7 +58,7 @@ async function init() {
 
 async function pollForUpdates() {
     try {
-        const data = await API.getState();
+        const data = await API.getState(sessionId);
         // Check if anything changed
         const newStateJson = JSON.stringify(data.state);
         const currentStateJson = JSON.stringify(state);

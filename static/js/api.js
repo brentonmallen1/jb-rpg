@@ -57,9 +57,20 @@ const API = {
         if (!res.ok) throw new Error(`Failed to delete story: ${res.status}`);
     },
 
-    async getState() {
-        const res = await fetch('/api/state');
+    async getState(sessionId = null) {
+        const url = sessionId ? `/api/state?s=${encodeURIComponent(sessionId)}` : '/api/state';
+        const headers = {};
+        if (this._sessionToken) {
+            headers['X-Session-Token'] = this._sessionToken;
+        }
+        const res = await fetch(url, { headers });
         if (!res.ok) throw new Error(`Failed to fetch state: ${res.status}`);
+        return res.json();
+    },
+
+    async getConfig() {
+        const res = await fetch('/api/config');
+        if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
         return res.json();
     },
 

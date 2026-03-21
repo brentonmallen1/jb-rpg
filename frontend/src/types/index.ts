@@ -2,7 +2,7 @@
 export type ThemeName = 'cyberpunk' | 'fantasy' | 'deep_space' | 'modern' | 'horror' | 'insanity'
 
 // Session status matching backend SessionStatus enum
-export type SessionStatus = 'madlib_in_progress' | 'running' | 'awaiting_scene_selection' | 'game_over'
+export type SessionStatus = 'madlib_in_progress' | 'opening_scene_active' | 'running' | 'awaiting_scene_selection' | 'game_over'
 
 // Choice outcome types
 export type ChoiceKind = 'damage' | 'item' | 'level'
@@ -22,6 +22,18 @@ export interface Condition {
 export interface ConditionalText {
   condition: Condition
   text: string
+}
+
+export interface OpeningChoice {
+  text: string
+  target_scene_id?: string
+}
+
+export interface OpeningScene {
+  title: string
+  base_text: string
+  choices: OpeningChoice[]
+  conditional_text: ConditionalText[]
 }
 
 export interface Choice {
@@ -61,6 +73,7 @@ export interface Story {
   settings: StorySettings
   madlib_template: MadLibTemplate
   scenes: Scene[]
+  opening_scene?: OpeningScene
 }
 
 export interface HistoryEntry {
@@ -78,6 +91,7 @@ export interface Character {
 }
 
 export interface GameState {
+  session_id: string
   story_id: string
   status: SessionStatus
   madlib_step: number
@@ -97,17 +111,23 @@ export interface GameState {
 export interface ResolvedContent {
   scene_text: string
   character_description?: string
-  choices: Choice[]
+  choices?: Choice[]  // Optional - backend doesn't send this, choices come from story.scenes
 }
 
 // SSE payload from backend
-export interface SSEPayload {
+export interface SSEStatePayload {
   type: 'state'
   state: GameState | null
   resolved: ResolvedContent | null
-  connected_count: number
+  player_count: number
   storyteller_connected: boolean
 }
+
+export interface SSESessionEndedPayload {
+  type: 'session_ended'
+}
+
+export type SSEPayload = SSEStatePayload | SSESessionEndedPayload
 
 // API response types
 export interface StorySummary {

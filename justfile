@@ -2,7 +2,7 @@
 
 # Default ports (can be overridden via env)
 backend_port := env_var_or_default("BACKEND_PORT", "8000")
-vite_port := env_var_or_default("VITE_PORT", "5173")
+frontend_port := env_var_or_default("FRONTEND_PORT", "5173")
 
 # Default: show available commands
 default:
@@ -24,19 +24,17 @@ backend:
 
 # Run frontend dev server (Vite)
 frontend-dev:
-    cd frontend && VITE_PORT={{vite_port}} npm run dev
+    cd frontend && FRONTEND_PORT={{frontend_port}} BACKEND_PORT={{backend_port}} npm run dev
 
 # Build frontend for production
 frontend-build:
     cd frontend && npm run build
 
-# Development info (run backend and frontend in separate terminals)
+# Run both backend and frontend dev servers
 dev:
-    @echo "Run these in separate terminals:"
-    @echo "  just backend       # http://localhost:{{backend_port}}"
-    @echo "  just frontend-dev  # http://localhost:{{vite_port}}"
-    @echo ""
-    @echo "Or use 'just dev-all' to run both (requires terminal splitting)"
+    @echo "Starting backend on http://localhost:{{backend_port}} and frontend on http://localhost:{{frontend_port}}"
+    uv run uvicorn main:app --reload --host 0.0.0.0 --port {{backend_port}} & \
+    cd frontend && BACKEND_PORT={{backend_port}} FRONTEND_PORT={{frontend_port}} npm run dev
 
 # Run tests
 test:
@@ -59,7 +57,7 @@ clean:
 
 # Open the app in the default browser (frontend dev server)
 open:
-    open http://localhost:{{vite_port}}
+    open http://localhost:{{frontend_port}}
 
 # Build and run with Docker
 docker-up:

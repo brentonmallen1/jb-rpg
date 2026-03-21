@@ -2,6 +2,13 @@ import type { Story, StorySummary, GameState } from '../types'
 
 const SESSION_TOKEN_KEY = 'jb_rpg_session_token'
 
+// Config endpoint
+export async function getConfig(): Promise<{ base_url: string | null; session_id: string | null }> {
+  const res = await fetch('/api/config')
+  if (!res.ok) throw new Error(`Config fetch failed: ${res.status}`)
+  return res.json()
+}
+
 // Get/set session token
 export function getSessionToken(): string | null {
   return sessionStorage.getItem(SESSION_TOKEN_KEY)
@@ -154,8 +161,9 @@ export async function restart(): Promise<void> {
   setSessionToken(null)
 }
 
-export async function revealChoices(): Promise<GameState> {
-  const res = await fetch('/api/state/reveal-choices', {
+export async function revealChoices(showToPlayers: boolean = true): Promise<GameState> {
+  const url = `/api/state/reveal-choices?show_to_players=${showToPlayers}`
+  const res = await fetch(url, {
     method: 'POST',
     headers: getAuthHeaders(),
   })
@@ -175,6 +183,19 @@ export async function selectScene(sceneId: string): Promise<GameState> {
   if (!res.ok) {
     const err = await res.json()
     throw new Error(err.detail || 'Failed to select scene')
+  }
+  return res.json()
+}
+
+export async function openingChoice(choiceIndex: number | null): Promise<GameState> {
+  const res = await fetch('/api/state/opening-choice', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ choice_index: choiceIndex }),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.detail || 'Failed to make opening choice')
   }
   return res.json()
 }

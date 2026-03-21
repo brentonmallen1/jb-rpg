@@ -7,10 +7,12 @@ class SSEClient {
         this.maxReconnectDelay = 30000;
         this._reconnectTimer = null;
         this._token = null;
+        this._sessionId = null;
     }
 
-    connect(token = null) {
+    connect(token = null, sessionId = null) {
         this._token = token;
+        this._sessionId = sessionId;
         if (this.eventSource) {
             this.eventSource.close();
         }
@@ -19,7 +21,11 @@ class SSEClient {
             this._reconnectTimer = null;
         }
 
-        const url = token ? `/api/events?token=${encodeURIComponent(token)}` : '/api/events';
+        // Build URL with query params
+        const params = new URLSearchParams();
+        if (token) params.set('token', token);
+        if (sessionId) params.set('s', sessionId);
+        const url = params.toString() ? `/api/events?${params.toString()}` : '/api/events';
         this.eventSource = new EventSource(url);
 
         this.eventSource.onmessage = (event) => {
@@ -37,7 +43,7 @@ class SSEClient {
             this.eventSource.close();
             this.eventSource = null;
             console.log(`SSE reconnecting in ${this.reconnectDelay}ms...`);
-            this._reconnectTimer = setTimeout(() => this.connect(this._token), this.reconnectDelay);
+            this._reconnectTimer = setTimeout(() => this.connect(this._token, this._sessionId), this.reconnectDelay);
             this.reconnectDelay = Math.min(
                 this.reconnectDelay * 2,
                 this.maxReconnectDelay

@@ -4,7 +4,7 @@
   "theme": "insanity",
   "settings": {
     "starting_hp": 3,
-    "non_linear": false
+    "non_linear": true
   },
   "madlib_template": {
     "prompt": "{name} the {profession} has a secret weakness: {weakness}. They journey forth to {quest}.",
@@ -30,7 +30,7 @@
   "scenes": [
     {
       "id": "scene_1773662860054",
-      "title": "scene1",
+      "title": "scene 1",
       "base_text": "blah tlaedfadf {name}",
       "choices": [
         {
@@ -53,6 +53,90 @@
         }
       ],
       "conditional_text": []
+    },
+    {
+      "id": "0ee2912a",
+      "title": "Scene 2",
+      "base_text": "Enter scene text...",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Choice 1",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Choice 2",
+          "amount": 1,
+          "item_name": "Item"
+        },
+        {
+          "kind": "level",
+          "text": "Choice 3",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": []
+    },
+    {
+      "id": "11e9d675",
+      "title": "Scene 3",
+      "base_text": "Enter scene text...",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Choice 1",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Choice 2",
+          "amount": 1,
+          "item_name": "Item"
+        },
+        {
+          "kind": "level",
+          "text": "Choice 3",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": []
+    },
+    {
+      "id": "81888810",
+      "title": "Scene 4",
+      "base_text": "Enter scene text...",
+      "choices": [
+        {
+          "kind": "damage",
+          "text": "Choice 1",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "text": "Choice 2",
+          "amount": 1,
+          "item_name": "Item"
+        },
+        {
+          "kind": "level",
+          "text": "Choice 3",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": []
     }
-  ]
+  ],
+  "opening_scene": {
+    "title": "Prologue",
+    "base_text": "Enter opening scene text...",
+    "choices": [],
+    "conditional_text": []
+  }
 }

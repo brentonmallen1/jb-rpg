@@ -1,0 +1,182 @@
+/* Run (storyteller) page styles */
+
+/* Error banner */
+.run-error-banner {
+  background: var(--danger);
+  color: white;
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: var(--radius-md);
+}
+
+.run-error-banner .btn {
+  margin-left: var(--space-md);
+}
+
+/* Centered content layouts */
+.run-centered {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.run-centered h1 {
+  margin-bottom: var(--space-lg);
+}
+
+/* Wide content (scene text) */
+.run-wide {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Character creation phase */
+.run-madlib-card {
+  margin-bottom: var(--space-lg);
+}
+
+.run-madlib-card .prose {
+  line-height: 1.6;
+}
+
+.run-madlib-progress {
+  margin-bottom: var(--space-md);
+}
+
+.run-madlib-label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-size: var(--text-xl);
+}
+
+.run-madlib-input {
+  width: 100%;
+  margin-bottom: var(--space-md);
+}
+
+/* Scene selection */
+.run-scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.run-scene-card {
+  text-align: left;
+  cursor: pointer;
+}
+
+.run-scene-card--current {
+  border: 2px solid var(--accent);
+}
+
+.run-scene-card--played {
+  opacity: 0.7;
+}
+
+.run-scene-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.run-scene-choice {
+  color: var(--accent);
+}
+
+/* Running phase */
+.run-character-card {
+  margin-bottom: var(--space-lg);
+}
+
+.run-character-name {
+  margin-bottom: var(--space-xs);
+}
+
+.run-hp-section,
+.run-stats-section {
+  margin-bottom: var(--space-lg);
+}
+
+.run-scene-card {
+  margin-bottom: var(--space-lg);
+}
+
+/* Choice buttons */
+.run-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.run-choice-btn {
+  padding: var(--space-md);
+  text-align: left;
+}
+
+.run-choice-outcome {
+  opacity: 0.8;
+  margin-top: var(--space-xs);
+}
+
+.run-reveal-btn {
+  text-align: center;
+  margin-top: var(--space-md);
+}
+
+.run-back-btn {
+  margin-top: var(--space-lg);
+  text-align: center;
+}
+
+/* Game over */
+.run-outcome-title {
+  font-size: var(--text-5xl);
+  margin-bottom: var(--space-lg);
+}
+
+.run-final-stats {
+  margin-bottom: var(--space-xl);
+}
+
+/* Finale roll card */
+.run-finale-card {
+  margin-bottom: var(--space-lg);
+}
+
+.run-finale-card p {
+  margin-bottom: var(--space-md);
+}
+
+.run-finale-buttons {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+/* Share modal */
+.run-share-input {
+  width: 100%;
+  padding: var(--space-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--text-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+  text-align: center;
+}
+
+.run-share-buttons {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.run-copy-feedback {
+  text-align: center;
+  margin-top: var(--space-sm);
+}

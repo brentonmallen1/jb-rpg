@@ -3,26 +3,37 @@ import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
 import * as api from '../hooks/api'
 import type { Story } from '../types'
+import { Modal, ConfirmDialog, RulesModal, HPDisplay, StatsRow, ModeToggle } from '../components'
+import '../styles/pages/run.css'
 
 export default function Run() {
   const navigate = useNavigate()
   const {
     state,
     resolved,
-    connectedCount,
+    playerCount,
     toggleColorMode,
+    colorMode,
     submitMadlib,
     makeChoice,
     goBack,
     finish,
     restart,
+    stopSession,
     revealChoices,
-    selectScene
+    selectScene,
+    selectOpeningChoice,
+    isInitializing
   } = useGame()
 
   const [story, setStory] = useState<Story | null>(null)
   const [madlibInput, setMadlibInput] = useState('')
   const [showRules, setShowRules] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+  const [copyFeedback, setCopyFeedback] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [storytellerChoicesRevealed, setStorytellerChoicesRevealed] = useState(false)
 
   // Load story data
   useEffect(() => {
@@ -31,85 +42,175 @@ export default function Run() {
     }
   }, [state?.story_id])
 
-  // No active session
+  // Reset storyteller's local reveal state when scene changes
+  useEffect(() => {
+    setStorytellerChoicesRevealed(false)
+  }, [state?.current_scene_id])
+
+  // Still connecting to SSE
+  if (isInitializing) {
+    return (
+      <main className="container" style={{ textAlign: 'center', paddingTop: 'var(--space-xl)' }}>
+        <p className="text-secondary">Connecting...</p>
+      </main>
+    )
+  }
+
+  // No active session (confirmed after SSE connected)
   if (!state) {
     return (
-      <div className="container" style={{ textAlign: 'center', paddingTop: 'var(--space-xl)' }}>
+      <main className="container" style={{ textAlign: 'center', paddingTop: 'var(--space-xl)' }}>
         <h1>No Active Session</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-lg)' }}>
+        <p className="text-secondary" style={{ marginBottom: 'var(--space-lg)' }}>
           Start a session from the library to begin playing.
         </p>
         <button className="btn" onClick={() => navigate('/')}>
           Go to Library
         </button>
-      </div>
+      </main>
     )
   }
 
   // Get current madlib field
   const currentField = story?.madlib_template.fields[state.madlib_step]
+  const madlibInputId = 'madlib-input'
 
   async function handleMadlibSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!madlibInput.trim()) return
-    await submitMadlib(madlibInput.trim())
-    setMadlibInput('')
+    try {
+      await submitMadlib(madlibInput.trim())
+      setMadlibInput('')
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit')
+    }
   }
 
   async function handleChoice(index: number) {
-    await makeChoice(index)
+    try {
+      await makeChoice(index)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to make choice')
+    }
   }
 
   async function handleFinish(outcome: 'victory' | 'defeat') {
-    await finish(outcome)
+    try {
+      await finish(outcome)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to finish game')
+    }
   }
 
   async function handleRestart() {
-    await restart()
-    navigate('/')
+    try {
+      await restart()
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to restart')
+    }
+  }
+
+  async function handleQuit() {
+    setShowQuitConfirm(false)
+    try {
+      await stopSession()
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to end session')
+    }
+  }
+
+  function handleCopyLink() {
+    if (!state) return
+    navigator.clipboard.writeText(`${window.location.origin}/player/${state.session_id}`)
+    setCopyFeedback(true)
+    setTimeout(() => setCopyFeedback(false), 2000)
   }
 
   return (
     <>
       <nav className="nav">
         <span className="nav__title">J&B's RPG</span>
-        <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            {connectedCount} connected
+        <div className="nav__actions">
+          <span className="text-secondary text-sm" aria-live="polite">
+            {playerCount} {playerCount === 1 ? 'player' : 'players'}
           </span>
+          <button
+            className="btn"
+            onClick={() => setShowShare(true)}
+          >
+            Share
+          </button>
+          <button
+            className="btn btn--secondary"
+            onClick={() => setShowQuitConfirm(true)}
+          >
+            Quit
+          </button>
           <button
             className="btn btn--secondary"
             onClick={() => setShowRules(true)}
-            style={{ padding: 'var(--space-xs) var(--space-sm)', fontSize: '0.875rem' }}
+            aria-label="Game rules"
           >
-            Rules
+            ?
           </button>
-          <button
-            className="btn btn--secondary mode-toggle"
-            onClick={toggleColorMode}
-            aria-label="Toggle light/dark mode"
-          />
+          <ModeToggle colorMode={colorMode} onToggle={toggleColorMode} />
         </div>
       </nav>
 
-      <div className="container">
+      <main className="container">
+        {/* Error Banner */}
+        {error && (
+          <div
+            className="card"
+            style={{
+              background: 'var(--danger)',
+              color: 'white',
+              padding: 'var(--space-md)',
+              marginBottom: 'var(--space-md)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+            role="alert"
+          >
+            <span>{error}</span>
+            <button
+              className="btn btn--secondary"
+              onClick={() => setError(null)}
+              style={{ marginLeft: 'var(--space-md)' }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Character Creation Phase */}
         {state.status === 'madlib_in_progress' && currentField && (
           <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
             <h1 style={{ marginBottom: 'var(--space-lg)' }}>Character Creation</h1>
             <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-              <p style={{ fontSize: '1.125rem', lineHeight: 1.6 }}>
+              <p className="prose" style={{ lineHeight: 1.6 }}>
                 {story?.madlib_template.prompt}
               </p>
             </div>
-            <div style={{ marginBottom: 'var(--space-md)', color: 'var(--text-secondary)' }}>
+            <div className="text-secondary" style={{ marginBottom: 'var(--space-md)' }}>
               Field {state.madlib_step + 1} of {story?.madlib_template.fields.length}
             </div>
             <form onSubmit={handleMadlibSubmit}>
-              <label style={{ display: 'block', marginBottom: 'var(--space-sm)', fontSize: '1.25rem' }}>
+              <label
+                htmlFor={madlibInputId}
+                style={{ display: 'block', marginBottom: 'var(--space-sm)', fontSize: 'var(--text-xl)' }}
+              >
                 {currentField.label}
               </label>
               <input
+                key={state.madlib_step}
+                id={madlibInputId}
                 type="text"
                 value={madlibInput}
                 onChange={e => setMadlibInput(e.target.value)}
@@ -124,95 +225,177 @@ export default function Run() {
           </div>
         )}
 
+        {/* Opening Scene Phase */}
+        {state.status === 'opening_scene_active' && resolved && story?.opening_scene && (
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <h1 style={{ marginBottom: 'var(--space-lg)', textAlign: 'center' }}>
+              {story.opening_scene.title}
+            </h1>
+            <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+              <p className="prose">{resolved.scene_text}</p>
+            </div>
+
+            {story.opening_scene.choices.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                {story.opening_scene.choices.map((choice, index) => (
+                  <button
+                    key={index}
+                    className="btn"
+                    onClick={() => selectOpeningChoice(index)}
+                    style={{ width: '100%' }}
+                  >
+                    {choice.text}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                <button className="btn" onClick={() => selectOpeningChoice(null)}>
+                  Choose Your Path
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Scene Selection Phase */}
         {state.status === 'awaiting_scene_selection' && story && (
           <div style={{ maxWidth: '600px', margin: '0 auto' }}>
             <h1 style={{ marginBottom: 'var(--space-lg)' }}>Select Next Scene</h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-              {story.scenes.map(scene => (
-                <button
-                  key={scene.id}
-                  className="card"
-                  onClick={() => selectScene(scene.id)}
-                  style={{
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    border: scene.id === state.current_scene_id ? '2px solid var(--accent)' : undefined
-                  }}
-                >
-                  <div style={{ fontWeight: 600, marginBottom: 'var(--space-xs)' }}>{scene.title}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                    {scene.base_text.slice(0, 100)}...
-                  </div>
-                </button>
-              ))}
+              {story.scenes.map(scene => {
+                const historyEntry = state.history.find(h => h.scene_id === scene.id)
+                const isPlayed = !!historyEntry
+                const choiceMade = isPlayed ? scene.choices[historyEntry.choice_index] : null
+
+                const getOutcomeDisplay = (choice: { kind: string; item_name?: string }) => {
+                  if (choice.kind === 'damage') return '-1 HP'
+                  if (choice.kind === 'item') return `Item: ${choice.item_name || 'Unknown'}`
+                  if (choice.kind === 'level') return '+1 Level'
+                  return ''
+                }
+
+                return (
+                  <button
+                    key={scene.id}
+                    className="card"
+                    onClick={() => selectScene(scene.id)}
+                    style={{
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      border: scene.id === state.current_scene_id ? '2px solid var(--accent)' : undefined,
+                      opacity: isPlayed ? 0.7 : 1
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xs)' }}>
+                      <div className="font-semibold">{scene.title}</div>
+                      {isPlayed && (
+                        <span className="text-sm text-secondary" style={{ fontStyle: 'italic' }}>Played</span>
+                      )}
+                    </div>
+                    {isPlayed && choiceMade ? (
+                      <div className="text-sm" style={{ color: 'var(--accent)' }}>
+                        {getOutcomeDisplay(choiceMade)}
+                      </div>
+                    ) : (
+                      <div className="text-secondary text-sm">
+                        {scene.base_text.slice(0, 100)}...
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
 
         {/* Running Phase */}
-        {state.status === 'running' && resolved && (
+        {state.status === 'running' && resolved && story && (
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             {/* Character info */}
             {state.character && (
               <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-                <div style={{ fontWeight: 600, marginBottom: 'var(--space-xs)' }}>{state.character.name}</div>
-                <div style={{ color: 'var(--text-secondary)' }}>{resolved.character_description}</div>
+                <div className="font-semibold" style={{ marginBottom: 'var(--space-xs)' }}>{state.character.name}</div>
+                <div className="text-secondary">{resolved.character_description}</div>
               </div>
             )}
 
             {/* HP Display */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
-              {Array.from({ length: 3 }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`hp-indicator ${i < state.hp ? 'hp-indicator--full' : 'hp-indicator--empty'}`}
-                  style={{ width: '40px', height: '40px' }}
-                />
-              ))}
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
+              <HPDisplay hp={state.hp} />
             </div>
 
             {/* Stats */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-xl)', marginBottom: 'var(--space-lg)' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent)' }}>{state.level}</div>
-                <div style={{ color: 'var(--text-secondary)' }}>Level</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent)' }}>{state.items.length}</div>
-                <div style={{ color: 'var(--text-secondary)' }}>Items</div>
-              </div>
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
+              <StatsRow level={state.level} itemCount={state.items.length} />
             </div>
 
             {/* Scene text */}
             <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-              <p style={{ fontSize: '1.125rem', lineHeight: 1.8 }}>{resolved.scene_text}</p>
+              <p className="prose">{resolved.scene_text}</p>
             </div>
 
             {/* Choices */}
-            {!state.choices_revealed ? (
-              <div style={{ textAlign: 'center' }}>
-                <button className="btn" onClick={() => revealChoices()}>
-                  Reveal Choices
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                {state.shuffled_choices.map((text, i) => {
-                  const choice = resolved.choices.find(c => c.text === text)
-                  return (
+            {(() => {
+              const currentScene = story.scenes.find(s => s.id === state.current_scene_id)
+              const getOutcomeLabel = (choice: { kind: string; item_name?: string }) => {
+                if (choice.kind === 'damage') return '−1 HP'
+                if (choice.kind === 'item') return choice.item_name || 'Item'
+                if (choice.kind === 'level') return 'Level Up'
+                return ''
+              }
+
+              // Storyteller hasn't revealed choices yet - show reveal button
+              if (!storytellerChoicesRevealed && !state.shuffled_choices.length) {
+                return (
+                  <div style={{ textAlign: 'center' }}>
                     <button
-                      key={i}
-                      className={`btn choice-btn choice-btn--${choice?.kind}`}
-                      onClick={() => handleChoice(i)}
-                      style={{ padding: 'var(--space-md)', textAlign: 'left' }}
+                      className="btn"
+                      onClick={async () => {
+                        await revealChoices(false) // Shuffle but don't show to players
+                        setStorytellerChoicesRevealed(true)
+                      }}
                     >
-                      {text}
+                      Reveal Choices
                     </button>
-                  )
-                })}
-              </div>
-            )}
+                  </div>
+                )
+              }
+
+              // Choices revealed to storyteller - show choice buttons + player controls
+              return (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                    {state.shuffled_choices.map((text, i) => {
+                      const choice = currentScene?.choices.find(c => c.text === text)
+                      return (
+                        <button
+                          key={i}
+                          className={`btn choice-btn choice-btn--${choice?.kind ?? 'damage'}`}
+                          onClick={() => handleChoice(i)}
+                          style={{ padding: 'var(--space-md)', textAlign: 'left' }}
+                        >
+                          <div>{text}</div>
+                          {choice && (
+                            <div className="text-sm" style={{ opacity: 0.8, marginTop: 'var(--space-xs)' }}>
+                              {getOutcomeLabel(choice)}
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ textAlign: 'center', marginTop: 'var(--space-md)' }}>
+                    <button
+                      className={`btn ${state.choices_revealed ? 'btn--secondary' : ''}`}
+                      onClick={() => revealChoices(true)} // Show to players
+                    >
+                      {state.choices_revealed ? 'Remind Players of Choices' : 'Show Choices to Players'}
+                    </button>
+                  </div>
+                </>
+              )
+            })()}
 
             {/* Back button */}
             {state.history.length > 0 && (
@@ -231,11 +414,9 @@ export default function Run() {
             {state.outcome ? (
               <>
                 <h1
-                  style={{
-                    fontSize: '3rem',
-                    marginBottom: 'var(--space-lg)',
-                    color: state.outcome === 'victory' ? 'var(--success)' : 'var(--danger)'
-                  }}
+                  className={state.outcome === 'victory' ? 'text-success' : 'text-danger'}
+                  style={{ fontSize: 'var(--text-5xl)', marginBottom: 'var(--space-lg)' }}
+                  aria-live="assertive"
                 >
                   {state.outcome === 'victory' ? 'VICTORY!' : 'DEFEAT'}
                 </h1>
@@ -243,7 +424,7 @@ export default function Run() {
                   <p>Level: {state.level}</p>
                   <p>Items: {state.items.length}</p>
                   {state.items.length > 0 && (
-                    <p style={{ color: 'var(--text-secondary)' }}>{state.items.join(', ')}</p>
+                    <p className="text-secondary">{state.items.join(', ')}</p>
                   )}
                 </div>
                 <button className="btn" onClick={handleRestart}>
@@ -274,52 +455,67 @@ export default function Run() {
             )}
           </div>
         )}
-      </div>
+      </main>
+
+      {/* Share Modal */}
+      <Modal
+        isOpen={showShare && !!state?.session_id}
+        onClose={() => setShowShare(false)}
+        title="Share with Players"
+      >
+        <p className="text-secondary" style={{ marginBottom: 'var(--space-md)' }}>
+          Players can join using this link:
+        </p>
+        <input
+          type="text"
+          readOnly
+          value={`${window.location.origin}/player/${state.session_id}`}
+          aria-label="Player join link"
+          style={{
+            width: '100%',
+            padding: 'var(--space-sm)',
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--text-secondary)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-primary)',
+            marginBottom: 'var(--space-md)',
+            textAlign: 'center'
+          }}
+          onClick={e => (e.target as HTMLInputElement).select()}
+        />
+        <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center' }}>
+          <button className="btn" onClick={handleCopyLink}>
+            {copyFeedback ? 'Copied!' : 'Copy Link'}
+          </button>
+          <button className="btn btn--secondary" onClick={() => setShowShare(false)}>
+            Close
+          </button>
+        </div>
+        {copyFeedback && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-success text-sm"
+            style={{ textAlign: 'center', marginTop: 'var(--space-sm)' }}
+          >
+            Link copied to clipboard
+          </p>
+        )}
+      </Modal>
+
+      {/* Quit Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showQuitConfirm}
+        onConfirm={handleQuit}
+        onCancel={() => setShowQuitConfirm(false)}
+        title="End Session?"
+        message="Are you sure you want to end the current session? All players will be disconnected."
+        confirmText="End Session"
+        variant="danger"
+      />
 
       {/* Rules Modal */}
-      {showRules && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--overlay-bg, rgba(0,0,0,0.8))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--space-lg)',
-            zIndex: 1000
-          }}
-          onClick={() => setShowRules(false)}
-        >
-          <div
-            style={{
-              background: 'var(--bg-secondary)',
-              padding: 'var(--space-xl)',
-              borderRadius: 'var(--radius-lg)',
-              maxWidth: '500px',
-              width: '100%'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <h2>Game Rules</h2>
-            <div style={{ lineHeight: 1.8 }}>
-              <p style={{ marginBottom: 'var(--space-md)' }}>
-                <strong>Goal</strong><br />
-                Reach the final scene and roll 20+ on a d20 to defeat the boss.
-              </p>
-              <p>
-                <strong>Choice Outcomes</strong><br />
-                <span style={{ color: 'var(--danger)' }}>Damage</span> — Lose 1 HP<br />
-                <span style={{ color: 'var(--success)' }}>Item</span> — +1 to final roll<br />
-                <span style={{ color: 'var(--warning)' }}>Level Up</span> — +1 roll attempt
-              </p>
-            </div>
-            <button className="btn btn--secondary" style={{ marginTop: 'var(--space-lg)' }} onClick={() => setShowRules(false)}>
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </>
   )
 }

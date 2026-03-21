@@ -70,9 +70,9 @@ The Vite dev server proxies `/api/*` requests to the FastAPI backend, providing 
 ### Environment Variables
 
 Copy `.env.example` to `.env` and adjust as needed:
-- `BACKEND_PORT` / `VITE_PORT` — development server ports
-- `APP_PORT` / `HOST_PORT` — Docker ports
-- `DATA_DIR` / `DATA_PATH` — data directory location
+- `BACKEND_PORT` — FastAPI server port (default 8000)
+- `FRONTEND_PORT` — Vite dev server port (default 5173)
+- `DATA_DIR` — data directory location
 
 ---
 
@@ -159,4 +159,4 @@ Global toggle, stored in `localStorage` on the client. Independent of theme. Bot
 - Do not add a database
 - Do not add authentication
 - Do not make damage amounts configurable (always 1 HP) — `Choice.amount` exists for forward-compatibility only
-- Do not store `connected_count` in `state.json` or return it from `GET /api/state` (SSE only)
+- Do not store `player_count` in `state.json` or return it from `GET /api/state` (SSE only)

@@ -1,0 +1,187 @@
+/* Editor page styles */
+
+/* Nav title area */
+.editor-nav-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* Sidebar card sections */
+.editor-sidebar .card {
+  margin-bottom: var(--space-lg);
+}
+
+.editor-sidebar h3 {
+  margin-bottom: var(--space-md);
+}
+
+/* Settings form fields */
+.editor-field {
+  margin-bottom: var(--space-md);
+}
+
+.editor-field .input {
+  width: 100%;
+}
+
+/* Checkbox label */
+.editor-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+/* Opening scene header */
+.editor-opening-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.editor-opening-enable {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  cursor: pointer;
+}
+
+/* Scene list */
+.editor-scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.editor-scene-btn {
+  padding: var(--space-sm);
+  text-align: left;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.editor-scene-btn--selected {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.editor-scene-btn--default {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Scenes header */
+.editor-scenes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.editor-scenes-header .btn {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+/* Main editor card header */
+.editor-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.editor-card-header .input {
+  font-size: var(--text-xl);
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+/* Scene text area */
+.editor-scene-text {
+  margin-bottom: var(--space-lg);
+}
+
+.editor-scene-text textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* Choices section */
+.editor-choices h4 {
+  margin-bottom: var(--space-md);
+}
+
+.editor-choices-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.editor-choices-header .btn {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+/* Choice card */
+.editor-choice-card {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+}
+
+.editor-choice-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.editor-choice-row .input {
+  width: 100%;
+}
+
+.editor-item-name {
+  margin-top: var(--space-sm);
+}
+
+.editor-item-name .input {
+  width: 100%;
+  max-width: 200px;
+}
+
+/* Opening choice card */
+.editor-opening-choice {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-md);
+}
+
+.editor-opening-choice-fields {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.editor-opening-choice-fields .input {
+  width: 100%;
+  margin-bottom: var(--space-sm);
+}
+
+.editor-opening-choice .btn {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+/* Empty state */
+.editor-empty {
+  text-align: center;
+  padding: var(--space-xl);
+}

@@ -5,7 +5,8 @@ const storyId = params.get('story');
 let story = null;
 let state = null;
 let resolved = null;
-let connectedCount = 0;
+let playerCount = 0;
+let baseUrl = null;  // From /api/config
 
 const sse = new SSEClient(handleStateUpdate);
 
@@ -14,6 +15,14 @@ async function init() {
         alert('No story ID');
         window.location.href = '/';
         return;
+    }
+
+    // Fetch config for BASE_URL
+    try {
+        const config = await API.getConfig();
+        baseUrl = config.base_url;
+    } catch (e) {
+        console.warn('Could not load config:', e);
     }
 
     try {
@@ -116,7 +125,7 @@ async function init() {
 function handleStateUpdate(data) {
     state = data.state;
     resolved = data.resolved;
-    connectedCount = data.connected_count;
+    playerCount = data.player_count;
     render();
 }
 
@@ -156,7 +165,7 @@ function updateStatusBar() {
     document.getElementById('scene-progress').textContent = `Scene ${displayIdx} of ${story.scenes.length}`;
 
     document.getElementById('connected-count').textContent =
-        connectedCount > 0 ? `${connectedCount} connected` : '';
+        playerCount > 0 ? `${playerCount} ${playerCount === 1 ? 'player' : 'players'}` : '';
 
     if (state.character) {
         document.getElementById('character-ref').textContent = state.character.description;
@@ -503,7 +512,16 @@ async function stopSession() {
 
 // Share functionality
 function showShareModal() {
-    const playerUrl = `${window.location.origin}/player`;
+    // Get session_id from current state
+    const sessionId = state?.session_id;
+    if (!sessionId) {
+        alert('No active session');
+        return;
+    }
+
+    // Use BASE_URL from config or fallback to current origin
+    const origin = baseUrl || window.location.origin;
+    const playerUrl = `${origin}/player/${sessionId}`;
     document.getElementById('share-link').value = playerUrl;
 
     // Generate QR code

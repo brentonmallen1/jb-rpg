@@ -1,22 +1,103 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
+import { useSSE } from '../hooks/useSSE'
+import * as api from '../hooks/api'
+import { Modal, RulesModal, HPDisplay, StatsRow, ModeToggle } from '../components'
+import '../styles/pages/player.css'
 
 export default function Player() {
-  const { state, resolved, toggleColorMode, connectedCount, storytellerConnected } = useGame()
+  const { sessionId } = useParams<{ sessionId: string }>()
+  const { toggleColorMode, colorMode, setTheme } = useGame()
+
+  // Use our own SSE connection with the sessionId from URL
+  const { state, storytellerConnected, playerCount } = useSSE({ sessionId })
+
   const [showRules, setShowRules] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
+  const [sessionInvalid, setSessionInvalid] = useState(false)
+  const [isValidating, setIsValidating] = useState(true)
+
+  // Validate session on mount
+  useEffect(() => {
+    if (!sessionId) {
+      setIsValidating(false)
+      return
+    }
+
+    api.getConfig()
+      .then(config => {
+        // If player has a sessionId in URL, it must match the active session
+        // If no session exists OR session_id differs, the link is invalid
+        if (!config.session_id || config.session_id !== sessionId) {
+          setSessionInvalid(true)
+        } else {
+          setSessionInvalid(false)
+        }
+      })
+      .catch(() => {
+        // API error - assume valid and let SSE handle it
+        setSessionInvalid(false)
+      })
+      .finally(() => setIsValidating(false))
+  }, [sessionId])
+
+  // Load story data and apply theme
+  useEffect(() => {
+    if (state?.story_id) {
+      api.getStory(state.story_id).then((s) => {
+        setTheme(s.theme)
+      }).catch(console.error)
+    }
+  }, [state?.story_id, setTheme])
+
+  // If no sessionId in URL, show error
+  if (!sessionId) {
+    return (
+      <main className="player-layout">
+        <div className="waiting-state session-error">
+          <h1>Session Link Required</h1>
+          <p>Please use the link provided by your storyteller to join the game.</p>
+        </div>
+      </main>
+    )
+  }
+
+  // Show loading while validating session
+  if (isValidating) {
+    return (
+      <main className="player-layout">
+        <div className="waiting-state">
+          <p>Connecting...</p>
+        </div>
+      </main>
+    )
+  }
+
+  // Session is invalid or expired
+  if (sessionInvalid) {
+    return (
+      <main className="player-layout">
+        <div className="waiting-state session-error">
+          <h1>Session Not Found</h1>
+          <p>This session link is invalid or has expired.</p>
+          <p>Ask the storyteller for a new link.</p>
+        </div>
+      </main>
+    )
+  }
 
   // Waiting for session to start
   if (!state) {
     return (
       <>
-        <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} />
-        <div className="player-layout" style={playerLayoutStyle}>
-          <div className="waiting-state">
+        <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
+        <main className="player-layout">
+          <div className="waiting-state" aria-live="polite">
             <p>Waiting for storyteller to start...</p>
           </div>
-        </div>
-        {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+        </main>
+        <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
       </>
     )
   }
@@ -25,21 +106,21 @@ export default function Player() {
   if (state.status === 'madlib_in_progress') {
     return (
       <>
-        <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} />
-        <div className="player-layout" style={playerLayoutStyle}>
-          <div className="creation-header" style={{ marginBottom: 'var(--space-xl)', textAlign: 'center' }}>
-            <h1 style={{ fontSize: '2rem', marginBottom: 'var(--space-md)' }}>Character Creation</h1>
-            <p className="waiting-message" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+        <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
+        <main className="player-layout">
+          <div className="creation-header">
+            <h1>Character Creation</h1>
+            <p className="text-secondary italic">
               The storyteller is gathering character details...
             </p>
           </div>
-          <div className="creation-footer" style={{ marginTop: 'var(--space-xl)', textAlign: 'center' }}>
-            <p className="creation-message" style={{ fontSize: '1.5rem', color: 'var(--accent)', fontWeight: 600 }}>
+          <div className="creation-footer">
+            <p className="text-accent font-semibold" aria-live="polite">
               Your character is being created!
             </p>
           </div>
-        </div>
-        {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+        </main>
+        <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
       </>
     )
   }
@@ -48,145 +129,92 @@ export default function Player() {
   if (state.status === 'game_over') {
     return (
       <>
-        <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} />
-        <div className="player-layout" style={playerLayoutStyle}>
+        <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
+        <main className="player-layout">
           {state.outcome ? (
-            <div className="finale-section" style={{ textAlign: 'center' }}>
+            <div className="finale-section">
               <div
-                className={`finale-outcome finale-outcome--${state.outcome}`}
-                style={{
-                  fontSize: '2.5rem',
-                  fontWeight: 'bold',
-                  marginBottom: 'var(--space-lg)',
-                  color: state.outcome === 'victory' ? 'var(--success)' : 'var(--danger)'
-                }}
+                className={`finale-outcome font-bold ${state.outcome === 'victory' ? 'text-success' : 'text-danger'}`}
+                role="status"
+                aria-live="assertive"
               >
                 {state.outcome === 'victory' ? 'VICTORY!' : 'DEFEAT'}
               </div>
-              <div className="finale-stats" style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-xl)', marginBottom: 'var(--space-md)' }}>
-                <div className="finale-stat" style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent)' }}>{state.level}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Level</div>
-                </div>
-                <div className="finale-stat" style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent)' }}>{state.items.length}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Items</div>
-                </div>
+              <div className="stats-section">
+                <StatsRow level={state.level} itemCount={state.items.length} />
               </div>
               {state.items.length > 0 && (
-                <div className="finale-items" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                <div className="finale-items text-secondary text-sm">
                   {state.items.join(', ')}
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ marginBottom: 'var(--space-md)' }}>Final Showdown!</h2>
-              <p style={{ color: 'var(--text-secondary)' }}>Waiting for the dice roll...</p>
-              <div className="finale-roll-info" style={{
-                background: 'var(--bg-secondary)',
-                padding: 'var(--space-lg)',
-                borderRadius: 'var(--radius-md)',
-                marginTop: 'var(--space-lg)',
-                lineHeight: 1.8
-              }}>
+            <div className="finale-section">
+              <h2>Final Showdown!</h2>
+              <p className="text-secondary">Waiting for the dice roll...</p>
+              <div className="finale-roll-info">
                 <p>Roll a d20 + {state.items.length} (items)</p>
                 <p>You have {state.level} attempt(s)</p>
                 <p>Need 20+ to win!</p>
               </div>
             </div>
           )}
-        </div>
-        {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+        </main>
+        <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
       </>
     )
   }
 
-  // Running game
+  // Running game (also handles awaiting_scene_selection - players see normal view)
   return (
     <>
-      <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} />
-      <div className="player-layout" style={playerLayoutStyle}>
-        {/* Character section */}
+      <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
+      <main className="player-layout">
+        {/* Character section - now a proper button */}
         {state.character && (
-          <div
+          <button
+            type="button"
             className="character-section"
-            style={{
-              cursor: 'pointer',
-              marginBottom: 'var(--space-lg)',
-              padding: 'var(--space-md)',
-              borderRadius: 'var(--radius-md)',
-              transition: 'background 0.2s'
-            }}
             onClick={() => setShowCharacterModal(true)}
+            aria-label={`View details for ${state.character.name}`}
           >
-            <div className="character-name" style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: 'var(--space-sm)' }}>
+            <div className="character-name font-bold">
               {state.character.name}
             </div>
-            <div className="character-description-preview" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5, maxWidth: '400px' }}>
+            <div className="character-description-preview text-secondary">
               {state.character.description.slice(0, 100)}...
             </div>
-          </div>
+          </button>
         )}
 
         {/* HP Display */}
-        <div className="hp-section" style={{ marginBottom: 'var(--space-xl)', textAlign: 'center' }}>
-          <div className="hp-label" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: 'var(--space-sm)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Health
-          </div>
-          <div className="hp-display" style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-md)' }}>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <span
-                key={i}
-                className={`hp-indicator ${i < state.hp ? 'hp-indicator--full' : 'hp-indicator--empty'}`}
-                style={{ width: '48px', height: '48px', fontSize: '2rem' }}
-              />
-            ))}
-          </div>
+        <div className="hp-section">
+          <HPDisplay hp={state.hp} indicatorSize={48} showLabel />
         </div>
 
         {/* Stats */}
-        <div className="stats" style={{ display: 'flex', gap: 'var(--space-xl)', marginBottom: 'var(--space-xl)' }}>
-          <div className="stat-block" style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>{state.level}</div>
-            <div style={{ color: 'var(--text-secondary)' }}>Level</div>
-          </div>
-          <div className="stat-block" style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>{state.items.length}</div>
-            <div style={{ color: 'var(--text-secondary)' }}>Items</div>
-          </div>
+        <div className="stats-section">
+          <StatsRow level={state.level} itemCount={state.items.length} size="large" />
         </div>
 
         {/* Items list */}
         {state.items.length > 0 && (
-          <ul className="items-list" style={{ listStyle: 'none', marginBottom: 'var(--space-xl)', maxWidth: '300px' }}>
+          <ul className="items-list">
             {state.items.map((item, i) => (
-              <li key={i} style={{ padding: 'var(--space-sm)', borderBottom: '1px solid var(--bg-secondary)' }}>
-                {item}
-              </li>
+              <li key={i}>{item}</li>
             ))}
           </ul>
         )}
 
         {/* Revealed choices */}
-        {state.choices_revealed && resolved?.choices && (
-          <div className="revealed-choices" style={{ marginTop: 'var(--space-lg)', width: '100%', maxWidth: '400px' }}>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 'var(--space-md)' }}>
+        {state.choices_revealed && state.shuffled_choices.length > 0 && (
+          <div className="revealed-choices">
+            <div className="revealed-choices-label text-sm text-secondary uppercase">
               Current Choices
             </div>
             {state.shuffled_choices.map((text, i) => (
-              <div
-                key={i}
-                className="revealed-choice"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  padding: 'var(--space-md)',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: 'var(--space-sm)',
-                  textAlign: 'left',
-                  borderLeft: '3px solid var(--accent)'
-                }}
-              >
+              <div key={i} className="revealed-choice">
                 {text}
               </div>
             ))}
@@ -194,138 +222,49 @@ export default function Player() {
         )}
 
         {/* Connection status */}
-        <div style={{ marginTop: 'var(--space-xl)', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-          {storytellerConnected ? (
-            <span>{connectedCount} connected</span>
-          ) : (
-            <span style={{ color: 'var(--warning)' }}>Storyteller disconnected</span>
-          )}
-        </div>
-      </div>
+        <ConnectionStatus storytellerConnected={storytellerConnected} playerCount={playerCount} />
+      </main>
 
       {/* Character Modal */}
-      {showCharacterModal && state.character && (
-        <div
-          className="modal"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--overlay-bg)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--space-lg)'
-          }}
-          onClick={() => setShowCharacterModal(false)}
-        >
-          <div
-            className="modal__content"
-            style={{
-              background: 'var(--bg-secondary)',
-              padding: 'var(--space-xl)',
-              borderRadius: 'var(--radius-lg)',
-              maxWidth: '500px',
-              width: '100%'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 style={{ marginBottom: 'var(--space-md)' }}>{state.character.name}</h2>
-            <p style={{ lineHeight: 1.7, color: 'var(--text-secondary)' }}>{state.character.description}</p>
-            <button className="btn btn--secondary" style={{ marginTop: 'var(--space-lg)' }} onClick={() => setShowCharacterModal(false)}>
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showCharacterModal && !!state.character}
+        onClose={() => setShowCharacterModal(false)}
+        title={state.character?.name || 'Character'}
+      >
+        <p className="character-modal-description text-secondary">{state.character?.description}</p>
+        <button className="btn btn--secondary character-modal-close" onClick={() => setShowCharacterModal(false)}>
+          Close
+        </button>
+      </Modal>
 
-      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+      <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </>
   )
 }
 
-const playerLayoutStyle: React.CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 'var(--space-lg)',
-  textAlign: 'center'
-}
-
-function Toolbar({ onToggleMode, onShowRules }: { onToggleMode: () => void; onShowRules: () => void }) {
+function Toolbar({ onToggleMode, onShowRules, colorMode }: { onToggleMode: () => void; onShowRules: () => void; colorMode: 'light' | 'dark' }) {
   return (
-    <div className="player-toolbar" style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      display: 'flex',
-      justifyContent: 'flex-end',
-      gap: 'var(--space-sm)',
-      padding: 'var(--space-md)',
-      zIndex: 50
-    }}>
-      <button className="btn btn--secondary" onClick={onShowRules} aria-label="Game rules" style={{ padding: 'var(--space-xs) var(--space-sm)', fontSize: '0.875rem' }}>
+    <div className="player-toolbar">
+      <button
+        className="btn btn--secondary"
+        onClick={onShowRules}
+        aria-label="Game rules"
+      >
         ?
       </button>
-      <button className="btn btn--secondary mode-toggle" onClick={onToggleMode} aria-label="Toggle light/dark mode" />
+      <ModeToggle colorMode={colorMode} onToggle={onToggleMode} />
     </div>
   )
 }
 
-function RulesModal({ onClose }: { onClose: () => void }) {
+function ConnectionStatus({ storytellerConnected, playerCount }: { storytellerConnected: boolean; playerCount: number }) {
   return (
-    <div
-      className="modal"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--overlay-bg, rgba(0,0,0,0.8))',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 'var(--space-lg)',
-        zIndex: 1000
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="modal__content"
-        style={{
-          background: 'var(--bg-secondary)',
-          padding: 'var(--space-xl)',
-          borderRadius: 'var(--radius-lg)',
-          maxWidth: '500px',
-          width: '100%'
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <h2>Game Rules</h2>
-        <div style={{ textAlign: 'left', lineHeight: 1.8 }}>
-          <p style={{ marginBottom: 'var(--space-md)' }}>
-            <strong>Goal</strong><br />
-            Reach the final scene and roll 20+ on a d20 to defeat the boss.
-          </p>
-          <p style={{ marginBottom: 'var(--space-md)' }}>
-            <strong>Gameplay</strong><br />
-            All players control one shared character. Each scene, one player decides which of 3 choices to make.
-          </p>
-          <p style={{ marginBottom: 'var(--space-md)' }}>
-            <strong>Choice Outcomes</strong><br />
-            <span style={{ color: 'var(--danger)' }}>Damage</span> — Lose 1 HP (0 HP = defeat)<br />
-            <span style={{ color: 'var(--success)' }}>Item</span> — Gain an item (+1 to final roll)<br />
-            <span style={{ color: 'var(--warning)' }}>Level Up</span> — Gain a level (+1 roll attempt)
-          </p>
-          <p>
-            <strong>Final Boss</strong><br />
-            Roll a d20, add your item count as a bonus. Your level = number of roll attempts. Need 20+ to win.
-          </p>
-        </div>
-        <button className="btn btn--secondary" style={{ marginTop: 'var(--space-lg)' }} onClick={onClose}>
-          Close
-        </button>
-      </div>
+    <div className="connection-status text-secondary text-sm" aria-live="polite">
+      {storytellerConnected ? (
+        <span>{playerCount} {playerCount === 1 ? 'player' : 'players'}</span>
+      ) : (
+        <span className="text-warning">Storyteller disconnected</span>
+      )}
     </div>
   )
 }

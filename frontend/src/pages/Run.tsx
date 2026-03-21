@@ -553,22 +553,32 @@ export default function Run() {
                 )}
               </>
             ) : (
-              <>
-                <h1 className="mb-lg">Final Showdown!</h1>
-                <div className="card mb-lg">
-                  <p className="mb-md">Roll a d20 and add {state.items.length} (items)</p>
-                  <p className="mb-md">You have {state.level} roll attempt(s)</p>
-                  <p>Need 20+ total to win!</p>
-                </div>
-                <div className="btn-group">
-                  <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
-                    Victory!
-                  </button>
-                  <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
-                    Defeat
-                  </button>
-                </div>
-              </>
+              (() => {
+                const finaleScene = story?.scenes.find(s => s.id === state.current_scene_id)
+                return (
+                  <>
+                    <h1 className="mb-lg">Final Showdown!</h1>
+                    {finaleScene?.finale_setup_text && (
+                      <div className="card mb-lg">
+                        <p className="prose">{finaleScene.finale_setup_text}</p>
+                      </div>
+                    )}
+                    <div className="card mb-lg">
+                      <p className="mb-md">Roll a d20 and add {state.items.length} (items)</p>
+                      <p className="mb-md">You have {state.level} roll attempt(s)</p>
+                      <p>Need 20+ total to win!</p>
+                    </div>
+                    <div className="btn-group">
+                      <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
+                        Victory!
+                      </button>
+                      <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
+                        Defeat
+                      </button>
+                    </div>
+                  </>
+                )
+              })()
             )}
           </div>
         )}

@@ -1031,7 +1031,13 @@ async def make_choice(request: ChoiceRequest, _: bool = Depends(verify_storytell
                 state.status = SessionStatus.GAME_OVER
                 state.outcome = None  # awaiting physical dice roll
             else:
-                state.current_scene_id = scene_ids[current_index + 1]
+                next_scene_id = scene_ids[current_index + 1]
+                next_scene = next((s for s in story.scenes if s.id == next_scene_id), None)
+                state.current_scene_id = next_scene_id
+                # If next scene is finale, go directly to game_over
+                if next_scene and next_scene.is_finale:
+                    state.status = SessionStatus.GAME_OVER
+                    state.outcome = None
 
     # Reset choice reveal state for next scene
     state.choices_revealed = False
@@ -1133,7 +1139,12 @@ async def select_scene(request: SelectSceneRequest, _: bool = Depends(verify_sto
         state.items = items
 
     state.current_scene_id = request.scene_id
-    state.status = SessionStatus.RUNNING
+    # Finale scenes go directly to game_over awaiting dice roll
+    if scene.is_finale:
+        state.status = SessionStatus.GAME_OVER
+        state.outcome = None
+    else:
+        state.status = SessionStatus.RUNNING
     state.choices_revealed = False
     state.shuffled_indices = []
 

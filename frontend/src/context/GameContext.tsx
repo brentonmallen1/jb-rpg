@@ -31,6 +31,7 @@ interface GameContextValue {
   // Actions
   startSession: (storyId: string) => Promise<void>
   submitMadlib: (answer: string) => Promise<void>
+  madlibBack: () => Promise<void>
   proceedFromCharacter: () => Promise<void>
   makeChoice: (choiceIndex: number) => Promise<void>
   goBack: () => Promise<void>
@@ -99,6 +100,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     await api.submitMadlib(answer)
   }, [])
 
+  const madlibBack = useCallback(async () => {
+    await api.madlibBack()
+  }, [])
+
   const proceedFromCharacter = useCallback(async () => {
     await api.proceedFromCharacter()
   }, [])
@@ -157,6 +162,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setCurrentStory,
     startSession,
     submitMadlib,
+    madlibBack,
     proceedFromCharacter,
     makeChoice,
     goBack,

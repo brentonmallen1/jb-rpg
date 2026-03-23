@@ -7,43 +7,436 @@
     "non_linear": true
   },
   "madlib_template": {
-    "prompt": "{name} jolts awake on cold stone, heart pounding. Memories surface in fragments—a desperate search for {lost_thing}, a warning never heeded. How did you get here? You can't remember. {name} remembers grandmother's warning: never trust anyone who {fear}. At least they still have their talent for {talent}. A {snack} would really help right about now. The last words spoken before... before what? They echo: \"{regret}\"...",
+    "prompt": "{name} spends most days {activity}. Not glamorous, but it's a life. Lately the weight of {worry} has been harder to shake. Small comforts help; {comfort} being the current favorite. Ask anyone who knows them, and they'll tell you {name} has a gift for {talent}. As for what's really on their mind? '{honest_answer}'.",
     "fields": [
       {
         "key": "name",
-        "label": "A voice echoes in the darkness: 'Who disturbs my slumber?' You answer...",
+        "label": "The barista calls out your order. The name on the cup says...",
         "hint": "a name"
       },
       {
-        "key": "lost_thing",
-        "label": "Your memories are fragmented. One image keeps surfacing: you were searching for a...",
-        "hint": "noun"
+        "key": "activity",
+        "label": "Monday through Friday, you can usually be found...",
+        "hint": "verb phrase (teaching bored teenagers, pretending to look busy)"
       },
       {
-        "key": "fear",
-        "label": "Your grandmother once warned you never to trust anyone who...",
-        "hint": "verb phrase, present tense"
+        "key": "worry",
+        "label": "Right before going to bed, your mind always drifts back to...",
+        "hint": "noun phrase (an unpaid debt, that conversation you keep replaying)"
+      },
+      {
+        "key": "comfort",
+        "label": "Your guilty pleasure you'd never admit at work...",
+        "hint": "noun phrase (trashy reality TV, talking to your plants)"
       },
       {
         "key": "talent",
-        "label": "At parties, you're always asked to show off your ability to...",
-        "hint": "verb phrase"
+        "label": "Your friends always come to you when they need someone who can...",
+        "hint": "verb phrase (fix anything, keep a secret)"
       },
       {
-        "key": "snack",
-        "label": "When stressed, you reach for...",
-        "hint": "noun, food or drink"
-      },
-      {
-        "key": "regret",
-        "label": "The last thing you said to someone before falling asleep was...",
-        "hint": "a short sentence or phrase"
+        "key": "honest_answer",
+        "label": "If someone asked how you're REALLY doing, you'd say...",
+        "hint": "a short sentence"
       }
     ]
   },
+  "scenes": [
+    {
+      "id": "scene_mirror",
+      "title": "The Mirror Room",
+      "display_name": "The door with the cracked mirror symbol",
+      "base_text": "The door opens into a room that's lit by the dim, flickering light coming from a dusty chandelier. You notice that every wall is a mirror, causing the room to appear like an immense, infinitely repeating space. In the mirror, directly opposite you, a shadowy figure pounds against the glass from within, in a panic, desperate to escape. Its mouth moves in silent screams. When it sees you, it reaches its hand out toward you pleadingly.",
+      "choices": [
+        {
+          "kind": "damage",
+          "display_text": "Do you choose to reach toward the trapped figure with compassion?",
+          "result_text": "You reach toward the trapped figure, compassion overriding caution. The moment your fingers touch the cold glass, shadowy hands burst through and grip your wrist. Ice floods your veins as the shadow drains something from you before you wrench free. You stumble back through the door, gasping, the figure's soulless laughter following you into the circular chamber.",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "display_text": "Do you choose to shatter the mirror with your fist to break them free?",
+          "result_text": "With a primal shout, you drive your fist into the mirror. Glass explodes outward, but instead of cutting you, it dissolves into mist. Where the mirror stood, a longsword with a blood-red blade hovers in the air. You grasp it, feeling its weight, its hunger. The room dims behind you as you return to the central chamber, blade in hand.",
+          "amount": 1,
+          "item_name": "Crimson Blade"
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you choose to turn your back and ignore the figure completely?",
+          "result_text": "You turn your back to the desperate figure and close your eyes. It screams, pounds, begs, but you refuse to acknowledge it. The sounds grow fainter, then cease. When you open your eyes, the mirror shows only your reflection. 'Fear feeds on attention,' you remind yourself as you walk back to the hub.",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "hp",
+            "op": "lte",
+            "value": 1,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "In your weakened state, the shadow seems larger, more solid. It senses your vulnerability."
+        }
+      ],
+      "is_finale": false,
+      "finale_setup_text": null,
+      "victory_text": null,
+      "defeat_text": null,
+      "item_texts": {}
+    },
+    {
+      "id": "scene_apothecary",
+      "title": "The Apothecary",
+      "display_name": "The door trailing wisps of incense smoke",
+      "base_text": "The door opens onto comforting warmth as the incense smoke billows past the doorway. You find yourself in a space that seems to resemble some kind of shop. Shelves line the walls, crammed with bottles, jars, and mysterious ingredients and oddities. Dried herbs hang from the ceiling. Glass jars glow with phosphorescent contents.  A faint, allusive scent reaches your nose just when you hear the sound of someone humming a playful tune. You walk deeper into the shop to investigate, hopeful for some aide. \n\nBehind a cluttered counter at the far end of the room, the top of a head bobs back and forth. A stepladder scrapes against wood, and a middle-aged gnome begins to climb up. He looks up with theatrical surprise. \"A CUSTOMER! In THIS economy?\" he exclaims.  He scrambles over the step latter and onto the counter, almost falling.  \n\n\"Welcome, welcome! I am Vlad. Purveyor of solutions, vendor of mysteries, and absolute genius.\"  He gestures grandly, nearly toppling.\n\n\"Welcome to my emporium, where everything is for sale... for the right price.\"\n\nYour eye catches a vial on the top shelf, swirling purple liquid that whispers when you look directly at it. Vlad follows your gaze and grins. \n\n\"Ah. You have taste.\"\n",
+      "choices": [
+        {
+          "kind": "damage",
+          "display_text": "Do you wait for Vlad to turn his back, then reach for the vial?",
+          "result_text": "Vlad turns to fuss with a bubbling beaker. Your hand shoots toward the vial, and a stone fist crashes into your shoulder. A golem, hidden in shadow, lifts you off the floor and hurls you through the doorway. 'SHOPLIFTERS WILL BE VLADICATED!' Vlad shouts cheerfully as you tumble back into the circular room, bruised and empty-handed. The door swings shut on his cackling.",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "display_text": "Do you lean on the counter and tell Vlad he's clearly the most brilliant alchemist you've ever met?",
+          "result_text": "'You,' you say, leaning closer, 'are clearly a genius.' Vlad's eyebrows shoot up. 'Obviously,' he says, but his cheeks flush. You pile on the flattery, his organizational system, his obviously superior intellect, the way his eyebrows frame his face. Finally, overwhelmed, Vlad shoves the purple vial into your hands. 'Take it! Just, stop looking at me like that.' You leave with your prize, and Vlad fans himself with a receipt scroll.",
+          "amount": 1,
+          "item_name": "Vlad's Mystery Potion"
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you pull your eyes from the vial and ask Vlad how this shop exists here, in this place?",
+          "result_text": "You tear your gaze from the vial. 'How are you here? Inside... whatever this place is?' Vlad's theatrical demeanor softens. He sits at the edge of the counter, looks up at you and speaks quietly. 'This place feeds on desire. The doors, the challenges, they test what you reach for when no one's watching.' He taps his temple. 'Most never think to ask what this place actually is.' He refuses to say more, but something in his words settles into you like wisdom. You leave the shop empty-handed but strangely enriched.",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_skeleton",
+            "outcome": "item"
+          },
+          "text": "Vlad notices the ring on your finger. 'Ah, a Fear Ward! Those are rare. I could give you a very good price for, ' He catches your expression. 'Or not. Fine. Browse freely.'"
+        }
+      ],
+      "is_finale": false,
+      "finale_setup_text": null,
+      "victory_text": null,
+      "defeat_text": null,
+      "item_texts": {}
+    },
+    {
+      "id": "scene_forest",
+      "title": "The Wooded Room",
+      "display_name": "The door with vines creeping from beneath it",
+      "base_text": "The door opens onto a lush, impossibly dense a forest. Not a painting of one, not an illusion, a living, watchful forest. A low fog curls between ancient oaks. The air is thick with the smell of moss and decay. Above, no ceiling, only a canopy so crowded that the light filtering through seems green and alive. You feel like the trees are watching you. You're certain of it. You hear bark shifting when you're not looking directly at it. Roots seem to reposition. Strange chattering echoes from the depths, almost like laughter. One massive tree stands taller than the rest, its highest branches disappearing into mist. At your feet, soft moss glows faintly, warm against the cold stone floor. The forest is waiting. Waiting to see what kind of person you are.",
+      "choices": [
+        {
+          "kind": "damage",
+          "display_text": "Do you follow the chattering sounds deeper into the trees?",
+          "result_text": "The chattering could be birds. Could be something friendly. You push through the underbrush toward it, drawn by curiosity. They were neither. Spiders, giant ones, drop from the canopy, mandibles clicking in what you now realize was laughter. You fight free, but not before fangs find flesh. Poison burns as you crash back through the door. The forest watched you choose aggression. It responded in kind.",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "display_text": "Do you accept the tall tree's invitation and climb toward the mist?",
+          "result_text": "The tallest tree seems to lean toward you, its bark forming subtle handholds. An invitation. You climb, bark rough under your palms, until you break through the canopy and are greeted by a sky packed with stars. The starlight bathing the top of the canopy as far as you can see. In a nest of silver branches rests a mandolin, its strings humming with anticipation. You take it, and the tree begins to bow gently lowering you to the forest floor. The forest watched you choose trust. It rewarded you.",
+          "amount": 1,
+          "item_name": "Enchanted Mandolin"
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you settle onto the glowing moss and match your breath to its rhythm?",
+          "result_text": "The moss pulses. Inviting. You lower yourself onto it and close your eyes, matching your breath to its glow. The forest exhales around you. The trees share secrets older than language: patience, growth, the strength of roots that hold even when storms rage above. When you open your eyes, you understand something fundamental about stillness. You rise and walk to the exit, the forest parting respectfully. It watched you choose patience. It shared its wisdom.",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "level",
+            "op": "gte",
+            "value": 2,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "Your accumulated wisdom lets you sense the forest's true nature. It's not hostile, just ancient, and testing."
+        }
+      ],
+      "is_finale": false,
+      "finale_setup_text": null,
+      "victory_text": null,
+      "defeat_text": null,
+      "item_texts": {}
+    },
+    {
+      "id": "scene_skeleton",
+      "title": "The Skeleton Room",
+      "display_name": "The door marked with scratched tally marks",
+      "base_text": "Dust. Silence. A room that feels like it's been holding its breath for centuries. The walls are covered in carved words that read, 'NO WAY OUT', repeated hundreds of times. Some carvings are neat and deliberate. Others are frantic, the letters overlapping in desperation. In the corner sits a humanoid skeleton, slumped against the wall in rotted clothing. A ring glints on one bony finger. The skull faces you. Its empty sockets seem to ask a question you can't quite hear. Something about this room demands a response. The ring catches the light. The words on the wall pull at your voice, wanting to be spoken. The bones lie scattered and neglected. What do you offer this forgotten soul?",
+      "choices": [
+        {
+          "kind": "item",
+          "display_text": "Do you kneel and carefully take the ring from the skeleton's finger?",
+          "result_text": "You kneel beside the skeleton and gently slide the ring from its bony finger. It comes free easily, almost eagerly, as if it was waiting to be claimed. The inscriptions on the wall seem to shift, and for a moment you could swear the skeleton nodded. You pocket the ring and back away towards the exit, keeping an eye on the remains. Whomever this person was, they wanted someone to carry this forward.",
+          "amount": 1,
+          "item_name": "Fear Ward Ring"
+        },
+        {
+          "kind": "damage",
+          "display_text": "Do you give voice to the words carved into the wall?",
+          "result_text": "The words pull at you. They want to be spoken, they need to be spoken. You open your mouth and they pour out: 'NO WAY OUT. NO WAY OUT.' Your voice echoes, builds, takes on a desperate edge that isn't yours. Something answers. The skeleton's jaw unhinges in a silent scream. Cold grips your chest, your lungs refuse to fill. You flee, gasping, bursting back into the main chamber. Some despair is contagious.",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you arrange the scattered bones and pay your respects?",
+          "result_text": "You gather the scattered bones, arranging them with care; arms crossed, skull positioned gently. You bow your head. 'You're not forgotten.', you say. A warmth fills the room. Not a ghost, but a memory, gratitude from someone long gone, finally seen. You understand death differently now: not an ending, but a threshold. You leave the room in peace, carrying that understanding with you.",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_mirror",
+            "outcome": "level"
+          },
+          "text": "Having learned that fear feeds on attention, you feel strangely calm here. The skeleton's silent vigil doesn't frighten you, it saddens you."
+        }
+      ],
+      "is_finale": false,
+      "finale_setup_text": null,
+      "victory_text": null,
+      "defeat_text": null,
+      "item_texts": {}
+    },
+    {
+      "id": "scene_orb",
+      "title": "The Orb Room",
+      "display_name": "The door that hums with faint energy",
+      "base_text": "This room is a perfect cube, mathematically precise. A brilliant beam of light emanating from the center of the ceiling, illuminating a single column below. Floating above the column is an orb, translucent, swirling with inner light, humming with power. It's beautiful. It's dangerous. You can feel it probing at the edges of your mind even from the doorway. The orb hangs motionless, its light perfectly steady — unnervingly so. You find yourself mesmerized by it and become filled with a compulsion to understand it. But another part of you just wants to grab it and go.",
+      "choices": [
+        {
+          "kind": "damage",
+          "display_text": "Do you stride toward the orb and reach for it?",
+          "result_text": "You stride confidently toward the floating orb. Three feet away, your body locks. Paralysis. Psychic energy floods your mind with a thousand voices screaming all at once. When you finally break free, crawling toward the exit, your head throbs with pain. The orb's light follows you to the door, casting your shadow long and distorted. It doesn't respect the impatient.",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "display_text": "Do you throw your boot at the orb?",
+          "result_text": "You unlace your boot and hurl it at the orb with surprising accuracy. The orb, clearly not expecting such an act of random violence, wobbles, tilts, and rolls off its pedestal. You catch it before it hits the ground. It hums angrily but seems to accept its new owner. You limp back to the hub, a boot in one hand, the orb in the other. Sometimes the crude approach is just what is needed.",
+          "amount": 1,
+          "item_name": "Orb of Confusion"
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you sit before the column and let your thoughts empty before its unwavering gaze?",
+          "result_text": "You sit before the column and surrender to the silence. Thoughts dissolve. Your mind becomes as still as the orb's light. Slowly, your minds touch. It tests you, puzzles, paradoxes, memories that aren't yours. You answer honestly, even when it hurts. Finally, acceptance. The orb doesn't come with you, but its knowledge does. You return to the hub forever changed.",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "items",
+            "op": "gte",
+            "value": 2,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "The items in your pack resonate strangely with the orb's energy. They might offer some protection, or make you a more interesting target."
+        }
+      ],
+      "is_finale": false,
+      "finale_setup_text": null,
+      "victory_text": null,
+      "defeat_text": null,
+      "item_texts": {}
+    },
+    {
+      "id": "scene_locked",
+      "title": "The Locked Door",
+      "display_name": "The door bound with rusted chains",
+      "base_text": "Unlike the other doors, this one is bound with rusted chains and secured with an ancient lock. No keyhole is visible, just smooth, cold metal that seems to drink in the light. As you approach, the chains rattle softly. Not from wind. From attention. The lock knows you're here. You sense something beyond this door, something that wants to be found. But this lock doesn't want a key. It's waiting. Expectant. The walls around it bear faint scratches, as if others have searched here before. The lock itself seems almost to lean toward you, listening.",
+      "choices": [
+        {
+          "kind": "damage",
+          "display_text": "Do you lower your shoulder and charge the door?",
+          "result_text": "You back up, lower your shoulder, and charge. The ancient door doesn't even tremble. You, however, bounce off and crash to the floor, arm screaming in protest. The lock rattles, was that laughter? The door remains sealed, unmoved, clearly unimpressed by brute force. You limp back to the circular chamber to rethink your approach.",
+          "amount": 1,
+          "item_name": null
+        },
+        {
+          "kind": "item",
+          "display_text": "Do you search the scratched walls for what others have sought?",
+          "result_text": "The scratches on the walls aren't random, they're a map left by previous searchers. You follow them, fingers tracing the pattern until they find a seam. You press. The door swings open silently. Inside, you find a desk with a faded note, and in the drawer, a wand that crackles with eager energy. You take it, feeling its power thrum through your palm. Someone wanted this found.",
+          "amount": 1,
+          "item_name": "War Mage Wand"
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you lean close to the listening lock and offer it the truth?",
+          "result_text": "The lock is listening. You can feel it. So you lean close and whisper your deepest secret, the thing you've never told anyone, the weight you've carried alone. The lock clicks open. The room beyond is empty, but you feel lighter. Confession was the key. You return to the central chamber, a weight lifted.",
+          "amount": 1,
+          "item_name": null
+        }
+      ],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "level",
+            "op": "gte",
+            "value": 3,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "With all you've learned in these rooms, the lock's mechanism seems almost transparent to you. There are multiple ways to open it, force is just the least elegant."
+        }
+      ],
+      "is_finale": false,
+      "finale_setup_text": null,
+      "victory_text": null,
+      "defeat_text": null,
+      "item_texts": {}
+    },
+    {
+      "id": "scene_finale",
+      "title": "The Final Confrontation",
+      "display_name": "The central chamber (Finale)",
+      "base_text": "You return to the central chamber, but something has changed. The pale blue orb flickers erratically, and fog seeps from between the stones. A whisper fills the air, your name spoken by something that shouldn't know it. The orb shatters, and from its fragments, a ghost coalesces. Faceless, it hisses at you, 'You cannot leave. This is where you belong and this is where you will remain... forever.'",
+      "choices": [],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_mirror",
+            "outcome": "item"
+          },
+          "text": "The Crimson Blade at your hip hums with hungry light. It seems eager to taste spectral flesh."
+        },
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_skeleton",
+            "outcome": "item"
+          },
+          "text": "The Fear Ward Ring on your finger grows warm, pushing back the creeping dread. The ghost's presence feels less overwhelming."
+        },
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_orb",
+            "outcome": "item"
+          },
+          "text": "The Orb of Confusion in your pack hums in recognition, it remembers this ghost, this place. They are connected."
+        },
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "op": null,
+            "value": null,
+            "scene_id": "scene_locked",
+            "outcome": "item"
+          },
+          "text": "The War Mage Wand crackles with anticipation. Against a creature of pure spirit, magic may be your best weapon."
+        },
+        {
+          "condition": {
+            "type": "items",
+            "op": "gte",
+            "value": 3,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "The treasures you've gathered hum with combined power. Together, they might be enough to banish this nightmare for good."
+        },
+        {
+          "condition": {
+            "type": "items",
+            "op": "gte",
+            "value": 5,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "Your pack overflows with artifacts from every room. The ghost hesitates, sensing the accumulated power you carry. For the first time, it looks... afraid."
+        },
+        {
+          "condition": {
+            "type": "level",
+            "op": "gte",
+            "value": 4,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "The wisdom from your journey fills you with calm certainty. You've faced shadows, made peace with death, communed with ancient powers. This ghost is just one more challenge."
+        },
+        {
+          "condition": {
+            "type": "hp",
+            "op": "lte",
+            "value": 1,
+            "scene_id": null,
+            "outcome": null
+          },
+          "text": "You can barely stand. Every wound from every room throbs in unison. The ghost grins. 'So weak. So close to staying forever.' One more mistake, and this nightmare becomes your tomb."
+        }
+      ],
+      "is_finale": true,
+      "finale_setup_text": "The ghost looms before you, as you begin to feel your body fill with fear. This is your final test. Your accumulated items pulse with power. Your hard-won wisdom steadies your mind. Roll the die and add your item count. You need 20 or higher to escape. You have a number of attempts equal to your level.",
+      "victory_text": "{item_text:Vlad's Mystery Potion}You lunge at the ghost. {item_text:Crimson Blade}{item_text:War Mage Wand}{item_text:Fear Ward Ring}{item_text:Orb of Confusion}The ghost shrieks as light erupts from within you with the combined power of every trial you've overcome. 'NO! You were supposed to be TRAPPED!', the ghost wails. But you've grown too strong. The nightmare dissolves around you, and you awaken in your own bed, dawn light streaming through the window. The dream is over. You are free. And somehow, you know: you'll never fear the dark again.",
+      "defeat_text": "{item_text:Vlad's Mystery Potion}{item_text:Fear Ward Ring}The ghost's cold fingers close around your heart. 'You're staying,' it whispers, almost gently. 'Forever.' {item_text:Crimson Blade}The circular chamber dims. One by one, the doors slam closed and seal themselves. And as consciousness fades, you realize you're becoming another skeleton in another room, waiting for the next poor soul to find your ring...",
+      "item_texts": {
+        "Crimson Blade": {
+          "victory": "The Crimson Blade blazes with spectral fire as you drive it through the ghost's heart! ",
+          "defeat": "The Crimson Blade clatters uselessly to the floor, unable to harm what you cannot see. "
+        },
+        "War Mage Wand": {
+          "victory": "The War Mage Wand channels pure arcane energy, searing through the specter! ",
+          "defeat": "The War Mage Wand sparks feebly, your fear disrupts the magical connection. "
+        },
+        "Fear Ward Ring": {
+          "victory": "The Fear Ward Ring flares with golden light, shielding you from the ghost's paralyzing terror! ",
+          "defeat": "The Fear Ward Ring flickers and dies, its power spent. "
+        },
+        "Orb of Confusion": {
+          "victory": "The Orb of Confusion pulses, and suddenly the ghost turns on itself, tearing at its own ethereal form! ",
+          "defeat": "The Orb of Confusion rolls from your trembling hands, its power useless against such focused malice. "
+        },
+        "Vlad's Mystery Potion": {
+          "victory": "You feel the instinct to down the mystery potion you got from Vlad and you feel yourself swell with confidence. ",
+          "defeat": "You recall the potion you took from the gnome and chug it and you immediately feel dizzy and nauseous. "
+        }
+      }
+    }
+  ],
   "opening_scene": {
     "title": "The Awakening",
-    "base_text": "Your eyes open to pale blue light. You're lying on a cold stone slab in a circular chamber. A column rises from the center, topped by a softly glowing orb that pulses like a heartbeat. Six identical doors line the curved walls, each marked with a faint symbol you can't quite read. The air is still and ancient. You don't know how you got here. You don't remember falling asleep. But somehow, you know: the only way out is through.",
+    "base_text": "Your eyes flicker open to the glow of a pale blue light. You find yourself lying on a cold stone slab in what seems to be a circular chamber. The air is still and the space feels ancient. You see a column in the center topped with a softly glowing orb that pulses rhythmically. Looking around, you notice six identical doors lining the curved walls, each marked with a faint symbol you can't quite read. You don't know how you got here nor what you were doing before. But somehow you know, instinctually: the only way out is through. You walk around the chamber and inspect each of the doors. You notice that each door has a particular feature about it. You see:",
     "choices": [
       {
         "text": "The door with the cracked mirror symbol",
@@ -74,6 +467,8 @@
       {
         "condition": {
           "type": "scene_outcome",
+          "op": null,
+          "value": null,
           "scene_id": "scene_mirror",
           "outcome": "damage"
         },
@@ -82,14 +477,18 @@
       {
         "condition": {
           "type": "scene_outcome",
+          "op": null,
+          "value": null,
           "scene_id": "scene_mirror",
           "outcome": "item"
         },
-        "text": "The mirror door hangs open, its challenge conquered. The Crimson Blade at your hip pulses with quiet hunger."
+        "text": "The mirror door hangs open, its challenge conquered. The Crimson Blade at your hip grows warm against your hip, eager."
       },
       {
         "condition": {
           "type": "scene_outcome",
+          "op": null,
+          "value": null,
           "scene_id": "scene_mirror",
           "outcome": "level"
         },
@@ -98,6 +497,8 @@
       {
         "condition": {
           "type": "scene_outcome",
+          "op": null,
+          "value": null,
           "scene_id": "scene_apothecary",
           "outcome": "damage"
         },
@@ -106,6 +507,8 @@
       {
         "condition": {
           "type": "scene_outcome",
+          "op": null,
+          "value": null,
           "scene_id": "scene_apothecary",
           "outcome": "item"
         },
@@ -114,16 +517,20 @@
       {
         "condition": {
           "type": "scene_outcome",
+          "op": null,
+          "value": null,
           "scene_id": "scene_apothecary",
           "outcome": "level"
         },
-        "text": "The smoky door reminds you of Vlad's quiet words: 'This place feeds on desire.' You're grateful you asked."
+        "text": "The smoky door reminds you of Vlad's endless lectures. Surprisingly, you're grateful for them."
       },
       {
         "condition": {
           "type": "hp",
           "op": "lte",
-          "value": 1
+          "value": 1,
+          "scene_id": null,
+          "outcome": null
         },
         "text": "Your body aches. Each breath is an effort. The orb's light seems dimmer now, or perhaps that's just your fading vision."
       },
@@ -131,341 +538,132 @@
         "condition": {
           "type": "items",
           "op": "gte",
-          "value": 3
+          "value": 3,
+          "scene_id": null,
+          "outcome": null
         },
         "text": "Your pack is heavy with treasures from the rooms you've conquered. Each item hums with purpose."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_forest",
+          "outcome": "damage"
+        },
+        "text": "The vine-covered door hangs open. You can still feel spider venom burning in your veins, and the memory of clicking mandibles makes you shudder."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_forest",
+          "outcome": "item"
+        },
+        "text": "The forest door stands open, leaves drifting through. The Enchanted Mandolin on your back hums softly, as if remembering starlight."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_forest",
+          "outcome": "level"
+        },
+        "text": "The vine-covered door is peaceful now. The moss's warmth lingers in your memory, patience, stillness, the strength of roots."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_skeleton",
+          "outcome": "damage"
+        },
+        "text": "The tally-marked door hangs ajar. Your chest still feels tight from the contagious despair that nearly drowned you."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_skeleton",
+          "outcome": "item"
+        },
+        "text": "The skeleton's door stands open. The Fear Ward Ring on your finger feels warm, grateful to serve a new bearer."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_skeleton",
+          "outcome": "level"
+        },
+        "text": "The tally-marked door is peaceful now. You laid the bones to rest, and something in you understands death differently."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_orb",
+          "outcome": "damage"
+        },
+        "text": "The humming door pulses with faint mockery. Your head still throbs from the orb's psychic assault."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_orb",
+          "outcome": "item"
+        },
+        "text": "The orb room's door stands open. The Orb of Confusion in your pack hums angrily but obediently, it accepted you, boot and all."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_orb",
+          "outcome": "level"
+        },
+        "text": "The humming door is quiet now. The orb shared its knowledge, and you feel forever changed by the communion."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_locked",
+          "outcome": "damage"
+        },
+        "text": "The chained door remains sealed, unmoved by your failed attempt. Your shoulder aches from the impact."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_locked",
+          "outcome": "item"
+        },
+        "text": "The chains hang loose on the door you opened. The War Mage Wand crackles eagerly at your hip."
+      },
+      {
+        "condition": {
+          "type": "scene_outcome",
+          "op": null,
+          "value": null,
+          "scene_id": "scene_locked",
+          "outcome": "level"
+        },
+        "text": "The lock hangs open, keeper of your secret. You feel lighter for having confessed."
       }
     ]
-  },
-  "scenes": [
-    {
-      "id": "scene_mirror",
-      "title": "The Mirror Room",
-      "display_name": "The door with the cracked mirror symbol",
-      "base_text": "The door opens into a room where every wall is a mirror. A dusty chandelier provides dim, flickering light. In the mirror directly opposite you, a shadowy figure pounds against the glass from within, desperate to escape. Its mouth moves in silent screams. It sees you. It reaches toward you.",
-      "choices": [
-        {
-          "kind": "damage",
-          "display_text": "Do you reach toward the trapped figure with compassion?",
-          "result_text": "You reach toward the trapped figure, compassion overriding caution. The moment your fingers touch the cold glass, shadowy hands burst through and grip your wrist. Ice floods your veins as the shadow drains something vital before you wrench free. You stumble back through the door, gasping, the figure's hollow laughter following you into the circular chamber.",
-          "amount": 1,
-          "item_name": null
-        },
-        {
-          "kind": "item",
-          "display_text": "Do you shatter the mirror with your fist?",
-          "result_text": "With a primal shout, you drive your fist into the mirror. Glass explodes outward—but instead of cutting you, it dissolves into mist. Where the mirror stood, a longsword with a blood-red blade hovers in the air. You grasp it, feeling its weight, its hunger. The room dims behind you as you return to the central chamber, blade in hand.",
-          "amount": 1,
-          "item_name": "Crimson Blade"
-        },
-        {
-          "kind": "level",
-          "display_text": "Do you turn your back and refuse to acknowledge it?",
-          "result_text": "You turn your back to the desperate figure and close your eyes. It screams, pounds, begs—but you refuse to acknowledge it. The sounds grow fainter, then cease. When you open your eyes, the mirror shows only your reflection, wiser now. Fear feeds on attention. You walk back to the hub with new clarity.",
-          "amount": 1,
-          "item_name": null
-        }
-      ],
-      "conditional_text": [
-        {
-          "condition": {
-            "type": "hp",
-            "op": "lte",
-            "value": 1
-          },
-          "text": "In your weakened state, the shadow seems larger, more solid. It senses your vulnerability."
-        }
-      ]
-    },
-    {
-      "id": "scene_apothecary",
-      "title": "The Apothecary",
-      "display_name": "The door trailing wisps of incense smoke",
-      "base_text": "The door opens onto impossible warmth. A cozy apothecary shop—here, inside... whatever this place is? Dried herbs hang from the ceiling. Glass jars glow with phosphorescent contents. The air smells of cinnamon, sulfur, and something older. Behind a cluttered counter, a gnome with wild eyebrows and ink-stained fingers fusses over a bubbling beaker. He looks up with theatrical surprise. 'A CUSTOMER! In THIS economy?' He scrambles onto a stepladder to meet your eyes. 'I am Vlad. Purveyor of solutions, vendor of mysteries, absolute genius.' He gestures grandly, nearly toppling. 'Everything is for sale... for the right price.' Your eye catches a vial on the top shelf—swirling purple liquid that seems to pulse with its own heartbeat. Vlad follows your gaze and grins. 'Ah. You have taste.'",
-      "choices": [
-        {
-          "kind": "damage",
-          "display_text": "Do you wait for Vlad to turn his back, then reach for the vial?",
-          "result_text": "Vlad turns to fuss with his beaker. Your hand shoots toward the vial—and a stone fist crashes into your shoulder. A golem, hidden in shadow, hurls you through the doorway. 'SHOPLIFTERS WILL BE VLADICATED!' Vlad shouts cheerfully as you tumble back into the circular room, bruised and empty-handed. The door swings shut on his cackling.",
-          "amount": 1,
-          "item_name": null
-        },
-        {
-          "kind": "item",
-          "display_text": "Do you lean on the counter and tell Vlad he's clearly the most brilliant alchemist you've ever met?",
-          "result_text": "'You,' you say, leaning closer, 'are clearly a genius.' Vlad's eyebrows shoot up. 'Obviously,' he says, but his cheeks flush. You pile on the flattery—his organizational system, his obviously superior intellect, the way his eyebrows frame his face. Finally, overwhelmed, Vlad shoves the purple vial into your hands. 'Take it! Just—stop looking at me like that.' You leave with your prize, and Vlad fans himself with a receipt scroll.",
-          "amount": 1,
-          "item_name": "Vlad's Mystery Potion"
-        },
-        {
-          "kind": "level",
-          "display_text": "Do you pull your eyes from the vial and ask Vlad how this shop exists here?",
-          "result_text": "You tear your gaze from the vial. 'How are you here? Inside... whatever this place is?' Vlad's theatrical demeanor softens. He climbs down from his ladder and speaks quietly. 'This place feeds on desire. The doors, the challenges—they test what you reach for when no one's watching.' He taps his temple. 'Most never think to ask what this place actually is.' He refuses to say more, but something in his words settles into you like wisdom. You leave the shop empty-handed but strangely enriched.",
-          "amount": 1,
-          "item_name": null
-        }
-      ],
-      "conditional_text": [
-        {
-          "condition": {
-            "type": "scene_outcome",
-            "scene_id": "scene_skeleton",
-            "outcome": "item"
-          },
-          "text": "Vlad notices the ring on your finger. 'Ah, a Fear Ward! Those are rare. I could give you a very good price for—' He catches your expression. 'Or not. Fine. Browse freely.'"
-        }
-      ]
-    },
-    {
-      "id": "scene_forest",
-      "title": "The Wooded Room",
-      "display_name": "The door with vines creeping from beneath it",
-      "base_text": "The door opens onto impossibility: a forest. Not a painting of one, not an illusion—a living, breathing forest crammed impossibly behind a door. Fog curls between ancient oaks. The air is thick with the smell of moss and decay. Above, no ceiling—only a canopy so dense that the light filtering through seems green and alive. The trees watch you. You're certain of it. Bark shifts when you're not looking directly at it. Roots seem to reposition. Strange chattering echoes from the depths, almost like laughter. One massive tree stands taller than the rest, its highest branches disappearing into mist. At your feet, soft moss glows faintly, pulsing like a slow heartbeat. The forest is waiting. Waiting to see what kind of person you are.",
-      "choices": [
-        {
-          "kind": "damage",
-          "display_text": "Do you follow the chattering sounds deeper into the trees?",
-          "result_text": "The chattering could be birds. Could be something friendly. You push through the underbrush toward it, drawn by curiosity. They were neither. Spiders—giant ones—drop from the canopy, mandibles clicking in what you now realize was laughter. You fight free, but not before fangs find flesh. Poison burns as you crash back through the door. The forest watched you choose aggression. It responded in kind.",
-          "amount": 1,
-          "item_name": null
-        },
-        {
-          "kind": "item",
-          "display_text": "Do you accept the tall tree's invitation and climb toward the mist?",
-          "result_text": "The tallest tree seems to lean toward you, its bark forming subtle handholds. An invitation. You climb, bark rough under your palms, until you break through the canopy into impossible starlight. In a nest of silver branches rests a mandolin, its strings humming with anticipation. You take it, and the tree gently lowers you to the forest floor. The forest watched you choose trust. It rewarded you.",
-          "amount": 1,
-          "item_name": "Enchanted Mandolin"
-        },
-        {
-          "kind": "level",
-          "display_text": "Do you settle onto the glowing moss and match its rhythm?",
-          "result_text": "The moss pulses. Inviting. You lower yourself onto it and close your eyes, matching your breath to its glow. The forest exhales around you. The trees share secrets older than language: patience, growth, the strength of roots that hold even when storms rage above. When you open your eyes, you understand something fundamental about stillness. You rise and walk to the exit, the forest parting respectfully. It watched you choose patience. It shared its wisdom.",
-          "amount": 1,
-          "item_name": null
-        }
-      ],
-      "conditional_text": [
-        {
-          "condition": {
-            "type": "level",
-            "op": "gte",
-            "value": 2
-          },
-          "text": "Your accumulated wisdom lets you sense the forest's true nature. It's not hostile—just ancient, and testing."
-        }
-      ]
-    },
-    {
-      "id": "scene_skeleton",
-      "title": "The Skeleton Room",
-      "display_name": "The door marked with scratched tally marks",
-      "base_text": "Dust. Silence. A room that feels like it's been holding its breath for centuries. The walls are covered in carved words—'NO WAY OUT'—repeated hundreds of times. Some carvings are neat and deliberate. Others are frantic, the letters overlapping in desperation. In the corner sits a humanoid skeleton, slumped against the wall in rotted clothing. A ring glints on one bony finger. The skull faces you. Its empty sockets seem to ask a question you can't quite hear. Something about this room demands a response. The ring catches the light. The words on the wall pull at your voice, wanting to be spoken. The bones lie scattered and neglected. What do you offer this forgotten soul?",
-      "choices": [
-        {
-          "kind": "item",
-          "display_text": "Do you kneel and carefully take the ring from the skeleton's finger?",
-          "result_text": "You kneel beside the skeleton and gently slide the ring from its bony finger. It comes free easily, almost eagerly, as if it was waiting to be claimed. The inscriptions on the wall seem to shift, and for a moment you could swear the skeleton nodded. You pocket the ring and back toward the exit. Whatever this person was, they wanted someone to carry this forward.",
-          "amount": 1,
-          "item_name": "Fear Ward Ring"
-        },
-        {
-          "kind": "damage",
-          "display_text": "Do you give voice to the words carved into the wall?",
-          "result_text": "The words pull at you. They want to be spoken—need to be. You open your mouth and they pour out: 'NO WAY OUT. NO WAY OUT.' Your voice echoes, builds, takes on a desperate edge that isn't yours. Something answers. The skeleton's jaw unhinges in a silent scream. Cold grips your chest, your lungs refuse to fill. You flee, gasping, bursting back into the circular room. Some despair is contagious.",
-          "amount": 1,
-          "item_name": null
-        },
-        {
-          "kind": "level",
-          "display_text": "Do you arrange the scattered bones and pay your respects?",
-          "result_text": "You gather the scattered bones, arranging them with care—arms crossed, skull positioned gently. You bow your head. 'You're not forgotten.' A warmth fills the room. Not a ghost, but a memory—gratitude from someone long gone, finally seen. You understand death differently now: not an ending, but a threshold. You leave the room in peace, carrying that understanding with you.",
-          "amount": 1,
-          "item_name": null
-        }
-      ],
-      "conditional_text": [
-        {
-          "condition": {
-            "type": "scene_outcome",
-            "scene_id": "scene_mirror",
-            "outcome": "level"
-          },
-          "text": "Having learned that fear feeds on attention, you feel strangely calm here. The skeleton's silent vigil doesn't frighten you—it saddens you."
-        }
-      ]
-    },
-    {
-      "id": "scene_orb",
-      "title": "The Orb Room",
-      "display_name": "The door that hums with faint energy",
-      "base_text": "This room is a perfect cube, mathematically precise. A brilliant light source burns in the center of the ceiling, illuminating a single column below. Floating above the column is an orb—translucent, swirling with inner light, humming with power. It's beautiful. It's dangerous. You can feel it probing at the edges of your mind even from the doorway. The orb pulses slowly, rhythmically, almost like breathing. You find yourself wanting to match its rhythm. To breathe with it. To understand it. But another part of you just wants to grab it and go.",
-      "choices": [
-        {
-          "kind": "damage",
-          "display_text": "Do you stride toward the orb and reach for it?",
-          "result_text": "You stride confidently toward the floating orb. Three feet away, your body locks. Paralysis. Psychic energy floods your mind—a thousand voices screaming at once. When you finally break free, crawling toward the exit, your head throbs with phantom noise. The orb pulses smugly behind you. It doesn't respect the impatient.",
-          "amount": 1,
-          "item_name": null
-        },
-        {
-          "kind": "item",
-          "display_text": "Do you throw your boot at the orb?",
-          "result_text": "You unlace your boot and hurl it at the orb with surprising accuracy. The orb—clearly not expecting such vulgarity—wobbles, tilts, and rolls off its pedestal. You catch it before it hits the ground. It hums angrily but seems to accept its new owner. You limp back to the hub, one boot short but victorious. Sometimes the crude approach works.",
-          "amount": 1,
-          "item_name": "Orb of Confusion"
-        },
-        {
-          "kind": "level",
-          "display_text": "Do you sit before the column and let your breathing match the orb's pulse?",
-          "result_text": "You sit before the column and surrender to the rhythm. In. Out. Your breathing aligns with the orb's glow. Slowly, your minds touch. It tests you—puzzles, paradoxes, memories that aren't yours. You answer honestly, even when it hurts. Finally, acceptance. The orb doesn't come with you, but its knowledge does. You return to the hub forever changed.",
-          "amount": 1,
-          "item_name": null
-        }
-      ],
-      "conditional_text": [
-        {
-          "condition": {
-            "type": "items",
-            "op": "gte",
-            "value": 2
-          },
-          "text": "The items in your pack resonate strangely with the orb's energy. They might offer some protection—or make you a more interesting target."
-        }
-      ]
-    },
-    {
-      "id": "scene_locked",
-      "title": "The Locked Door",
-      "display_name": "The door bound with rusted chains",
-      "base_text": "Unlike the other doors, this one is bound with rusted chains and secured with an ancient lock. No keyhole is visible—just smooth, cold metal that seems to drink in the light. As you approach, the chains rattle softly. Not from wind. From attention. The lock knows you're here. You sense something beyond this door—something that wants to be found. But this lock doesn't want a key. It's waiting. Expectant. The walls around it bear faint scratches, as if others have searched here before. The lock itself seems almost to lean toward you, listening.",
-      "choices": [
-        {
-          "kind": "damage",
-          "display_text": "Do you lower your shoulder and charge the door?",
-          "result_text": "You back up, lower your shoulder, and charge. The ancient door doesn't even tremble. You, however, bounce off and crash to the floor, arm screaming in protest. The lock rattles—was that laughter? The door remains sealed, unmoved, clearly unimpressed by brute force. You limp back to the circular chamber to rethink your approach.",
-          "amount": 1,
-          "item_name": null
-        },
-        {
-          "kind": "item",
-          "display_text": "Do you search the scratched walls for what others have found?",
-          "result_text": "The scratches on the walls aren't random—they're a map left by previous searchers. You follow them, fingers tracing the pattern until they find a seam. Press. The door swings open silently. Inside: a desk with a faded note, and in the drawer, a wand that crackles with eager energy. You take it, feeling its power thrum through your palm. Someone wanted this found.",
-          "amount": 1,
-          "item_name": "War Mage Wand"
-        },
-        {
-          "kind": "level",
-          "display_text": "Do you lean close to the listening lock and offer it the truth?",
-          "result_text": "The lock is listening. You can feel it. So you lean close and whisper your deepest secret—the thing you've never told anyone, the weight you've carried alone. The lock clicks open. The room beyond is empty, but you feel lighter. Confession was the key. You return to the central chamber carrying nothing but peace.",
-          "amount": 1,
-          "item_name": null
-        }
-      ],
-      "conditional_text": [
-        {
-          "condition": {
-            "type": "level",
-            "op": "gte",
-            "value": 3
-          },
-          "text": "With all you've learned in these rooms, the lock's mechanism seems almost transparent to you. There are multiple ways to open it—force is just the least elegant."
-        }
-      ]
-    },
-    {
-      "id": "scene_finale",
-      "title": "The Final Confrontation",
-      "display_name": "The central chamber (Finale)",
-      "is_finale": true,
-      "base_text": "You return to the central chamber, but something has changed. The pale blue orb flickers erratically, and fog seeps from between the stones. A whisper fills the air—your name, spoken by something that shouldn't know it. The orb shatters, and from its fragments, a ghost coalesces. It wears the face of everyone you've ever disappointed. 'You cannot leave,' it hisses. 'This is where you belong. This is where dreamers like you come to stay... forever.'",
-      "finale_setup_text": "The ghost looms before you, a manifestation of every fear and regret. This is your final test. Your accumulated items pulse with power. Your hard-won wisdom steadies your mind. Roll the die and add your item count. You need 20 or higher to escape. You have a number of attempts equal to your level.",
-      "victory_text": "Your roll succeeds! {item_text:Crimson Blade}{item_text:War Mage Wand}{item_text:Fear Ward Ring}{item_text:Orb of Confusion}The ghost shrieks as light erupts from within you—the combined power of every trial you've overcome. 'NO! You were supposed to be TRAPPED!' But you've grown too strong. The nightmare dissolves around you, and you awaken in your own bed, dawn light streaming through the window. The dream is over. You are free. And somehow, you know: you'll never fear the dark again.",
-      "defeat_text": "Your roll fails. {item_text:Fear Ward Ring}The ghost's cold fingers close around your heart. 'You're staying,' it whispers, almost gently. 'Forever.' {item_text:Crimson Blade}The circular chamber dims. The doors seal themselves, one by one. And as consciousness fades, you realize you're becoming another skeleton in another room, waiting for the next dreamer to find your ring...",
-      "item_texts": {
-        "Crimson Blade": {
-          "victory": "The Crimson Blade blazes with spectral fire as you drive it through the ghost's heart! ",
-          "defeat": "The Crimson Blade clatters uselessly to the floor, unable to harm what you cannot see. "
-        },
-        "War Mage Wand": {
-          "victory": "The War Mage Wand channels pure arcane energy, searing through the specter! ",
-          "defeat": "The War Mage Wand sparks feebly—your fear disrupts the magical connection. "
-        },
-        "Fear Ward Ring": {
-          "victory": "The Fear Ward Ring flares with golden light, shielding you from the ghost's paralyzing terror! ",
-          "defeat": "The Fear Ward Ring flickers and dies—its power spent. "
-        },
-        "Orb of Confusion": {
-          "victory": "The Orb of Confusion pulses—and suddenly the ghost turns on itself, tearing at its own ethereal form! ",
-          "defeat": "The Orb of Confusion rolls from your trembling hands, its power useless against such focused malice. "
-        }
-      },
-      "choices": [],
-      "conditional_text": [
-        {
-          "condition": {
-            "type": "scene_outcome",
-            "scene_id": "scene_mirror",
-            "outcome": "item"
-          },
-          "text": "The Crimson Blade at your hip pulses with hungry light. It seems eager to taste spectral flesh."
-        },
-        {
-          "condition": {
-            "type": "scene_outcome",
-            "scene_id": "scene_skeleton",
-            "outcome": "item"
-          },
-          "text": "The Fear Ward Ring on your finger grows warm, pushing back the creeping dread. The ghost's presence feels less overwhelming."
-        },
-        {
-          "condition": {
-            "type": "scene_outcome",
-            "scene_id": "scene_orb",
-            "outcome": "item"
-          },
-          "text": "The Orb of Confusion in your pack hums in recognition—it remembers this ghost, this place. They are connected."
-        },
-        {
-          "condition": {
-            "type": "scene_outcome",
-            "scene_id": "scene_locked",
-            "outcome": "item"
-          },
-          "text": "The War Mage Wand crackles with anticipation. Against a creature of pure spirit, magic may be your best weapon."
-        },
-        {
-          "condition": {
-            "type": "items",
-            "op": "gte",
-            "value": 3
-          },
-          "text": "The treasures you've gathered hum with combined power. Together, they might be enough to banish this nightmare for good."
-        },
-        {
-          "condition": {
-            "type": "items",
-            "op": "gte",
-            "value": 5
-          },
-          "text": "Your pack overflows with artifacts from every room. The ghost hesitates, sensing the accumulated power you carry. For the first time, it looks... afraid."
-        },
-        {
-          "condition": {
-            "type": "level",
-            "op": "gte",
-            "value": 4
-          },
-          "text": "The wisdom from your journey fills you with calm certainty. You've faced shadows, made peace with death, communed with ancient powers. This ghost is just one more challenge."
-        },
-        {
-          "condition": {
-            "type": "hp",
-            "op": "lte",
-            "value": 1
-          },
-          "text": "You can barely stand. Every wound from every room throbs in unison. The ghost grins. 'So weak. So close to staying forever.' One more mistake, and this nightmare becomes your tomb."
-        }
-      ]
-    }
-  ]
+  }
 }

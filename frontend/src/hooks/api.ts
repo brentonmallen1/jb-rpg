@@ -114,6 +114,18 @@ export async function submitMadlib(answer: string): Promise<GameState> {
   return res.json()
 }
 
+export async function madlibBack(): Promise<GameState> {
+  const res = await fetch('/api/state/madlib-back', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.detail || 'Failed to go back')
+  }
+  return res.json()
+}
+
 export async function proceedFromCharacter(): Promise<GameState> {
   const res = await fetch('/api/state/proceed-from-character', {
     method: 'POST',

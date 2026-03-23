@@ -17,6 +17,7 @@ export default function Run() {
     colorMode,
     setTheme,
     submitMadlib,
+    madlibBack,
     proceedFromCharacter,
     makeChoice,
     goBack,
@@ -93,6 +94,27 @@ export default function Run() {
   // Get current madlib field
   const currentField = story?.madlib_template.fields[state.madlib_step]
   const madlibInputId = 'madlib-input'
+
+  // Pre-fill madlib input when field changes (e.g., when going back)
+  useEffect(() => {
+    if (currentField && state?.madlib_answers) {
+      const existingAnswer = state.madlib_answers[currentField.key]
+      setMadlibInput(existingAnswer ?? '')
+    }
+  }, [currentField?.key, state?.madlib_answers])
+
+  async function handleMadlibBack() {
+    if (isSubmitting || !state || state.madlib_step <= 0) return
+    setIsSubmitting(true)
+    try {
+      await madlibBack()
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to go back')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   async function handleMadlibSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -258,9 +280,21 @@ export default function Run() {
                 autoFocus
                 disabled={isSubmitting}
               />
-              <button type="submit" className="btn" disabled={!madlibInput.trim() || isSubmitting}>
-                {isSubmitting ? 'Submitting...' : 'Submit'}
-              </button>
+              <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                {state.madlib_step > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={handleMadlibBack}
+                    disabled={isSubmitting}
+                  >
+                    Back
+                  </button>
+                )}
+                <button type="submit" className="btn" disabled={!madlibInput.trim() || isSubmitting}>
+                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                </button>
+              </div>
             </form>
           </ContentBox>
         )}

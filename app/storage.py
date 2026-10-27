@@ -48,6 +48,16 @@ def write_json(path: Path, data) -> None:
 # ---------------------------------------------------------------------------
 
 
+def seed_demo_stories() -> None:
+    """Give a brand-new data directory the demo stories. Only the first time, so deleted demos stay deleted."""
+    if STORIES_DIR.exists():
+        return
+    STORIES_DIR.mkdir(parents=True)
+    for demo in sorted(config.DEMO_DIR.glob("demo-*.json")):
+        shutil.copy2(demo, STORIES_DIR / demo.name)
+        log.info("Added demo story %s", demo.stem)
+
+
 def story_path(story_id: str) -> Path:
     """Path for a story file. Rejects ids that aren't safe as file names."""
     if not story_id or not VALID_STORY_ID.match(story_id):

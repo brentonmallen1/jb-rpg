@@ -18,7 +18,7 @@ log = logging.getLogger("jb_rpg")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    storage.STORIES_DIR.mkdir(parents=True, exist_ok=True)
+    storage.seed_demo_stories()
     auth.ensure_admin_credentials()
     if config.AUTH_DISABLED:
         log.warning("AUTH_DISABLED is set: anyone who can reach this server can edit stories and run games.")

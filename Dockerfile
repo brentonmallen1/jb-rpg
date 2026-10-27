@@ -29,8 +29,8 @@ COPY app/ ./app/
 # Copy built frontend to static directory
 COPY --from=frontend-builder /app/frontend/dist ./static
 
-# Copy demo stories into the data directory
-COPY data/stories/demo-*.json /data/stories/
+# Demo stories, copied into DATA_DIR on first run (a mounted volume would hide them in /data)
+COPY data/stories/demo-*.json ./demo-stories/
 
 EXPOSE ${BACKEND_PORT}
 # SSE streams never end on their own, so cap graceful shutdown or restarts hang

@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("DATA_DIR", ROOT_DIR / "data"))
 STATIC_DIR = ROOT_DIR / "static"  # built frontend (frontend/dist), copied in by Docker
+DEMO_DIR = ROOT_DIR / "demo-stories"  # demo stories bundled in the Docker image, seeded into a fresh DATA_DIR
 
 ADMIN_USER = os.getenv("ADMIN_USER", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")

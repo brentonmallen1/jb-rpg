@@ -1,152 +1,228 @@
-/* Library page styles */
+/* Library: the storyteller's shelf. Each story is a cover in its own theme. */
 
-/* Skip link */
-.library-skip-link {
-  position: absolute;
-  top: 0;
-  left: 0;
-  padding: var(--space-sm);
-  background: var(--accent);
-  color: var(--text-on-accent);
-  z-index: 9999;
+.library__wordmark {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
-/* Nav actions */
-.library-nav-actions {
+.library__main {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: clamp(24px, 4vw, 48px) clamp(16px, 4vw, 48px) 64px;
+}
+
+.library__header {
   display: flex;
-  gap: var(--space-sm);
-  align-items: center;
-}
-
-.library-nav-actions .btn {
-  padding: var(--space-xs) var(--space-sm);
-  font-size: var(--text-sm);
-}
-
-/* Header */
-.library-header {
-  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-sm);
-}
-
-/* Error alert */
-.library-error {
-  background: var(--danger);
-  color: var(--text-on-danger);
-  padding: var(--space-md);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-lg);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.library-error .btn {
-  padding: var(--space-xs) var(--space-sm);
-  font-size: var(--text-sm);
-}
-
-/* Story grid */
-.story-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-lg);
-  margin-top: var(--space-lg);
-  /* Performance: hint browser to optimize off-screen content */
-  contain: layout style;
+  margin-bottom: 32px;
 }
 
-/* Story card - enhanced styling */
-.story-card {
+.now-playing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 18px 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.now-playing__title {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+}
+
+.library__empty {
+  max-width: 60ch;
+  padding: 48px 0;
+  font-family: var(--font-reading);
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.library__empty-title {
+  margin-bottom: 10px;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  color: var(--text-primary);
+}
+
+/* --- Covers ----------------------------------------------------------------- */
+
+.covers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 20px;
+  list-style: none;
+}
+
+.cover {
+  /* The theme class on this element supplies --bg-*, --accent and fonts */
+  --line: color-mix(in srgb, var(--text-primary) 16%, transparent);
+  --surface: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  position: relative;
-  background: var(--bg-secondary);
+  min-height: 300px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 16px;
+  background: var(--bg-primary);
   color: var(--text-primary);
+  box-shadow: 0 20px 50px -24px rgb(0 0 0 / 0.6);
+  animation: cover-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s;
 }
 
-.story-card h2 {
-  font-size: var(--text-xl);
-  margin: 0;
-  color: var(--text-primary);
+.cover:hover,
+.cover:focus-within {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
 }
 
-/* Session badge */
-.session-badge {
+@keyframes cover-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Atmosphere: a glow in the theme's accent, plus each theme's own texture */
+.cover__art {
   position: absolute;
-  top: calc(-1 * var(--space-sm));
-  right: var(--space-md);
-  background: var(--success);
-  color: var(--text-on-success);
-  font-size: var(--text-xs);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(90% 70% at 85% 0%, color-mix(in srgb, var(--accent) 28%, transparent) 0%, transparent 60%),
+    linear-gradient(to top, color-mix(in srgb, var(--bg-primary) 92%, black) 10%, transparent 75%);
 }
 
-/* Theme badge */
-.story-card .theme-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  text-transform: capitalize;
-  margin-right: var(--space-sm);
-  background: var(--accent);
-  color: var(--bg-primary);
-  font-size: var(--text-xs);
+.cover.cyberpunk .cover__art {
+  background:
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 4px),
+    radial-gradient(90% 70% at 85% 0%, color-mix(in srgb, var(--accent) 30%, transparent) 0%, transparent 60%);
 }
 
-/* Story card meta */
-.story-card-meta {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
+.cover.deep_space .cover__art {
+  background:
+    radial-gradient(1px 1px at 20% 30%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 70% 15%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 45% 55%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 85% 60%, #fff 50%, transparent 51%),
+    radial-gradient(120% 60% at 100% 110%, color-mix(in srgb, var(--accent) 35%, transparent) 0%, transparent 55%);
 }
 
-/* Story card actions */
-.story-card-actions {
+.cover.horror .cover__art {
+  background:
+    radial-gradient(70% 50% at 20% 100%, rgb(160 170 160 / 0.12) 0%, transparent 70%),
+    radial-gradient(80% 60% at 50% 40%, transparent 30%, rgb(0 0 0 / 0.6) 100%);
+}
+
+.cover.insanity .cover__art {
+  background: conic-gradient(from 20deg at 70% 30%, transparent, color-mix(in srgb, var(--accent) 18%, transparent), transparent 40%);
+}
+
+.cover__body {
+  position: relative;
+  flex: 1;
   display: flex;
-  gap: var(--space-sm);
+  flex-direction: column;
+  gap: 8px;
+  padding: 26px 24px 0;
+}
+
+.cover__theme {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.cover__title {
   margin-top: auto;
-  flex-wrap: wrap;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  line-height: 1.05;
+  text-wrap: balance;
 }
 
-.story-card-loading {
-  padding: var(--space-xs) 0;
+.cover__meta {
+  font-family: var(--font-reading);
+  color: var(--text-secondary);
 }
 
-/* ========================================
-   Responsive Styles
-   ======================================== */
-
-/* Mobile: < 768px */
-@media (max-width: 767px) {
-  /* Single column grid on mobile */
-  .story-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Stack header on mobile */
-  .library-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-md);
-  }
-
-  /* Stack nav actions */
-  .library-nav-actions {
-    flex-wrap: wrap;
-  }
+.cover__actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 24px 22px;
 }
 
-/* Small mobile: < 400px */
-@media (max-width: 399px) {
-  .story-card-actions {
-    flex-direction: column;
-  }
+.cover__actions .s-btn {
+  min-height: 42px;
+}
 
-  .story-card-actions .btn {
-    width: 100%;
-  }
+/* --- Overflow menu ------------------------------------------------------------ */
+
+.menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.menu summary {
+  list-style: none;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.45);
+}
+
+.menu__panel button {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu__panel button:hover,
+.menu__panel button:focus-visible {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  outline: none;
+}
+
+.menu__panel .menu__danger {
+  color: color-mix(in srgb, var(--danger) 80%, var(--text-primary));
 }

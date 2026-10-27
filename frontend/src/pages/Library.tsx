@@ -2,30 +2,38 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
-import type { StorySummary, ThemeName } from '../types'
-import { Modal, RulesModal, ConfirmDialog, InputDialog, ModeToggle } from '../components'
-import { getThemeVars } from '../styles/themeVars'
+import { loadAllThemes } from '../hooks/useTheme'
+import type { StorySummary } from '../types'
+import { Modal, RulesModal, ConfirmDialog, InputDialog } from '../components'
+import { BookIcon, MoonIcon, SunIcon } from '../components/Icons'
+import '../styles/stage.css'
 import '../styles/pages/library.css'
+
+const THEME_LABEL: Record<string, string> = {
+  cyberpunk: 'Cyberpunk', fantasy: 'Fantasy', deep_space: 'Deep Space', modern: 'Modern', horror: 'Horror', insanity: 'Insanity',
+}
 
 export default function Library() {
   const navigate = useNavigate()
-  const { state, toggleColorMode, colorMode, startSession, resumeSession, endSession, isStoryteller, sessionElsewhere, setCurrentStory, isInitializing, isValidatingToken } = useGame()
+  const {
+    state, toggleColorMode, colorMode, startSession, resumeSession, endSession, isStoryteller,
+    sessionElsewhere, setCurrentStory, isInitializing, isValidatingToken,
+  } = useGame()
   const [stories, setStories] = useState<StorySummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showRules, setShowRules] = useState(false)
 
-  // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StorySummary | null>(null)
-  const [stopTarget, setStopTarget] = useState<StorySummary | null>(null)
-  const [stopping, setStopping] = useState(false)
+  const [stopTarget, setStopTarget] = useState(false)
   const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string } | null>(null)
   const [showTakeOver, setShowTakeOver] = useState(false)
 
-  // Clear currentStory so the page uses the default 'modern' theme
+  // The library chrome uses the neutral theme; each cover wears its own story's theme
   useEffect(() => {
     setCurrentStory(null)
+    loadAllThemes()
   }, [setCurrentStory])
 
   useEffect(() => {
@@ -35,38 +43,36 @@ export default function Library() {
   async function loadStories() {
     setError(null)
     try {
-      const data = await api.getStories()
-      setStories(data)
+      setStories(await api.getStories())
     } catch (err) {
-      console.error('Failed to load stories:', err)
-      setError('Failed to load stories. Please try again.')
+      setError(err instanceof Error ? err.message : 'Failed to load stories.')
     } finally {
       setLoading(false)
     }
   }
 
+  async function attempt(action: () => Promise<unknown>, fallback: string) {
+    setError(null)
+    try {
+      await action()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : fallback)
+    }
+  }
+
   async function handleCreateStory(title: string) {
     setShowCreateDialog(false)
-    try {
-      const story = await api.createStory(title)
-      navigate(`/editor/${story.id}`)
-    } catch (err) {
-      console.error('Failed to create story:', err)
-      setError('Failed to create story. Please try again.')
-    }
+    await attempt(async () => navigate(`/editor/${(await api.createStory(title)).id}`), 'Failed to create story.')
   }
 
   async function handleDeleteStory() {
     if (!deleteTarget) return
     const id = deleteTarget.id
     setDeleteTarget(null)
-    try {
+    await attempt(async () => {
       await api.deleteStory(id)
-      setStories(stories.filter(s => s.id !== id))
-    } catch (err) {
-      console.error('Failed to delete story:', err)
-      setError('Failed to delete story. Please try again.')
-    }
+      setStories(s => s.filter(story => story.id !== id))
+    }, 'Failed to delete story.')
   }
 
   async function handleStartSession(story: StorySummary, force = false) {
@@ -77,219 +83,153 @@ export default function Library() {
       navigate('/run')
     } catch (err) {
       if (err instanceof api.ApiError && err.status === 409) {
-        // Another session is running: confirm before ending it
+        // Another session is running: ask before ending it
         setReplaceTarget({ story, message: err.message })
         return
       }
-      setError(err instanceof Error ? err.message : 'Failed to start session. Please try again.')
+      setError(err instanceof Error ? err.message : 'Failed to start session.')
     }
   }
 
   async function handleTakeOver() {
     setShowTakeOver(false)
-    setError(null)
-    try {
+    await attempt(async () => {
       await resumeSession()
       navigate('/run')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to take over the session.')
-    }
+    }, 'Failed to take over the session.')
   }
 
-  async function handleStopSession() {
-    if (!stopTarget) return
-    setStopTarget(null)
-    setStopping(true)
-    setError(null)
-    try {
-      await endSession()
-    } catch (err) {
-      console.error('Failed to stop session:', err)
-      setError(err instanceof Error ? err.message : 'Failed to stop session. Please try again.')
-    } finally {
-      setStopping(false)
-    }
-  }
-
-  async function handleExport(storyId: string) {
-    try {
-      const story = await api.getStory(storyId)
-      api.downloadStoryAsJson(story)
-    } catch (err) {
-      console.error('Failed to export story:', err)
-      setError('Failed to export story. Please try again.')
-    }
-  }
+  const activeStory = state ? stories.find(s => s.id === state.story_id) : undefined
+  const sessionLoading = isInitializing || isValidatingToken
 
   return (
-    <>
-      {/* Skip link for keyboard navigation */}
-      <a href="#main-content" className="visually-hidden">
-        Skip to content
-      </a>
+    <div className="stage library">
+      <a href="#main-content" className="visually-hidden">Skip to content</a>
 
-      <nav className="nav">
-        <span className="nav__title">J&B's RPG</span>
-        <div className="row gap-sm">
-          <button className="btn btn--secondary text-sm" onClick={() => setShowRules(true)}>
-            Rules
+      <header className="stage__bar">
+        <span className="library__wordmark">J&amp;B’s RPG</span>
+        <div className="stage__tools">
+          <button className="icon-btn" onClick={() => setShowRules(true)} aria-label="Rules" title="Rules">
+            <BookIcon />
           </button>
-          <ModeToggle colorMode={colorMode} onToggle={toggleColorMode} />
+          <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
+            {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </button>
         </div>
-      </nav>
+      </header>
 
-      <main id="main-content" className="container">
-        <div className="library-header row-between mb-sm">
-          <h1>Story Library</h1>
-          <button className="btn" onClick={() => setShowCreateDialog(true)}>New Story</button>
+      <main id="main-content" className="library__main">
+        <div className="library__header">
+          <div>
+            <div className="eyebrow">Choose tonight’s adventure</div>
+            <h1 className="stage-title" style={{ margin: '4px 0 0' }}>Your stories</h1>
+          </div>
+          <button className="s-btn" onClick={() => setShowCreateDialog(true)}>New story</button>
         </div>
 
-        {sessionElsewhere && (
-          <div className="alert alert--warning mb-lg" role="status">
-            <span>A session is running from another tab or device.</span>
-            <button className="btn text-sm" onClick={() => setShowTakeOver(true)}>Take over</button>
+        {state && isStoryteller && !sessionLoading && (
+          <div className="now-playing" role="status">
+            <div>
+              <span className="stage-label">Now playing</span>
+              <div className="now-playing__title">{activeStory?.title ?? 'A session is running'}</div>
+            </div>
+            <div className="action-row" style={{ marginTop: 0 }}>
+              <button className="s-btn" onClick={() => navigate('/run')}>Return to the table</button>
+              <button className="s-btn s-btn--ghost" onClick={() => setStopTarget(true)}>End session</button>
+            </div>
           </div>
         )}
 
-        {/* Error message */}
+        {sessionElsewhere && (
+          <div className="now-playing" role="status">
+            <div>
+              <span className="stage-label">Running elsewhere</span>
+              <div className="now-playing__title">A session is being run from another tab or device.</div>
+            </div>
+            <button className="s-btn" onClick={() => setShowTakeOver(true)}>Take over</button>
+          </div>
+        )}
+
         {error && (
-          <div className="alert alert--danger mb-lg" role="alert">
+          <div className="stage-error" role="alert">
             <span>{error}</span>
-            <button className="btn btn--secondary text-sm" onClick={() => setError(null)}>
-              Dismiss
-            </button>
+            <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
           </div>
         )}
 
         {loading ? (
-          <div className="empty-state card" aria-live="polite" aria-busy="true">
-            <div className="page-loader mb-md" aria-hidden="true"><span /></div>
-            <p>Loading stories...</p>
-          </div>
-        ) : error && stories.length === 0 ? (
-          <div className="empty-state card">
-            <p className="text-danger mb-md">Failed to load stories</p>
-            <button className="btn" onClick={loadStories}>Try Again</button>
-          </div>
+          <p className="library__empty" aria-busy="true">Loading stories…</p>
         ) : stories.length === 0 ? (
-          <div className="empty-state card">
-            <p>No stories yet. Create your first adventure!</p>
+          <div className="library__empty">
+            <h2 className="library__empty-title">No stories yet</h2>
+            <p>
+              A story is a handful of scenes, each ending in three choices: one costs a life, one finds an item,
+              one levels the hero up. Players build the hero together with a round of mad-lib questions, then
+              everything comes down to a single d20 roll.
+            </p>
+            <div className="action-row">
+              <button className="s-btn" onClick={() => setShowCreateDialog(true)}>Write your first story</button>
+              {error && <button className="s-btn s-btn--ghost" onClick={loadStories}>Try again</button>}
+            </div>
           </div>
         ) : (
-          <div className="story-grid mt-lg">
-            {stories.map(story => (
-              <article
-                key={story.id}
-                className={`card story-card story-card--${story.theme} ${state?.story_id === story.id ? 'story-card--active' : ''}`}
-                style={getThemeVars(story.theme as ThemeName, colorMode)}
-              >
-                {state?.story_id === story.id && (
-                  <span
-                    className="session-badge font-semibold uppercase"
-                    aria-label="Active session"
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(-1 * var(--space-sm))',
-                      right: 'var(--space-md)',
-                      background: 'var(--success)',
-                      color: 'var(--text-on-success)',
-                      fontSize: 'var(--text-xs)',
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-sm)'
-                    }}
-                  >
-                    Active
-                  </span>
-                )}
-                <h2 className="font-semibold text-xl truncate" title={story.title}>{story.title}</h2>
-                <div className="story-card-meta">
-                  <span className="theme-badge">{story.theme.replace('_', ' ')}</span>
-                  {story.scene_count} scenes
-                </div>
-                <div className="story-card-actions">
-                  {state?.story_id === story.id ? (
-                    // This story has an active session
-                    isInitializing || isValidatingToken ? (
-                      // Still loading - don't show session controls yet
-                      <span className="text-secondary" style={{ padding: 'var(--space-xs) 0' }}>
-                        Loading...
-                      </span>
-                    ) : isStoryteller ? (
-                      // User is the storyteller - show Resume/Stop
-                      <>
-                        <button className="btn" onClick={() => navigate('/run')}>
-                          Resume
-                        </button>
-                        <button
-                          className="btn btn--secondary text-danger"
-                          onClick={() => setStopTarget(story)}
-                          disabled={stopping}
-                        >
-                          {stopping ? 'Stopping...' : 'Stop'}
-                        </button>
-                      </>
+          <ul className="covers">
+            {stories.map((story, i) => {
+              const isActive = state?.story_id === story.id
+              return (
+                <li key={story.id} className={`cover ${story.theme}`} style={{ '--i': i } as React.CSSProperties}>
+                  <div className="cover__art" aria-hidden="true" />
+                  <div className="cover__body">
+                    <span className="cover__theme">{THEME_LABEL[story.theme] ?? story.theme}{isActive && ' · now playing'}</span>
+                    <h2 className="cover__title">{story.title}</h2>
+                    <span className="cover__meta">{story.scene_count} {story.scene_count === 1 ? 'scene' : 'scenes'}</span>
+                  </div>
+                  <div className="cover__actions">
+                    {isActive && isStoryteller ? (
+                      <button className="s-btn" onClick={() => navigate('/run')}>Resume</button>
                     ) : (
-                      // Running in another tab or device
-                      <button className="btn" onClick={() => setShowTakeOver(true)}>
-                        Take over
-                      </button>
-                    )
-                  ) : (
-                    // No active session for this story
-                    <button className="btn" onClick={() => handleStartSession(story)}>
-                      Play
-                    </button>
-                  )}
-                  <button className="btn btn--secondary" onClick={() => navigate(`/editor/${story.id}`)}>
-                    Edit
-                  </button>
-                  <button
-                    className="btn btn--secondary"
-                    onClick={() => handleExport(story.id)}
-                    aria-label={`Export ${story.title}`}
-                  >
-                    Export
-                  </button>
-                  <button
-                    className="btn btn--secondary text-danger"
-                    onClick={() => setDeleteTarget(story)}
-                    aria-label={`Delete ${story.title}`}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+                      <button className="s-btn" onClick={() => handleStartSession(story)} disabled={sessionLoading}>Play</button>
+                    )}
+                    <button className="s-btn s-btn--ghost" onClick={() => navigate(`/editor/${story.id}`)}>Edit</button>
+                    <details className="menu">
+                      <summary className="icon-btn" aria-label={`More actions for ${story.title}`}>⋯</summary>
+                      <div className="menu__panel">
+                        <button onClick={() => attempt(async () => api.downloadStoryAsJson(await api.getStory(story.id)), 'Failed to export story.')}>
+                          Export as JSON
+                        </button>
+                        <button className="menu__danger" onClick={() => setDeleteTarget(story)}>Delete story…</button>
+                      </div>
+                    </details>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </main>
 
-      {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
 
-      {/* Create Story Dialog */}
       <InputDialog
         isOpen={showCreateDialog}
         onSubmit={handleCreateStory}
         onCancel={() => setShowCreateDialog(false)}
-        title="Create New Story"
-        label="Enter a title for your story:"
-        placeholder="My Epic Adventure"
+        title="New story"
+        label="What's it called?"
+        placeholder="The Circle Room"
         submitText="Create"
       />
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={deleteTarget !== null}
         onConfirm={handleDeleteStory}
         onCancel={() => setDeleteTarget(null)}
-        title="Delete Story?"
-        message={`Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone.`}
+        title="Delete this story?"
+        message={`“${deleteTarget?.title}” will be gone for good. Export it first if you might want it back.`}
         confirmText="Delete"
         variant="danger"
       />
 
-      {/* Starting while another session runs */}
       <Modal isOpen={replaceTarget !== null} onClose={() => setReplaceTarget(null)} title="A session is already running">
         <p className="mb-lg">{replaceTarget?.message} You can take over that game, or end it and start “{replaceTarget?.story.title}”.</p>
         <div className="btn-group">
@@ -301,7 +241,6 @@ export default function Library() {
         </div>
       </Modal>
 
-      {/* Taking over a session run from another tab */}
       <ConfirmDialog
         isOpen={showTakeOver}
         onConfirm={handleTakeOver}
@@ -312,16 +251,15 @@ export default function Library() {
         variant="default"
       />
 
-      {/* Stop Session Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={stopTarget !== null}
-        onConfirm={handleStopSession}
-        onCancel={() => setStopTarget(null)}
-        title="End Session?"
-        message="This will disconnect all players and end the current session."
-        confirmText="End Session"
+        isOpen={stopTarget}
+        onConfirm={() => { setStopTarget(false); attempt(endSession, 'Failed to end the session.') }}
+        onCancel={() => setStopTarget(false)}
+        title="End the session?"
+        message="This disconnects all players and ends the current game."
+        confirmText="End session"
         variant="danger"
       />
-    </>
+    </div>
   )
 }

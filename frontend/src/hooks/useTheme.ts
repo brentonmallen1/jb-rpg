@@ -25,6 +25,11 @@ const themeLoaders: Record<ThemeName, () => Promise<unknown>> = {
 // Track which themes have been loaded (CSS imports are cached by the browser)
 const loadedThemes = new Set<ThemeName>()
 
+/** Load every theme's CSS, for pages that show several themes at once (the library). */
+export function loadAllThemes(): Promise<unknown> {
+  return Promise.all(THEMES.map(t => themeLoaders[t]().then(() => loadedThemes.add(t))))
+}
+
 export function useTheme(initialTheme: ThemeName = 'cyberpunk'): UseThemeReturn {
   const [theme, setThemeState] = useState<ThemeName>(initialTheme)
   const [colorMode, setColorMode] = useState<ColorMode>(() => {

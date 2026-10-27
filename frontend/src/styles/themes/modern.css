@@ -1,28 +1,29 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap');
 
-/* Modern theme - scoped to .modern class on html element */
+/* Modern theme: also the app's own chrome (library, editor). Warm ink with an ember accent. */
 .modern {
-    --bg-primary: #1a1a1e;
-    --bg-secondary: #2a2a30;
-    --text-primary: #f5f5f7;
-    --text-secondary: #a0a0a5;
-    --accent: #5856d6;
-    --accent-hover: #6e6cd8;
-    --danger: #ff3b30;
-    --success: #34c759;
-    --warning: #ff9500;
+    --bg-primary: #131315;
+    --bg-secondary: #1d1d21;
+    --text-primary: #edebe7;
+    --text-secondary: #a39f98;
+    --accent: #f07a5b;
+    --accent-hover: #f59275;
+    --danger: #ef5350;
+    --success: #4caf7d;
+    --warning: #f2b04b;
 
-    --font-body: 'Inter', system-ui, sans-serif;
-    --font-display: 'Inter', system-ui, sans-serif;
-    --font-reading: var(--font-body);
+    --font-body: 'Manrope', system-ui, sans-serif;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-reading: 'Newsreader', Georgia, serif;
 }
 
-/* Light mode - the original modern light aesthetic */
 .modern[data-mode="light"] {
-    --bg-primary: #f5f5f7;
+    --bg-primary: #f6f4f0;
     --bg-secondary: #ffffff;
-    --text-primary: #1d1d1f;
-    --text-secondary: #86868b;
+    --text-primary: #1c1b19;
+    --text-secondary: #6e6a63;
+    --accent: #c2452b;
+    --accent-hover: #a83a23;
 }
 
 /* Circle HP indicators */

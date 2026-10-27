@@ -436,7 +436,7 @@
   transition: background 0.2s, transform 0.1s;
 }
 
-[data-mode="light"] .s-btn {
+[data-mode="light"] .s-btn:not(.s-btn--ghost, .s-btn--danger, .s-btn--success) {
   color: var(--bg-secondary);
 }
 

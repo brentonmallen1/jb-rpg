@@ -64,6 +64,7 @@ export const getStories = () => request<StorySummary[]>('/api/stories')
 export const getStory = (id: string) => request<Story>(`/api/stories/${id}`)
 export const getStoryProblems = (id: string) => request<{ problems: string[] }>(`/api/stories/${id}/problems`)
 export const createStory = (title: string) => post<Story>('/api/stories', { title })
+export const importStory = (story: unknown) => post<Story>('/api/stories/import', story)
 export const updateStory = (id: string, story: Story) =>
   request<Story>(`/api/stories/${id}`, { method: 'PUT', body: story })
 export const deleteStory = (id: string) => request<void>(`/api/stories/${id}`, { method: 'DELETE' })

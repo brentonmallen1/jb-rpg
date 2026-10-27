@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
@@ -29,6 +29,7 @@ export default function Library() {
   const [stopTarget, setStopTarget] = useState(false)
   const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string } | null>(null)
   const [showTakeOver, setShowTakeOver] = useState(false)
+  const importInput = useRef<HTMLInputElement>(null)
 
   // The library chrome uses the neutral theme; each cover wears its own story's theme
   useEffect(() => {
@@ -63,6 +64,22 @@ export default function Library() {
   async function handleCreateStory(title: string) {
     setShowCreateDialog(false)
     await attempt(async () => navigate(`/editor/${(await api.createStory(title)).id}`), 'Failed to create story.')
+  }
+
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow importing the same file again
+    if (!file) return
+    await attempt(async () => {
+      let data: unknown
+      try {
+        data = JSON.parse(await file.text())
+      } catch {
+        throw new Error(`“${file.name}” isn't a story file (it isn't valid JSON).`)
+      }
+      const story = await api.importStory(data)
+      setStories(s => [...s, { id: story.id, title: story.title, theme: story.theme, scene_count: story.scenes.length }])
+    }, 'Failed to import story.')
   }
 
   async function handleDeleteStory() {
@@ -124,7 +141,11 @@ export default function Library() {
             <div className="eyebrow">Choose tonight’s adventure</div>
             <h1 className="stage-title" style={{ margin: '4px 0 0' }}>Your stories</h1>
           </div>
-          <button className="s-btn" onClick={() => setShowCreateDialog(true)}>New story</button>
+          <div className="action-row" style={{ marginTop: 0 }}>
+            <button className="s-btn s-btn--ghost" onClick={() => importInput.current?.click()}>Import</button>
+            <button className="s-btn" onClick={() => setShowCreateDialog(true)}>New story</button>
+            <input ref={importInput} type="file" accept="application/json,.json" hidden onChange={handleImport} aria-label="Import a story file" />
+          </div>
         </div>
 
         {state && isStoryteller && !sessionLoading && (

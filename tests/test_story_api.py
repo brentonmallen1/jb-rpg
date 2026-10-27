@@ -105,3 +105,22 @@ def test_create_story_title_trimmed(client):
     response = client.post("/api/stories", json={"title": "  My Story  "})
     assert response.status_code == 200
     assert response.json()["title"] == "My Story"
+
+
+def test_import_story_keeps_id_or_picks_a_new_one(client):
+    exported = client.post("/api/stories", json={"title": "Original"}).json()
+
+    copy = client.post("/api/stories/import", json=exported).json()
+    assert copy["id"] != exported["id"]  # id taken: imported as a new story
+    assert copy["title"] == "Original"
+
+    fresh = dict(exported, id="brand-new")
+    assert client.post("/api/stories/import", json=fresh).json()["id"] == "brand-new"
+
+    unsafe = dict(exported, id="../etc/passwd")
+    assert client.post("/api/stories/import", json=unsafe).json()["id"] != "../etc/passwd"
+    assert len(client.get("/api/stories").json()) == 4
+
+
+def test_import_rejects_non_stories(client):
+    assert client.post("/api/stories/import", json={"title": "no scenes or template"}).status_code == 422

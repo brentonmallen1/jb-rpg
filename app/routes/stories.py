@@ -44,6 +44,19 @@ async def create_story(request: CreateStoryRequest) -> Story:
     return story
 
 
+@router.post("/import")
+async def import_story(story: Story) -> Story:
+    """Add an exported story. Keeps its id unless that's taken or unsafe, then picks a new one."""
+    try:
+        taken = storage.story_exists(story.id)
+    except storage.InvalidStoryId:
+        taken = True
+    if taken:
+        story = story.model_copy(update={"id": uuid.uuid4().hex[:8]})
+    storage.save_story(story)
+    return story
+
+
 @router.get("/{story_id}")
 async def get_story(story_id: str) -> Story:
     return require_story(story_id)

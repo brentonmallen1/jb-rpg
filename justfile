@@ -43,6 +43,10 @@ dev:
 test:
     uv run pytest
 
+# End-to-end: storyteller + player in real browsers, on spare ports with throwaway data
+e2e:
+    uv run --with playwright python e2e/run.py
+
 # Run tests with verbose output
 test-v:
     uv run pytest -v

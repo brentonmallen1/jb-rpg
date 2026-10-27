@@ -79,7 +79,7 @@ Copy `.env.example` to `.env` and adjust as needed:
 - `ALLOWED_ORIGINS` — CORS origins, comma-separated
 - `BASE_URL` — public origin for player links behind a reverse proxy
 
-Tests: `just test` (pytest). CI (`.github/workflows/ci.yml`) runs pytest, eslint and `npm run build`; keep all three green.
+Tests: `just test` (pytest) and `just e2e` (storyteller + player in real browsers via Playwright, on spare ports with throwaway data; run it after UI or session changes). CI (`.github/workflows/ci.yml`) runs pytest, eslint and `npm run build`; keep all three green.
 
 ---
 

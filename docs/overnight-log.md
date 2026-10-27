@@ -86,6 +86,10 @@ To see it, run `just backend` and `just frontend-dev`, then open:
 - **Phones stay awake** during a game (Screen Wake Lock).
 - **Editor:** `{key}` chips insert character details at the cursor; scenes can be moved up and down.
 
+### Extras after the plan
+- **Story import:** an Import button in the Library loads an exported JSON file. It keeps the story's id unless that id is taken.
+- **`just e2e`:** a committed browser test (`e2e/run.py`). It starts its own servers on spare ports with throwaway data, so it never touches your stories, and plays the 17 riskiest paths with a storyteller and a player: dealing choices, undo, moments, a server restart, take over, and ending the session. It passed twice in a row.
+
 ### Phase 5: Polish
 - **Responsive pass:** stage and phone checked at 390, 820 and 1280 px wide, with no horizontal scrolling.
 - **Light mode:** checked on stage, phone and Library.
@@ -111,8 +115,6 @@ To see it, run `just backend` and `just frontend-dev`, then open:
 ## Not done / next candidates
 - **Editor redesign:** splitting `Editor.tsx` (1,200 lines) into panels, and a live player-view preview. Only targeted improvements so far.
 - **Ambient audio and stings** per theme. This needs sound assets, so it's your call.
-- **Story import:** Export exists, but there's no way to load a story file back in yet.
-- **A committed end-to-end test:** my browser script lives in a scratch folder. Worth adding as `just e2e`.
 
 ## For the morning: per-player decision makers (your idea, not built)
 

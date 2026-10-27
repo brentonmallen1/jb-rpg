@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { GameState, ResolvedContent, Story, ThemeName, TurnMode } from '../types'
+import type { GameState, ResolvedContent, Story, ThemeName, TurnMode, VoteTally } from '../types'
 
 export interface GameContextValue {
   // State from SSE
@@ -11,6 +11,7 @@ export interface GameContextValue {
   isInitializing: boolean
   sessionElsewhere: boolean  // running, but this tab can't see it (take over to join)
   playersOnline: string[]  // ids of named players connected right now
+  voteTally: VoteTally | null  // how the table is voting (storyteller only)
 
   // Session token
   sessionToken: string | null

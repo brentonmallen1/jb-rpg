@@ -47,7 +47,7 @@ export default function Run() {
   const navigate = useNavigate()
   const {
     state, resolved, playerCount, toggleColorMode, colorMode, setTheme,
-    endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere, playersOnline,
+    endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere, playersOnline, voteTally,
   } = useGame()
   const { run, pending, error, clearError } = useAsyncAction()
   const { current: moment, done: momentDone } = useMoments(state, resolved)
@@ -149,7 +149,7 @@ export default function Run() {
         return <SceneSelect state={state} story={story} run={run} />
       case 'running':
         return resolved ? (
-          <SceneView key={state.current_scene_id} state={state} resolved={resolved} story={story} run={run} pending={pending} />
+          <SceneView key={state.current_scene_id} state={state} resolved={resolved} story={story} run={run} pending={pending} voteTally={voteTally} />
         ) : null
       case 'game_over':
         return <GameOver state={state} resolved={resolved} story={story} run={run} onReturnToLibrary={returnToLibrary} />
@@ -226,6 +226,7 @@ export default function Run() {
             decider={resolved?.decider}
             playersOnline={playersOnline}
             onRemovePlayer={p => setRemoveTarget(p)}
+            votedIds={resolved?.vote?.voted}
           />
         )}
         <main className="stage__main">

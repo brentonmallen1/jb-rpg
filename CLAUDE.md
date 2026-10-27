@@ -167,6 +167,8 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 
 Chosen when a game starts (`turn_mode` on `/api/state/start`, picked in the Library's Play dialog): `storyteller` (default: the table talks, the storyteller chooses; no names), `rotate` (players take turns in join order; the turn is `players[len(history) % n]`, so Back rewinds it), or `pick` (the storyteller chooses a player each scene via `/api/state/decider`). `resolved.decider` exists only during a running scene. The decider's phone can propose a choice (`state.proposal`, a visual index); the storyteller still confirms. Scene changes clear the decider pick and proposal.
 
+`vote` mode: dealing the choices (`reveal-choices?show_to_players=true`) opens a vote for the players at the table at that moment (`vote_eligible`; late joiners wait for the next scene), with a deadline from `story.settings.vote_seconds` (0 = none). One vote per player (`/api/state/vote`). `state.votes` is private: everyone gets counts and time via `resolved.vote`; only storyteller connections get `vote_tally` (counts per visual index + leaders; several leaders = a tie). The vote never makes the choice: the storyteller confirms or overrides, and presentation mode hides the tally.
+
 ## Sound
 
 Audio files are uploaded per story (`PUT /api/stories/{id}/audio/{name}`, stored under `DATA_DIR/assets/{id}/audio`). `story.sound` holds the default ambience and a sting per moment type; `scene.ambience` overrides (`"none"` = silence). Only the storyteller's screen plays sound (speaker toggle, off until clicked); phones stay quiet.

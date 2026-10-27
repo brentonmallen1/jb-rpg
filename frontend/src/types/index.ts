@@ -75,6 +75,7 @@ export interface MadLibTemplate {
 export interface StorySettings {
   starting_hp: number
   non_linear: boolean
+  vote_seconds?: number  // voting games: time to vote (0 = no limit)
 }
 
 export interface StorySound {
@@ -113,11 +114,25 @@ export interface Character {
 }
 
 // Who makes each choice: the storyteller, players in turn, or a player the storyteller picks
-export type TurnMode = 'storyteller' | 'rotate' | 'pick'
+export type TurnMode = 'storyteller' | 'rotate' | 'pick' | 'vote'
 
 export interface PlayerRef {
   id: string
   name: string
+}
+
+// What everyone may know about a vote: who can vote, who has, and the time left (never what they chose)
+export interface VoteStatus {
+  open: boolean
+  eligible: string[]
+  voted: string[]
+  ends_in: number | null  // seconds when sent; null = no time limit
+}
+
+// Storyteller only: votes per choice (keyed by visual index) and the leader(s); several = a tie
+export interface VoteTally {
+  counts: Record<string, number>
+  leaders: number[]
 }
 
 export interface GameState {
@@ -152,6 +167,7 @@ export interface ResolvedContent {
   finale: boolean  // The final d20 roll is underway
   max_hp: number
   decider: PlayerRef | null  // who makes this scene's choice (null = the storyteller)
+  vote: VoteStatus | null  // voting games, once the choices are dealt
   mood?: string | null  // the scene's chosen backdrop mood (null = automatic)
   mood_seed?: number  // stable per scene, picks the automatic mood
   scene_title?: string  // title of the current scene
@@ -170,6 +186,7 @@ export interface SSEStatePayload {
   player_count: number
   storyteller_connected: boolean
   players_online: string[]  // ids of named players with a live connection
+  vote_tally?: VoteTally | null  // sent only to the storyteller
 }
 
 export interface SSESessionEndedPayload {

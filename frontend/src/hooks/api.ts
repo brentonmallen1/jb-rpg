@@ -140,6 +140,8 @@ async function asPlayer<T>(path: string, token: string | null, init: RequestInit
 export const joinSession = (sessionId: string, name: string) =>
   asPlayer<{ player: PlayerRef; token: string }>('/api/session/join', null, { method: 'POST', body: JSON.stringify({ s: sessionId, name }) })
 export const whoAmI = (token: string) => asPlayer<PlayerRef>('/api/session/me', token)
+export const castVote = (token: string, choiceIndex: number) =>
+  asPlayer<{ status: string }>('/api/state/vote', token, { method: 'POST', body: JSON.stringify({ choice_index: choiceIndex }) })
 export const proposeChoice = (token: string, choiceIndex: number | null) =>
   asPlayer<{ status: string }>('/api/state/propose', token, { method: 'POST', body: JSON.stringify({ choice_index: choiceIndex }) })
 

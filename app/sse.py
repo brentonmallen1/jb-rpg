@@ -15,12 +15,12 @@ player_ids: dict[asyncio.Queue, str] = {}  # named players' connections (turn-ta
 lock = asyncio.Lock()
 
 
-async def build_payload() -> dict:
+async def build_payload(for_storyteller: bool = False) -> dict:
     state = storage.load_state()
     async with lock:
         roles = list(connections.values())
         online = sorted(set(player_ids.values()))
-    return {
+    payload = {
         "type": "state",
         "state": public_state(state),
         "resolved": engine.build_resolved(state),
@@ -28,14 +28,21 @@ async def build_payload() -> dict:
         "storyteller_connected": "storyteller" in roles,
         "players_online": online,
     }
+    if for_storyteller and state is not None:
+        # Private to the storyteller: how the table is voting
+        payload["vote_tally"] = engine.vote_tally(state)
+    return payload
 
 
 async def broadcast() -> None:
-    message = f"data: {json.dumps(await build_payload())}\n\n"
+    payload = await build_payload(for_storyteller=True)
+    private = f"data: {json.dumps(payload)}\n\n"
+    payload.pop("vote_tally", None)
+    public = f"data: {json.dumps(payload)}\n\n"
     async with lock:
-        queues = list(connections)
-    for queue in queues:
-        await queue.put(message)
+        queues = list(connections.items())
+    for queue, role in queues:
+        await queue.put(private if role == "storyteller" else public)
 
 
 async def end_session() -> None:
@@ -56,7 +63,7 @@ async def stream(role: Role, player_id: str | None = None):
             player_ids[queue] = player_id
     counted = role != "observer"
     try:
-        yield f"data: {json.dumps(await build_payload())}\n\n"
+        yield f"data: {json.dumps(await build_payload(for_storyteller=role == 'storyteller'))}\n\n"
         if counted:  # player count / storyteller presence changed for everyone else
             await broadcast()
         while True:

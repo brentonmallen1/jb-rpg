@@ -8,6 +8,7 @@ The session's story is the snapshot in `state.story`, taken when the game starte
 import random
 import re
 import secrets
+import time
 import zlib
 from typing import Literal
 
@@ -104,10 +105,11 @@ def resolve_scene_text(scene: Scene, state: GameState) -> str:
     return text
 
 
-def build_resolved(state: GameState | None) -> dict | None:
+def build_resolved(state: GameState | None, now: float | None = None) -> dict | None:
     """Server-side content for clients. This is everything players ever see of the story."""
     if state is None or state.story is None:
         return None
+    now = time.time() if now is None else now
     story = state.story
     fields = state.character.fields if state.character else None
     char_desc = state.character.description if state.character else None
@@ -121,6 +123,7 @@ def build_resolved(state: GameState | None) -> dict | None:
         "finale": state.status == SessionStatus.GAME_OVER and state.outcome is None,
         # Only during a scene: the turn begins when the scene does
         "decider": _player_ref(current_decider(state)) if state.status == SessionStatus.RUNNING else None,
+        "vote": vote_status(state, now),
     }
 
     if state.status == SessionStatus.MADLIB_IN_PROGRESS:
@@ -290,6 +293,7 @@ def _enter_scene(state: GameState, scene_id: str) -> None:
     state.shuffled_indices = []
     state.decider_id = None
     state.proposal = None
+    _clear_vote(state)
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +305,59 @@ MAX_PLAYERS = 12
 
 def _player_ref(player: Player | None) -> dict | None:
     return {"id": player.id, "name": player.name} if player else None
+
+
+def _clear_vote(state: GameState) -> None:
+    state.vote_eligible = []
+    state.vote_deadline = None
+    state.votes = {}
+
+
+def voting_open(state: GameState, now: float) -> bool:
+    return (
+        state.turn_mode == "vote"
+        and state.status == SessionStatus.RUNNING
+        and bool(state.vote_eligible)
+        and len(state.votes) < len(state.vote_eligible)
+        and (state.vote_deadline is None or now < state.vote_deadline)
+    )
+
+
+def vote_status(state: GameState, now: float) -> dict | None:
+    """What everyone may know about the vote: counts and time, never who voted for what."""
+    if state.turn_mode != "vote" or not state.vote_eligible or state.status != SessionStatus.RUNNING:
+        return None
+    return {
+        "open": voting_open(state, now),
+        "eligible": state.vote_eligible,
+        "voted": sorted(state.votes),
+        "ends_in": None if state.vote_deadline is None else max(0.0, state.vote_deadline - now),
+    }
+
+
+def vote_tally(state: GameState) -> dict | None:
+    """Storyteller only: votes per choice (visual index) and the leader(s); several leaders = a tie."""
+    if not state.vote_eligible:
+        return None
+    counts: dict[int, int] = {}
+    for index in state.votes.values():
+        counts[index] = counts.get(index, 0) + 1
+    top = max(counts.values(), default=0)
+    return {"counts": counts, "leaders": sorted(i for i, c in counts.items() if c == top and top > 0)}
+
+
+def cast_vote(state: GameState, player: Player, visual_index: int, now: float) -> None:
+    if state.turn_mode != "vote":
+        raise GameError(409, "This game doesn't vote")
+    if player.id not in state.vote_eligible:
+        raise GameError(403, "You joined after this vote began. You can vote in the next scene.")
+    if player.id in state.votes:
+        raise GameError(409, "You've already voted")
+    if not voting_open(state, now):
+        raise GameError(409, "Voting has closed")
+    if not 0 <= visual_index < len(state.shuffled_indices):
+        raise GameError(422, "Invalid choice index")
+    state.votes[player.id] = visual_index
 
 
 def current_decider(state: GameState) -> Player | None:
@@ -329,7 +386,10 @@ def join(state: GameState, name: str, token_hash: str) -> Player:
 
 
 def remove_player(state: GameState, player_id: str) -> None:
+    """Someone left: drop them from the turn order and from any vote in progress."""
     state.players = [p for p in state.players if p.id != player_id]
+    state.vote_eligible = [pid for pid in state.vote_eligible if pid != player_id]
+    state.votes.pop(player_id, None)
     if state.decider_id == player_id:
         state.decider_id = None
         state.proposal = None
@@ -414,8 +474,9 @@ def opening_choice(state: GameState, choice_index: int | None) -> None:
         state.status = SessionStatus.RUNNING
 
 
-def reveal_choices(state: GameState, show_to_players: bool) -> None:
-    """Shuffle the current scene's choices (once), optionally pushing them to players."""
+def reveal_choices(state: GameState, show_to_players: bool, now: float | None = None) -> None:
+    """Shuffle the current scene's choices (once), optionally pushing them to players.
+    In voting games, dealing the choices to the table opens the vote."""
     require_status(state, SessionStatus.RUNNING)
     scene = get_scene(state.story, state.current_scene_id)
     if scene is None:
@@ -426,6 +487,12 @@ def reveal_choices(state: GameState, show_to_players: bool) -> None:
         state.shuffled_indices = indices
     if show_to_players:
         state.choices_revealed = True
+        if state.turn_mode == "vote" and not state.vote_eligible and state.players:
+            now = time.time() if now is None else now
+            seconds = state.story.settings.vote_seconds
+            state.vote_eligible = [p.id for p in state.players]
+            state.vote_deadline = now + seconds if seconds > 0 else None
+            state.votes = {}
 
 
 def make_choice(state: GameState, visual_index: int) -> None:
@@ -488,6 +555,7 @@ def make_choice(state: GameState, visual_index: int) -> None:
     state.shuffled_indices = []
     state.decider_id = None
     state.proposal = None
+    _clear_vote(state)
 
 
 def go_back(state: GameState) -> None:

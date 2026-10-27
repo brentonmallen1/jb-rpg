@@ -7,6 +7,7 @@ import { useMoments } from '../hooks/useMoments'
 import { useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
+import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
 import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
@@ -95,7 +96,7 @@ export default function Player() {
     }
     // Turn-taking games ask each phone for a name first (or they can just watch)
     if (state.turn_mode !== 'storyteller' && !player.identity && !player.watching && state.status !== 'game_over') {
-      return screen(<JoinScreen onJoin={player.join} onWatch={player.watch} />, { center: true })
+      return screen(<JoinScreen onJoin={player.join} onWatch={player.watch} voting={state.turn_mode === 'vote'} />, { center: true })
     }
 
     // Insanity: text starts to misbehave as sanity drains (gentler at "subtle", never at "off")
@@ -141,7 +142,7 @@ function Message({ title, text }: { title: string; text: string }) {
   )
 }
 
-function JoinScreen({ onJoin, onWatch }: { onJoin: (name: string) => Promise<void>; onWatch: () => void }) {
+function JoinScreen({ onJoin, onWatch, voting }: { onJoin: (name: string) => Promise<void>; onWatch: () => void; voting: boolean }) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -162,9 +163,9 @@ function JoinScreen({ onJoin, onWatch }: { onJoin: (name: string) => Promise<voi
 
   return (
     <form className="join" onSubmit={submit}>
-      <div className="phone-eyebrow">This game takes turns</div>
+      <div className="phone-eyebrow">{voting ? 'The table votes' : 'This game takes turns'}</div>
       <h1 className="phone-title">What should we call you?</h1>
-      <p className="phone-text">When it's your turn, the choice is yours to make.</p>
+      <p className="phone-text">{voting ? 'You’ll vote on each choice from your phone.' : 'When it’s your turn, the choice is yours to make.'}</p>
       <input
         className="join__input"
         value={name}
@@ -291,10 +292,18 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
               <p className="phone-text">{warp(resolved.scene_text)}</p>
             </details>
           )}
-          {state.turn_mode !== 'storyteller' && state.status === 'running' && (
+          {['rotate', 'pick'].includes(state.turn_mode) && state.status === 'running' && (
             <TurnBanner decider={resolved.decider} mine={myTurn} mode={state.turn_mode} />
           )}
-          {resolved.visible_choices.length > 0 && (
+          {state.turn_mode === 'vote' && resolved.vote && resolved.visible_choices.length > 0 ? (
+            <VotePanel
+              key={resolved.scene_title}
+              vote={resolved.vote}
+              choices={resolved.visible_choices}
+              me={me}
+              renderText={text => warp(text)}
+            />
+          ) : resolved.visible_choices.length > 0 && (
             <div className="dealt" aria-live="polite">
               <span className="phone-label">{myTurn ? 'Tap your choice' : 'The choices'}</span>
               {resolved.visible_choices.map((text, i) => {
@@ -329,4 +338,78 @@ function TurnBanner({ decider, mine, mode }: { decider: ResolvedContent['decider
   if (mine) return <div className="turn-banner turn-banner--mine" role="status">Your call</div>
   if (decider) return <div className="turn-banner" role="status"><strong>{decider.name}</strong> decides this one</div>
   return mode === 'pick' ? <div className="turn-banner" role="status">The storyteller will choose who decides</div> : null
+}
+
+
+interface VotePanelProps {
+  vote: NonNullable<ResolvedContent['vote']>
+  choices: string[]
+  me: PlayerIdentity | null
+  renderText: (text: string) => ReactNode
+}
+
+/** Voting on a phone: pick, confirm, then wait. Players see how many votes are left, never the tally. */
+function VotePanel({ vote, choices, me, renderText }: VotePanelProps) {
+  const secondsLeft = useCountdown(vote.ends_in)
+  const [selected, setSelected] = useState<number | null>(null)
+  const [cast, setCast] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+
+  const eligible = !!me && vote.eligible.includes(me.id)
+  const voted = !!me && vote.voted.includes(me.id)
+  const open = vote.open && secondsLeft !== 0
+  const canVote = eligible && !voted && open
+  const remaining = vote.eligible.length - vote.voted.length
+
+  async function submit() {
+    if (!me || selected === null || sending) return
+    setSending(true)
+    setError(null)
+    try {
+      await api.castVote(me.token, selected)
+      setCast(selected)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Your vote didn’t go through')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const status = !open
+    ? (remaining === 0 ? 'Every vote is in' : 'Time’s up: the votes are in')
+    : `${remaining} ${remaining === 1 ? 'vote' : 'votes'} still to come`
+
+  return (
+    <div className="dealt vote" aria-live="polite">
+      <div className="vote__status">
+        <span>{status}</span>
+        {open && secondsLeft !== null && <span className={`vote__clock ${secondsLeft <= 10 ? 'is-urgent' : ''}`}>{formatClock(secondsLeft)}</span>}
+      </div>
+      <span className="phone-label">
+        {canVote ? 'Choose, then cast your vote' : voted ? 'Your vote is in' : eligible || !me ? 'The choices' : 'You joined mid-vote: you’ll vote in the next scene'}
+      </span>
+      {choices.map((text, i) => {
+        const mine = (voted && cast === i) || (canVote && selected === i)
+        const content = (
+          <>
+            <span className="dealt__numeral">{ROMAN[i] ?? i + 1}</span>
+            <span>{renderText(text)}</span>
+            {voted && cast === i && <span className="dealt__pick">Your vote</span>}
+          </>
+        )
+        const props = { className: `dealt__card ${mine ? 'is-picked' : ''}`, style: { '--i': i } as React.CSSProperties }
+        return canVote
+          ? <button key={i} {...props} type="button" aria-pressed={selected === i} onClick={() => setSelected(i)}>{content}</button>
+          : <div key={i} {...props}>{content}</div>
+      })}
+      {canVote && (
+        <button type="button" className="join__button" disabled={selected === null || sending} onClick={submit}>
+          {selected === null ? 'Pick a choice' : `Cast my vote for ${ROMAN[selected] ?? selected + 1}`}
+        </button>
+      )}
+      {error && <p className="join__error" role="alert">{error}</p>}
+      <p className="phone__status" style={{ paddingTop: 6 }}>The storyteller sees how the table voted and makes the call.</p>
+    </div>
+  )
 }

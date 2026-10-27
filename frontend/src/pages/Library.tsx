@@ -13,6 +13,7 @@ const TURN_MODES: { mode: TurnMode; title: string; description: string }[] = [
   { mode: 'storyteller', title: 'The storyteller decides', description: 'The table talks it over and you make each choice. Nobody needs to join by name.' },
   { mode: 'rotate', title: 'Players take turns', description: 'Players join with their name; each scene, the next person in line has the final say.' },
   { mode: 'pick', title: 'You pick who decides', description: 'Players join with their name; each scene, you choose whose call it is.' },
+  { mode: 'vote', title: 'The table votes', description: 'Everyone votes on their phone against the clock. You see the table’s preference and make the call.' },
 ]
 
 const THEME_LABEL: Record<string, string> = {

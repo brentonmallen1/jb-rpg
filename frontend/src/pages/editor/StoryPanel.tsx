@@ -103,6 +103,19 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
         </Field>
       </div>
 
+      <Field label="Voting time" hint="when the table votes on each choice" htmlFor="vote-seconds">
+        <select
+          id="vote-seconds"
+          className="ed-input"
+          style={{ maxWidth: 260 }}
+          value={story.settings.vote_seconds ?? 60}
+          onChange={e => update(s => ({ ...s, settings: { ...s.settings, vote_seconds: Number(e.target.value) } }))}
+        >
+          {[30, 45, 60, 90, 120, 180].map(n => <option key={n} value={n}>{n % 60 ? `${n} seconds` : n === 60 ? '1 minute' : `${n / 60} minutes`}</option>)}
+          <option value={0}>No time limit</option>
+        </select>
+      </Field>
+
       <SoundSection story={story} audio={audio} onAudioChange={onAudioChange} update={update} />
     </div>
   )

@@ -1,5 +1,5 @@
 """End-to-end check: a storyteller and a player play through the risky paths in real browsers,
-then the Editor is exercised (preview, autosave, problems, Playtest), then players take turns.
+then the Editor is exercised (preview, autosave, problems, Playtest), then players take turns and vote.
 
 Starts its own backend and Vite dev server on spare ports with a throwaway data
 directory, so it never touches your stories or a running game. Run: `just e2e`.
@@ -221,6 +221,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
 
         editor_checks(browser)
         turn_checks(browser)
+        vote_checks(browser)
         browser.close()
 
 
@@ -299,6 +300,47 @@ def turn_checks(browser) -> None:
     teller.keyboard.press("Enter")
     phones["Bea"].wait_for_selector(".turn-banner--mine", timeout=10000)
     check("The turn passes to the next player", True)
+
+
+def vote_checks(browser) -> None:
+    """The table votes: players vote on their phones, the storyteller sees the tally (ties flagged) and decides."""
+    teller = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
+    teller.goto(B + "/")
+    teller.wait_for_selector(".cover")
+    teller.click(".cover button:text-is('Play')")
+    teller.click("text=The table votes")
+    teller.click("text=Start the game")
+    teller.click("button:has-text('End it and start')")  # the turn-taking game is still running
+    teller.wait_for_url(B + "/run", timeout=10000)
+    teller.wait_for_selector("#madlib-input", timeout=10000)
+    session_id = call("/api/state", token=teller.evaluate("sessionStorage.getItem('jb_rpg_session_token')"), method="GET")["state"]["session_id"]
+
+    phones = []
+    for name in ["Ann", "Ben"]:
+        phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+        phone.goto(f"{B}/player/{session_id}")
+        phone.wait_for_selector("input[aria-label='Your name']", timeout=10000)
+        phone.fill("input[aria-label='Your name']", name)
+        phone.click("text=Join the table")
+        phone.wait_for_selector("text=Creating your hero", timeout=10000)
+        phones.append(phone)
+
+    for answer in ["Bartholomew", "the Salt Marshes", "a lantern"]:
+        teller.fill("#madlib-input", answer)
+        teller.keyboard.press("Enter")
+        teller.wait_for_timeout(400)
+    teller.click("text=Begin the story")
+    teller.wait_for_selector(".turn-line", timeout=10000)
+    teller.keyboard.press("s")
+
+    for phone, index in zip(phones, [0, 2]):
+        phone.wait_for_selector("button.dealt__card", timeout=10000)
+        phone.locator("button.dealt__card").nth(index).click()
+        phone.click("button.join__button")
+        phone.wait_for_selector("text=Your vote is in", timeout=10000)
+    check("Phones show votes left, never the tally", phones[1].locator(".choice-card__votes").count() == 0)
+    teller.wait_for_selector(".vote-tie", timeout=10000)
+    check("A tie highlights both choices for the storyteller", teller.locator(".choice-card.is-favourite").count() == 2)
 
 
 if __name__ == "__main__":

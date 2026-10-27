@@ -3,6 +3,7 @@ verify caller -> engine transition (validates status) -> save -> broadcast -> re
 """
 
 import secrets
+import time
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -73,12 +74,16 @@ async def get_state(
     )
     if not allowed:
         raise HTTPException(status_code=403, detail="Authentication required")
-    payload = await sse.build_payload()
-    return {
+    storyteller = auth.is_storyteller(state, x_session_token)
+    payload = await sse.build_payload(for_storyteller=storyteller)
+    response = {
         "state": payload["state"],
         "resolved": payload["resolved"],
         "storyteller_connected": payload["storyteller_connected"],
     }
+    if storyteller:
+        response["vote_tally"] = payload.get("vote_tally")
+    return response
 
 
 @router.get("/session/check")
@@ -256,6 +261,10 @@ class ProposeRequest(BaseModel):
     choice_index: Optional[int] = None  # None withdraws the pick
 
 
+class VoteRequest(BaseModel):
+    choice_index: int
+
+
 def require_player(state: GameState | None, token: Optional[str]):
     player = auth.player_for_token(state, token)
     if player is None:
@@ -288,6 +297,17 @@ async def propose(request: ProposeRequest, x_player_token: Optional[str] = Heade
     if state is None:
         raise HTTPException(status_code=404, detail="No active session")
     engine.propose(state, require_player(state, x_player_token), request.choice_index)
+    await commit(state)
+    return {"status": "ok"}
+
+
+@router.post("/state/vote")
+async def vote(request: VoteRequest, x_player_token: Optional[str] = Header(None)):
+    """A player's one vote. The storyteller sees the tally; it never makes the choice by itself."""
+    state = storage.load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+    engine.cast_vote(state, require_player(state, x_player_token), request.choice_index, time.time())
     await commit(state)
     return {"status": "ok"}
 

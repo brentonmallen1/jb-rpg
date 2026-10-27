@@ -1,8 +1,9 @@
 import { Fragment, useState } from 'react'
 import * as api from '../../hooks/api'
 import { useHotkeys } from '../../hooks/useHotkeys'
+import { formatClock, useCountdown } from '../../hooks/useCountdown'
 import type { RunAction } from '../../hooks/useAsyncAction'
-import type { GameState, ResolvedContent, Story } from '../../types'
+import type { GameState, ResolvedContent, Story, VoteTally } from '../../types'
 import { BackIcon, EyeOffIcon } from '../../components/Icons'
 import { outcomeLabel, OUTCOME_ICON } from '../../lib/outcomes'
 import { recap, sceneName } from '../../lib/story'
@@ -14,12 +15,13 @@ interface SceneViewProps {
   story: Story
   run: RunAction
   pending: boolean
+  voteTally: VoteTally | null
 }
 
 const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 /** A running scene. Rendered with key={scene id}, so local state resets per scene. */
-export function SceneView({ state, resolved, story, run, pending }: SceneViewProps) {
+export function SceneView({ state, resolved, story, run, pending, voteTally }: SceneViewProps) {
   const [revealedToMe, setRevealedToMe] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
   const scene = story.scenes.find(s => s.id === state.current_scene_id)
@@ -28,6 +30,10 @@ export function SceneView({ state, resolved, story, run, pending }: SceneViewPro
   const canGoBack = state.history.length > 0 && !story.settings.non_linear
   const decider = resolved.decider
   const proposal = state.proposal ?? null
+  const vote = resolved.vote
+  const secondsLeft = useCountdown(vote?.ends_in)
+  const leaders = voteTally?.leaders ?? []
+  const tie = leaders.length > 1
 
   const revealToMe = () => run(async () => {
     await api.revealChoices(false) // shuffle, but don't show players yet
@@ -67,7 +73,19 @@ export function SceneView({ state, resolved, story, run, pending }: SceneViewPro
       <h1 className="stage-title ink">{scene.title}</h1>
       <p className="scene-text ink ink--late">{resolved.scene_text}</p>
 
-      {state.turn_mode !== 'storyteller' && !scene.is_finale && (
+      {state.turn_mode === 'vote' && !scene.is_finale && (
+        <div className="turn-line">
+          <span className="turn-line__who">
+            {!vote ? (state.players.length ? 'The table votes once you deal the choices' : 'Waiting for players to join by name') :
+              vote.open && secondsLeft !== 0 ? <><strong>The table is voting</strong> · {vote.voted.length} of {vote.eligible.length} in</> :
+              <><strong>Votes are in</strong> · {vote.voted.length} of {vote.eligible.length} voted</>}
+          </span>
+          {vote?.open && secondsLeft !== null && secondsLeft > 0 && <span className="vote-clock">{formatClock(secondsLeft)}</span>}
+          {tie && <span className="vote-tie storyteller-only">A tie: you choose between the highlighted choices</span>}
+        </div>
+      )}
+
+      {['rotate', 'pick'].includes(state.turn_mode) && !scene.is_finale && (
         <div className="turn-line">
           {decider ? (
             <span className="turn-line__who"><strong>{decider.name}</strong> decides this one</span>
@@ -119,7 +137,7 @@ export function SceneView({ state, resolved, story, run, pending }: SceneViewPro
               return (
                 <Fragment key={visualIndex}>
                   <button
-                    className="choice-card"
+                    className={`choice-card ${leaders.includes(visualIndex) ? 'is-favourite' : ''}`}
                     aria-pressed={isSelected}
                     onClick={() => setSelected(isSelected ? null : visualIndex)}
                     style={{ '--i': visualIndex } as React.CSSProperties}
@@ -128,6 +146,12 @@ export function SceneView({ state, resolved, story, run, pending }: SceneViewPro
                     <span className="choice-card__text">
                       {choice.display_text}
                       {proposal === visualIndex && decider && <span className="choice-card__pick">{decider.name}'s pick</span>}
+                      {voteTally && (
+                        <span className="choice-card__votes storyteller-only">
+                          {voteTally.counts[visualIndex] ?? 0} {(voteTally.counts[visualIndex] ?? 0) === 1 ? 'vote' : 'votes'}
+                          {leaders.includes(visualIndex) && (tie ? ' · tied' : ' · the table’s choice')}
+                        </span>
+                      )}
                     </span>
                     <span className={`outcome outcome--${choice.kind} storyteller-only`}>
                       <Icon size={16} />{outcomeLabel(choice)}

@@ -12,10 +12,11 @@ interface PartyRailProps {
   decider?: PlayerRef | null
   playersOnline?: string[]
   onRemovePlayer?: (player: PlayerRef) => void
+  votedIds?: string[]
 }
 
 /** The party's state, always in view beside the scene. */
-export function PartyRail({ state, theme, maxHp, characterDescription, decider, playersOnline = [], onRemovePlayer }: PartyRailProps) {
+export function PartyRail({ state, theme, maxHp, characterDescription, decider, playersOnline = [], onRemovePlayer, votedIds }: PartyRailProps) {
   return (
     <aside className="party" aria-label="Party">
       {state.character && (
@@ -56,6 +57,7 @@ export function PartyRail({ state, theme, maxHp, characterDescription, decider, 
                   <span className={`party__online ${playersOnline.includes(p.id) ? 'is-online' : ''}`} title={playersOnline.includes(p.id) ? 'Connected' : 'Not connected'} />
                   <span className="party__player-name">{p.name}</span>
                   {decider?.id === p.id && <span className="party__deciding">deciding</span>}
+                  {votedIds?.includes(p.id) && <span className="party__deciding">voted</span>}
                   {onRemovePlayer && (
                     <button className="icon-btn party__remove storyteller-only" onClick={() => onRemovePlayer(p)} aria-label={`Remove ${p.name} from the table`}>
                       <CloseIcon size={14} />

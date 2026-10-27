@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { SSEPayload, GameState, ResolvedContent } from '../types'
+import type { SSEPayload, GameState, ResolvedContent, VoteTally } from '../types'
 import { checkSession } from './api'
 
 // The server pings every 20s; silence for longer than this means a dead stream
@@ -22,6 +22,7 @@ interface UseSSEReturn {
   isInitializing: boolean
   sessionElsewhere: boolean  // a session is running that this client can't join (no token or link)
   playersOnline: string[]
+  voteTally: VoteTally | null  // storyteller connections only
 }
 
 export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
@@ -35,6 +36,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   const [isInitializing, setIsInitializing] = useState(enabled)
   const [sessionElsewhere, setSessionElsewhere] = useState(false)
   const [playersOnline, setPlayersOnline] = useState<string[]>([])
+  const [voteTally, setVoteTally] = useState<VoteTally | null>(null)
 
   useEffect(() => {
     if (!enabled) return
@@ -85,6 +87,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
             setPlayerCount(data.player_count)
             setStorytellerConnected(data.storyteller_connected)
             setPlayersOnline(data.players_online ?? [])
+            setVoteTally(data.vote_tally ?? null)
           }
         } catch (e) {
           console.error('SSE parse error:', e)
@@ -139,5 +142,6 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     isInitializing: enabled && isInitializing,
     sessionElsewhere,
     playersOnline,
+    voteTally,
   }
 }

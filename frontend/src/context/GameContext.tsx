@@ -21,7 +21,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Shared SSE connection for storyteller pages; the player page opens its own
   const onPlayerPage = useLocation().pathname.startsWith('/player')
-  const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing, sessionElsewhere, playersOnline } = useSSE({
+  const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing, sessionElsewhere, playersOnline, voteTally } = useSSE({
     token: sessionToken,
     enabled: !onPlayerPage,
   })
@@ -92,6 +92,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     isInitializing,
     sessionElsewhere,
     playersOnline,
+    voteTally,
     sessionToken,
     isStoryteller,
     isValidatingToken,

@@ -433,3 +433,35 @@ button.dealt__card {
   font-size: 0.75rem;
   font-weight: 700;
 }
+
+/* --- Voting ------------------------------------------------------------------------ */
+
+.vote__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-family: var(--font-reading);
+  font-size: 1.05rem;
+}
+
+.vote__clock {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.vote__clock.is-urgent {
+  color: var(--danger);
+  animation: vote-urgent 1s ease-in-out infinite;
+}
+
+@keyframes vote-urgent {
+  50% { opacity: 0.55; }
+}
+
+.effects-off .vote__clock.is-urgent { animation: none; }

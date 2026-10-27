@@ -101,6 +101,7 @@ class MadLibTemplate(BaseModel):
 class StorySettings(BaseModel):
     starting_hp: int = 3
     non_linear: bool = False
+    vote_seconds: int = 60  # Voting games: how long the table has to vote (0 = no limit)
 
 
 class StorySound(BaseModel):
@@ -133,7 +134,7 @@ class Character(BaseModel):
     fields: dict[str, str]
 
 
-TurnMode = Literal["storyteller", "rotate", "pick"]
+TurnMode = Literal["storyteller", "rotate", "pick", "vote"]
 
 
 class Player(BaseModel):
@@ -164,12 +165,16 @@ class GameState(BaseModel):
     players: list[Player] = []
     decider_id: Optional[str] = None  # "pick" mode: chosen per scene
     proposal: Optional[int] = None  # Visual index of the choice the decider is leaning towards
+    # Voting games: who may vote this scene (players at the table when the choices were dealt)
+    vote_eligible: list[str] = []
+    vote_deadline: Optional[float] = None  # epoch seconds; None = no time limit
+    votes: dict[str, int] = {}  # Private: player id -> visual index. Only the storyteller sees the tally
     # Private: never sent to clients (see public_state)
     story: Optional[Story] = None  # Snapshot taken at /start, so editing a story can't break a game
     token_hash: str = ""  # sha256 of the storyteller token, so sessions survive restarts
 
 
-PRIVATE_STATE_FIELDS = {"story": True, "token_hash": True, "players": {"__all__": {"token_hash"}}}
+PRIVATE_STATE_FIELDS = {"story": True, "token_hash": True, "votes": True, "players": {"__all__": {"token_hash"}}}
 
 
 def public_state(state: GameState | None) -> dict | None:

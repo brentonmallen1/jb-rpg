@@ -57,6 +57,16 @@ async def import_story(story: Story) -> Story:
     return story
 
 
+@router.post("/{story_id}/duplicate")
+async def duplicate_story(story_id: str) -> Story:
+    """A copy to experiment on, with its own id (and its own copy of any uploaded audio)."""
+    original = require_story(story_id)
+    copy = original.model_copy(update={"id": uuid.uuid4().hex[:8], "title": f"{original.title} (copy)"})
+    storage.save_story(copy)
+    storage.copy_story_assets(original.id, copy.id)
+    return copy
+
+
 @router.get("/{story_id}")
 async def get_story(story_id: str) -> Story:
     return require_story(story_id)

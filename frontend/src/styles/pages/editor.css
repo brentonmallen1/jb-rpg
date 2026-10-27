@@ -569,6 +569,8 @@
 }
 
 .ed-preset:hover { border-color: var(--accent); color: var(--accent); }
+.ed-preset--themed { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.ed-preset--themed::after { content: ' ✦'; color: var(--accent); }
 
 .ed-sample {
   margin-top: -6px;

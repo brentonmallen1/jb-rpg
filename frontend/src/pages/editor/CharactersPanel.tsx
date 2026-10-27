@@ -41,11 +41,15 @@ export function CharactersPanel({ story, problems, samples, onSamples, update }:
 
       <Section title="Start from a preset">
         <div className="ed-presets">
-          {Object.entries(MADLIB_PRESETS).map(([key, preset]) => (
+          {Object.entries(MADLIB_PRESETS)
+            // Presets written for this story's theme first, then the ones that suit anything
+            .sort(([, a], [, b]) => Number(b.theme === story.theme) - Number(a.theme === story.theme) || Number(!a.theme) - Number(!b.theme))
+            .map(([key, preset]) => (
             <button
               key={key}
               type="button"
-              className="ed-preset"
+              className={`ed-preset ${preset.theme ? 'ed-preset--themed' : ''}`}
+              title={preset.prompt}
               onClick={() => {
                 update(s => ({ ...s, madlib_template: { prompt: preset.prompt, fields: preset.fields.map(f => ({ ...f })) } }))
                 onSamples({})

@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -72,6 +73,19 @@ def save_story(story: Story) -> None:
 
 def delete_story(story_id: str) -> None:
     story_path(story_id).unlink()
+    shutil.rmtree(assets_dir(story_id), ignore_errors=True)
+
+
+def assets_dir(story_id: str) -> Path:
+    """Uploaded files that belong to a story (e.g. ambient audio)."""
+    story_path(story_id)  # validates the id
+    return STORIES_DIR.parent / "assets" / story_id
+
+
+def copy_story_assets(from_id: str, to_id: str) -> None:
+    source = assets_dir(from_id)
+    if source.exists():
+        shutil.copytree(source, assets_dir(to_id), dirs_exist_ok=True)
 
 
 def list_story_summaries() -> list[dict]:

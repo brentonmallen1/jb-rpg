@@ -218,6 +218,12 @@ export default function Library() {
                         <button onClick={() => attempt(async () => api.downloadStoryAsJson(await api.getStory(story.id)), 'Failed to export story.')}>
                           Export as JSON
                         </button>
+                        <button onClick={() => attempt(async () => {
+                          const copy = await api.duplicateStory(story.id)
+                          setStories(s => [...s, { id: copy.id, title: copy.title, theme: copy.theme, scene_count: copy.scenes.length }])
+                        }, 'Failed to duplicate story.')}>
+                          Duplicate
+                        </button>
                         <button className="menu__danger" onClick={() => setDeleteTarget(story)}>Delete story…</button>
                       </div>
                     </details>

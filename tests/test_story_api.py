@@ -124,3 +124,21 @@ def test_import_story_keeps_id_or_picks_a_new_one(client):
 
 def test_import_rejects_non_stories(client):
     assert client.post("/api/stories/import", json={"title": "no scenes or template"}).status_code == 422
+
+
+def test_duplicate_story_copies_content_and_assets(client):
+    from app import storage
+    original = client.post("/api/stories", json={"title": "Original"}).json()
+    asset = storage.assets_dir(original["id"]) / "rain.mp3"
+    asset.parent.mkdir(parents=True)
+    asset.write_bytes(b"fake audio")
+
+    copy = client.post(f"/api/stories/{original['id']}/duplicate").json()
+    assert copy["id"] != original["id"]
+    assert copy["title"] == "Original (copy)"
+    assert (storage.assets_dir(copy["id"]) / "rain.mp3").read_bytes() == b"fake audio"
+
+    # Deleting a story removes its assets too
+    client.delete(f"/api/stories/{copy['id']}")
+    assert not storage.assets_dir(copy["id"]).exists()
+    assert asset.exists()

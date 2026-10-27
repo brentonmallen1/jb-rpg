@@ -169,6 +169,7 @@ class GameState(BaseModel):
     vote_eligible: list[str] = []
     vote_deadline: Optional[float] = None  # epoch seconds; None = no time limit
     votes: dict[str, int] = {}  # Private: player id -> visual index. Only the storyteller sees the tally
+    no_flashing: bool = False  # The whole table asked for calm effects: every screen caps at "subtle"
     # Private: never sent to clients (see public_state)
     story: Optional[Story] = None  # Snapshot taken at /start, so editing a story can't break a game
     token_hash: str = ""  # sha256 of the storyteller token, so sessions survive restarts

@@ -16,6 +16,11 @@ function initialLevel(): EffectsLevel {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'subtle' : 'full'
 }
 
+/** The table's "no flashing" setting caps every screen at subtle (fades only). */
+export function capLevel(level: EffectsLevel, noFlashing: boolean | undefined): EffectsLevel {
+  return noFlashing && level === 'full' ? 'subtle' : level
+}
+
 export function useEffectsLevel() {
   const [level, setLevelState] = useState<EffectsLevel>(initialLevel)
 

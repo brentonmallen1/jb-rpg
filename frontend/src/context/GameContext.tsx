@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
-import type { Story, TurnMode } from '../types'
+import type { GameOptions, Story } from '../types'
 import { useSSE } from '../hooks/useSSE'
 import { useTheme } from '../hooks/useTheme'
 import * as api from '../hooks/api'
@@ -60,8 +60,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setIsStoryteller(true)
   }, [])
 
-  const startSession = useCallback(async (storyId: string, force: boolean = false, turnMode: TurnMode = 'storyteller') => {
-    becomeStoryteller((await api.startSession(storyId, force, turnMode)).token)
+  const startSession = useCallback(async (storyId: string, force: boolean = false, options: GameOptions = {}) => {
+    becomeStoryteller((await api.startSession(storyId, force, options)).token)
   }, [becomeStoryteller])
 
   const resumeSession = useCallback(async () => {

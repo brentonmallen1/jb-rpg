@@ -4,7 +4,7 @@ import { useGame } from '../context/useGame'
 import { useSSE } from '../hooks/useSSE'
 import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
-import { useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
+import { capLevel, useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
@@ -26,6 +26,9 @@ export default function Player() {
   const { state, resolved, storytellerConnected } = useSSE({ sessionId, playerToken: player.identity?.token })
   const { current: moment, done: momentDone } = useMoments(state, resolved)
   const effects = useEffectsLevel()
+  // This phone's own choice, capped when the table asked for no flashing
+  const level = capLevel(effects.level, state?.no_flashing)
+  const effectsLabel = EFFECTS_LABEL[level] + (level !== effects.level ? ' (the table asked for no flashing)' : '')
   useWakeLock(!!state)
 
   const [showRules, setShowRules] = useState(false)
@@ -56,8 +59,8 @@ export default function Player() {
     <header className="phone__bar">
       <span className="phone__story">{resolved?.story_title ?? "J&B's RPG"}</span>
       <div className="phone__tools">
-        <button className="phone__tool" onClick={effects.cycle} aria-label={`${EFFECTS_LABEL[effects.level]} (tap to change)`} title={EFFECTS_LABEL[effects.level]}>
-          <SparkIcon style={{ opacity: effects.level === 'off' ? 0.35 : effects.level === 'subtle' ? 0.65 : 1 }} />
+        <button className="phone__tool" onClick={effects.cycle} aria-label={`${effectsLabel} (tap to change)`} title={effectsLabel}>
+          <SparkIcon style={{ opacity: level === 'off' ? 0.35 : level === 'subtle' ? 0.65 : 1 }} />
         </button>
         <button className="phone__tool" onClick={() => setShowRules(true)} aria-label="Rules">
           <BookIcon />
@@ -71,7 +74,7 @@ export default function Player() {
 
   function screen(main: ReactNode, { center = false } = {}) {
     return (
-      <div className={`phone ${effects.level === 'off' ? 'effects-off' : ''}`}>
+      <div className={`phone ${level === 'off' ? 'effects-off' : ''}`}>
         {toolbar}
         <main className={`phone__main ${center ? 'phone__main--center' : ''}`}>{main}</main>
         {state && !storytellerConnected && (
@@ -99,10 +102,10 @@ export default function Player() {
       return screen(<JoinScreen onJoin={player.join} onWatch={player.watch} voting={state.turn_mode === 'vote'} />, { center: true })
     }
 
-    // Insanity: text starts to misbehave as sanity drains (gentler at "subtle", never at "off")
+    // Insanity: text starts to flicker as sanity drains (full effects only: flicker is a flash)
     const madness = 1 - state.hp / Math.max(resolved.max_hp, 1)
-    const corruption = resolved.theme === 'insanity' && effects.level !== 'off'
-      ? { madness: effects.level === 'full' ? madness : madness / 2, enabled: true }
+    const corruption = resolved.theme === 'insanity' && level === 'full'
+      ? { madness, enabled: true }
       : { madness: 0, enabled: false }
     return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} me={player.identity} onShowHero={() => setShowHero(true)} />, {
       center: ['madlib_in_progress', 'character_reveal'].includes(state.status) || (state.status === 'game_over' && !!state.outcome_revealed),
@@ -116,13 +119,13 @@ export default function Player() {
         <Atmosphere
           theme={resolved.theme}
           mood={moodFor(resolved.theme, resolved.mood, resolved.mood_seed)}
-          level={effects.level}
+          level={level}
           madness={state ? 1 - state.hp / Math.max(resolved.max_hp, 1) : 0}
         />
       )}
       {renderContent()}
-      <CriticalPulse active={lastLife} level={effects.level} />
-      <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={effects.level} onDone={momentDone} viewerId={player.identity?.id} />
+      <CriticalPulse active={lastLife} level={level} />
+      <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={level} onDone={momentDone} viewerId={player.identity?.id} />
 
       <Modal isOpen={showHero && !!state?.character} onClose={() => setShowHero(false)} title={state?.character?.name || 'Your hero'}>
         <p className="phone-text" style={{ marginTop: 0 }}>{state?.character?.description}</p>

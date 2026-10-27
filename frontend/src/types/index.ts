@@ -116,6 +116,13 @@ export interface Character {
 // Who makes each choice: the storyteller, players in turn, or a player the storyteller picks
 export type TurnMode = 'storyteller' | 'rotate' | 'pick' | 'vote'
 
+/** Chosen in the Play dialog when a game starts */
+export interface GameOptions {
+  turnMode?: TurnMode
+  /** Calm effects on every screen: no flashes, flicker or shake */
+  noFlashing?: boolean
+}
+
 export interface PlayerRef {
   id: string
   name: string
@@ -155,6 +162,7 @@ export interface GameState {
   players: PlayerRef[]
   decider_id?: string | null
   proposal?: number | null  // visual index the decider is leaning towards
+  no_flashing: boolean  // the table asked for calm effects: every screen caps at "subtle"
 }
 
 // Resolved content sent from backend

@@ -465,8 +465,24 @@ html.moment-shake #root {
   100% { opacity: 0; letter-spacing: 1.2em; filter: blur(8px); }
 }
 
+/* Subtle (also what "no flashing" caps every screen at): nothing spikes, steps,
+   sweeps or glints. Whole shorthands, so themed timings like steps() can't leak through. */
 .moment--subtle .moment__title {
-  animation-name: moment-fade !important;
+  animation: moment-fade var(--moment-duration) ease both !important;
+}
+
+.moment--subtle .moment__backdrop {
+  animation: moment-soft var(--moment-duration) ease-in-out both !important;
+  transform: none;
+}
+
+.moment--subtle .moment__card::after {
+  display: none;
+}
+
+@keyframes moment-soft {
+  0%, 100% { opacity: 0; }
+  35%, 65% { opacity: calc(0.7 * var(--intensity)); }
 }
 
 /* --- The turn passes to a player ---------------------------------------- */

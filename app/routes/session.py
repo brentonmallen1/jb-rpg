@@ -118,6 +118,7 @@ class StartRequest(BaseModel):
     story_id: str
     force: bool = False  # end any running session first
     turn_mode: TurnMode = "storyteller"  # who makes each choice
+    no_flashing: bool = False  # calm effects on every screen
 
 
 @router.post("/state/start")
@@ -133,7 +134,7 @@ async def start_session(request: StartRequest, _: bool = Depends(auth.verify_adm
             raise HTTPException(status_code=409, detail=f"A session of “{title}” is already running.")
         await sse.end_session()
 
-    state = engine.new_session(story, request.turn_mode)
+    state = engine.new_session(story, request.turn_mode, request.no_flashing)
     token = auth.issue_token(state)
     return {"state": await commit(state), "token": token}
 
@@ -315,6 +316,17 @@ async def vote(request: VoteRequest, x_player_token: Optional[str] = Header(None
 @router.post("/state/decider")
 async def set_decider(request: DeciderRequest, state: GameState = Depends(auth.verify_storyteller)):
     engine.set_decider(state, request.player_id)
+    return await commit(state)
+
+
+class FlashingRequest(BaseModel):
+    no_flashing: bool
+
+
+@router.post("/state/no-flashing")
+async def set_no_flashing(request: FlashingRequest, state: GameState = Depends(auth.verify_storyteller)):
+    """Calm effects for the whole table (any status): no flashes, flicker or shake on any screen."""
+    state.no_flashing = request.no_flashing
     return await commit(state)
 
 

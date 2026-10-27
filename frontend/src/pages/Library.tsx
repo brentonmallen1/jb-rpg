@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { loadAllThemes } from '../hooks/useTheme'
-import type { StorySummary, TurnMode } from '../types'
+import type { GameOptions, StorySummary, TurnMode } from '../types'
 import { Modal, RulesModal, ConfirmDialog, InputDialog } from '../components'
 import { BookIcon, MoonIcon, SunIcon } from '../components/Icons'
 import '../styles/stage.css'
@@ -15,6 +15,17 @@ const TURN_MODES: { mode: TurnMode; title: string; description: string }[] = [
   { mode: 'pick', title: 'You pick who decides', description: 'Players join with their name; each scene, you choose whose call it is.' },
   { mode: 'vote', title: 'The table votes', description: 'Everyone votes on their phone against the clock. You see the table’s preference and make the call.' },
 ]
+
+// The table's "no flashing" choice is remembered on this device for the next game
+const NO_FLASHING_KEY = 'jb_rpg_no_flashing'
+
+function readNoFlashing(): boolean {
+  try {
+    return localStorage.getItem(NO_FLASHING_KEY) === 'on'
+  } catch {
+    return false
+  }
+}
 
 const THEME_LABEL: Record<string, string> = {
   cyberpunk: 'Cyberpunk', fantasy: 'Fantasy', deep_space: 'Deep Space', modern: 'Modern', horror: 'Horror', insanity: 'Insanity',
@@ -34,9 +45,10 @@ export default function Library() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StorySummary | null>(null)
   const [stopTarget, setStopTarget] = useState(false)
-  const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string; mode: TurnMode } | null>(null)
+  const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string; options: GameOptions } | null>(null)
   const [playTarget, setPlayTarget] = useState<StorySummary | null>(null)
   const [turnMode, setTurnMode] = useState<TurnMode>('storyteller')
+  const [noFlashing, setNoFlashing] = useState(readNoFlashing)
   const [showTakeOver, setShowTakeOver] = useState(false)
   const importInput = useRef<HTMLInputElement>(null)
 
@@ -101,17 +113,22 @@ export default function Library() {
     }, 'Failed to delete story.')
   }
 
-  async function handleStartSession(story: StorySummary, mode: TurnMode, force = false) {
+  async function handleStartSession(story: StorySummary, options: GameOptions, force = false) {
     setError(null)
     setReplaceTarget(null)
     setPlayTarget(null)
     try {
-      await startSession(story.id, force, mode)
+      localStorage.setItem(NO_FLASHING_KEY, options.noFlashing ? 'on' : 'off')
+    } catch {
+      // a per-device convenience only
+    }
+    try {
+      await startSession(story.id, force, options)
       navigate('/run')
     } catch (err) {
       if (err instanceof api.ApiError && err.status === 409) {
         // Another session is running: ask before ending it
-        setReplaceTarget({ story, message: err.message, mode })
+        setReplaceTarget({ story, message: err.message, options })
         return
       }
       setError(err instanceof Error ? err.message : 'Failed to start session.')
@@ -280,9 +297,16 @@ export default function Library() {
             </label>
           ))}
         </fieldset>
+        <label className="calm-option">
+          <input type="checkbox" checked={noFlashing} onChange={e => setNoFlashing(e.target.checked)} />
+          <span>
+            <strong>No flashing effects</strong>
+            <span className="turn-mode__desc">Every screen keeps to gentle fades: no flashes, flicker or shaking. You can change this during the game.</span>
+          </span>
+        </label>
         <div className="btn-group">
           <button className="btn btn--secondary" onClick={() => setPlayTarget(null)}>Cancel</button>
-          <button className="btn" onClick={() => playTarget && handleStartSession(playTarget, turnMode)} autoFocus>Start the game</button>
+          <button className="btn" onClick={() => playTarget && handleStartSession(playTarget, { turnMode, noFlashing })} autoFocus>Start the game</button>
         </div>
       </Modal>
 
@@ -291,7 +315,7 @@ export default function Library() {
         <div className="btn-group">
           <button className="btn btn--secondary" onClick={() => setReplaceTarget(null)}>Cancel</button>
           <button className="btn btn--secondary" onClick={() => { setReplaceTarget(null); handleTakeOver() }}>Take over</button>
-          <button className="btn btn--danger" onClick={() => replaceTarget && handleStartSession(replaceTarget.story, replaceTarget.mode, true)}>
+          <button className="btn btn--danger" onClick={() => replaceTarget && handleStartSession(replaceTarget.story, replaceTarget.options, true)}>
             End it and start
           </button>
         </div>

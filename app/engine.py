@@ -245,7 +245,7 @@ def require_status(state: GameState, *allowed: SessionStatus) -> None:
         raise GameError(409, f"Not allowed in status {state.status.value} (needs {expected})")
 
 
-def new_session(story: Story, turn_mode: str = "storyteller") -> GameState:
+def new_session(story: Story, turn_mode: str = "storyteller", no_flashing: bool = False) -> GameState:
     problems = story_problems(story)
     if problems:
         raise GameError(422, "This story isn't ready to play: " + " ".join(p["message"] for p in problems))
@@ -265,6 +265,7 @@ def new_session(story: Story, turn_mode: str = "storyteller") -> GameState:
         hp=story.settings.starting_hp,
         story=story,
         turn_mode=turn_mode,
+        no_flashing=no_flashing,
     )
 
 

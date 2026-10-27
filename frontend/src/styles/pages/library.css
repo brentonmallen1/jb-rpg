@@ -270,3 +270,17 @@
   color: var(--text-secondary);
   line-height: 1.45;
 }
+
+.calm-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: calc(-1 * var(--space-sm, 8px)) 0 var(--space-lg);
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.calm-option input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}

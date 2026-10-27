@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { GameState, ResolvedContent, Story, ThemeName, TurnMode, VoteTally } from '../types'
+import type { GameState, ResolvedContent, Story, ThemeName, GameOptions, VoteTally } from '../types'
 
 export interface GameContextValue {
   // State from SSE
@@ -29,7 +29,7 @@ export interface GameContextValue {
   setCurrentStory: (story: Story | null) => void
 
   // Actions
-  startSession: (storyId: string, force?: boolean, turnMode?: TurnMode) => Promise<void>
+  startSession: (storyId: string, force?: boolean, options?: GameOptions) => Promise<void>
   resumeSession: () => Promise<void>
   endSession: () => Promise<void>
 }

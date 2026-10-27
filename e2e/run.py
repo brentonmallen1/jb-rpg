@@ -222,6 +222,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         editor_checks(browser)
         turn_checks(browser)
         vote_checks(browser)
+        flashing_checks(browser)
         browser.close()
 
 
@@ -341,6 +342,31 @@ def vote_checks(browser) -> None:
     check("Phones show votes left, never the tally", phones[1].locator(".choice-card__votes").count() == 0)
     teller.wait_for_selector(".vote-tie", timeout=10000)
     check("A tie highlights both choices for the storyteller", teller.locator(".choice-card.is-favourite").count() == 2)
+
+
+
+def flashing_checks(browser) -> None:
+    """No flashing: chosen at Play, caps every phone, and the storyteller can switch it mid-game."""
+    teller = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
+    teller.goto(B + "/")
+    teller.wait_for_selector(".cover")
+    teller.click(".cover button:text-is('Play')")
+    teller.check("text=No flashing effects")
+    teller.click("text=Start the game")
+    teller.click("button:has-text('End it and start')")  # the voting game is still running
+    teller.wait_for_url(B + "/run", timeout=10000)
+    teller.wait_for_selector("#madlib-input", timeout=10000)
+    session_id = call("/api/state", token=teller.evaluate("sessionStorage.getItem('jb_rpg_session_token')"), method="GET")["state"]["session_id"]
+
+    phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    phone.goto(f"{B}/player/{session_id}")
+    phone.wait_for_selector("text=Creating your hero", timeout=10000)
+    effects = phone.locator(".phone__tool").first
+    check("No flashing caps a phone set to full effects", "no flashing" in (effects.get_attribute("title") or ""))
+
+    teller.click("button[aria-pressed='true'][title='No flashing (all screens)']")
+    phone.wait_for_selector(".phone__tool[title='Effects: full']", timeout=10000)
+    check("The storyteller can turn flashing back on mid-game", True)
 
 
 if __name__ == "__main__":

@@ -6,9 +6,10 @@ import { useAsyncAction } from '../hooks/useAsyncAction'
 import { useHotkeys } from '../hooks/useHotkeys'
 import { playSting, useAmbience, useSoundEnabled } from '../hooks/useSoundscape'
 import { useMoments } from '../hooks/useMoments'
+import { capLevel } from '../hooks/useEffectsLevel'
 import type { GameState, PlayerRef, Story } from '../types'
 import { Modal, ConfirmDialog, RulesModal, PageMessage, MomentLayer, Atmosphere } from '../components'
-import { BookIcon, CloseIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SoundOffIcon, SoundOnIcon, SunIcon } from '../components/Icons'
+import { BookIcon, CloseIcon, FlashIcon, FlashOffIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SoundOffIcon, SoundOnIcon, SunIcon } from '../components/Icons'
 import { storyProgress } from '../lib/story'
 import { moodFor } from '../lib/themes'
 import { MadlibStep } from './run/MadlibStep'
@@ -156,6 +157,10 @@ export default function Run() {
     }
   }
 
+  // The TV plays full effects unless the table asked for no flashing; the private view stays subtle
+  const effectsLevel = capLevel(presentation ? 'full' : 'subtle', state.no_flashing)
+  const toggleFlashing = () => run(() => api.setNoFlashing(!state.no_flashing), 'Could not change the effects')
+
   const steps = story ? storyProgress(story, state) : []
   const sceneNumber = steps.filter(s => s.status !== 'upcoming').length
   const showProgress = story && ['running', 'awaiting_scene_selection', 'game_over'].includes(state.status)
@@ -167,7 +172,7 @@ export default function Run() {
         <Atmosphere
           theme={story.theme}
           mood={moodFor(story.theme, resolved?.mood, resolved?.mood_seed)}
-          level={presentation ? 'full' : 'subtle'}
+          level={effectsLevel}
           madness={1 - state.hp / Math.max(story.settings.starting_hp, 1)}
         />
       )}
@@ -198,6 +203,15 @@ export default function Run() {
               {sound.enabled ? <SoundOnIcon /> : <SoundOffIcon />}
             </button>
           )}
+          <button
+            className="icon-btn"
+            onClick={toggleFlashing}
+            aria-pressed={state.no_flashing}
+            aria-label={state.no_flashing ? 'No flashing on any screen: turn flashing effects back on' : 'Turn off flashing effects on every screen'}
+            title={state.no_flashing ? 'No flashing (all screens)' : 'Flashing effects on'}
+          >
+            {state.no_flashing ? <FlashOffIcon /> : <FlashIcon />}
+          </button>
           <button className="icon-btn" onClick={togglePresentation} aria-pressed={presentation} aria-label="Presentation mode (P)" title="Presentation mode (P)">
             <PresentIcon />
           </button>
@@ -240,7 +254,7 @@ export default function Run() {
         </main>
       </div>
 
-      <MomentLayer moment={moment} theme={story?.theme ?? 'modern'} level={presentation ? 'full' : 'subtle'} onDone={momentDone} />
+      <MomentLayer moment={moment} theme={story?.theme ?? 'modern'} level={effectsLevel} onDone={momentDone} />
 
       <ShareModal isOpen={showShare} sessionId={state.session_id} onClose={() => setShowShare(false)} />
 

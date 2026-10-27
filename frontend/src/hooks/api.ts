@@ -1,4 +1,4 @@
-import type { AudioFile, Story, StorySummary, GameState, PlayerRef, StoryProblem, TurnMode } from '../types'
+import type { AudioFile, Story, StorySummary, GameState, PlayerRef, StoryProblem, GameOptions } from '../types'
 
 const SESSION_TOKEN_KEY = 'jb_rpg_session_token'
 
@@ -93,8 +93,8 @@ async function takeControl(path: string, body?: unknown) {
   return data
 }
 
-export const startSession = (storyId: string, force = false, turnMode: TurnMode = 'storyteller') =>
-  takeControl('/api/state/start', { story_id: storyId, force, turn_mode: turnMode })
+export const startSession = (storyId: string, force = false, { turnMode = 'storyteller', noFlashing = false }: GameOptions = {}) =>
+  takeControl('/api/state/start', { story_id: storyId, force, turn_mode: turnMode, no_flashing: noFlashing })
 export const resumeSession = () => takeControl('/api/state/resume')
 
 export async function restart(): Promise<void> {
@@ -122,6 +122,7 @@ export const revealOutcome = () => post<GameState>('/api/state/reveal-outcome')
 
 // Turns: who makes each choice
 export const setDecider = (playerId: string | null) => post<GameState>('/api/state/decider', { player_id: playerId })
+export const setNoFlashing = (noFlashing: boolean) => post<GameState>('/api/state/no-flashing', { no_flashing: noFlashing })
 export const removePlayer = (playerId: string) => request<GameState>(`/api/state/players/${playerId}`, { method: 'DELETE' })
 
 // Player endpoints authenticate with the player's own token, not the storyteller's

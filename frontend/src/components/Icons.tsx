@@ -63,6 +63,12 @@ export const MoonIcon = (p: IconProps) => (
 export const SparkIcon = (p: IconProps) => (
   <Icon {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" /></Icon>
 )
+export const FlashIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M13 2L4 14h7l-1 8 9-12h-7z" /></Icon>
+)
+export const FlashOffIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M13 2l-3.6 4.8M7.2 9.8L4 14h7l-1 8 4-5.3M16.6 12.6L19 10h-7l.4-3" /><path d="M3 3l18 18" /></Icon>
+)
 export const BackIcon = (p: IconProps) => (
   <Icon {...p}><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>
 )

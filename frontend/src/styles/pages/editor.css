@@ -593,3 +593,70 @@
   margin: var(--space-xs) 0 0;
   padding-left: var(--space-lg);
 }
+
+/* Scene list rows with reorder controls */
+.editor-scene-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.editor-scene-row .editor-scene-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-scene-move {
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-scene-move button {
+  flex: 1;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.6rem;
+  cursor: pointer;
+}
+
+.editor-scene-move button:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.editor-scene-move button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* {key} insert chips above the scene fields */
+.editor-keys {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-md);
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.editor-key {
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.editor-key:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}

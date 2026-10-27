@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import { MOODS } from '../lib/themes'
+import { insertAtCursor } from '../lib/insertAtCursor'
 import * as api from '../hooks/api'
 import { useAutoSave } from '../hooks/useAutoSave'
 import { THEMES, type Story, type Scene, type Choice, type ThemeName, type OpeningScene, type OpeningChoice, type MadLibField } from '../types'
@@ -195,6 +196,26 @@ export default function Editor() {
     setStory({ ...story, scenes: [...story.scenes, newScene] })
     setSelectedSceneId(newScene.id)
     setEditingOpeningScene(false)
+  }
+
+  // Scene order is play order in linear stories
+  function moveScene(sceneId: string, delta: -1 | 1) {
+    if (!story) return
+    const index = story.scenes.findIndex(s => s.id === sceneId)
+    const target = index + delta
+    if (index < 0 || target < 0 || target >= story.scenes.length) return
+    const scenes = [...story.scenes]
+    ;[scenes[index], scenes[target]] = [scenes[target], scenes[index]]
+    setStory({ ...story, scenes })
+  }
+
+  // The text field the author was last typing in, for the {key} insert chips
+  const lastTextField = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
+  function rememberTextField(e: React.FocusEvent) {
+    const el = e.target
+    if (el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && el.type === 'text')) {
+      lastTextField.current = el
+    }
   }
 
   function handleDeleteScene() {
@@ -594,24 +615,29 @@ export default function Editor() {
             </div>
             <div className="editor-scene-list">
               {story.scenes.map((scene, i) => (
-                <button
-                  key={scene.id}
-                  className={`editor-scene-btn ${selectedSceneId === scene.id && !editingOpeningScene ? 'editor-scene-btn--selected' : 'editor-scene-btn--default'}`}
-                  onClick={() => {
-                    setSelectedSceneId(scene.id)
-                    setEditingOpeningScene(false)
-                    setEditingCharacterCreation(false)
-                  }}
-                >
-                  {i + 1}. {scene.title} {scene.is_finale && <span className="text-xs" style={{ opacity: 0.7 }}>(finale)</span>}
-                </button>
+                <div key={scene.id} className="editor-scene-row">
+                  <button
+                    className={`editor-scene-btn ${selectedSceneId === scene.id && !editingOpeningScene ? 'editor-scene-btn--selected' : 'editor-scene-btn--default'}`}
+                    onClick={() => {
+                      setSelectedSceneId(scene.id)
+                      setEditingOpeningScene(false)
+                      setEditingCharacterCreation(false)
+                    }}
+                  >
+                    {i + 1}. {scene.title} {scene.is_finale && <span className="text-xs" style={{ opacity: 0.7 }}>(finale)</span>}
+                  </button>
+                  <div className="editor-scene-move">
+                    <button onClick={() => moveScene(scene.id, -1)} disabled={i === 0} aria-label={`Move ${scene.title} up`}>▲</button>
+                    <button onClick={() => moveScene(scene.id, 1)} disabled={i === story.scenes.length - 1} aria-label={`Move ${scene.title} down`}>▼</button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         </aside>
 
         {/* Main Editor */}
-        <main className="editor-main">
+        <main className="editor-main" onFocusCapture={rememberTextField}>
           {/* Character Creation Editor */}
           {editingCharacterCreation && (
             <div className="card">
@@ -905,6 +931,26 @@ export default function Editor() {
                   Delete
                 </button>
               </div>
+
+              {/* Character details: click to insert {key} where you were typing */}
+              {story.madlib_template.fields.length > 0 && (
+                <div className="editor-keys" role="toolbar" aria-label="Insert a character detail">
+                  <span className="text-secondary text-xs">Insert a character detail:</span>
+                  {story.madlib_template.fields.map(f => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      className="editor-key"
+                      title={f.label}
+                      // Keep focus (and the cursor) in the text field being edited
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => lastTextField.current?.isConnected && insertAtCursor(lastTextField.current, `{${f.key}}`)}
+                    >
+                      {`{${f.key}}`}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Display Name (for scene selection) */}
               <div className="editor-field">

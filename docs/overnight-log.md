@@ -95,6 +95,22 @@ To see it, run `just backend` and `just frontend-dev`, then open:
 - **Light mode:** checked on stage, phone and Library.
 - **Docker:** image built and smoke-tested. It serves the app, API and bundled assets, rejects bad player links, and stops in 2 s.
 
+## Design re-score (self-assessed; please judge for yourself)
+
+| Heuristic | Before | Now | Why |
+|---|---|---|---|
+| Visibility of status | 2 | 4 | Scene title, progress (storyteller only), "Previously" recap, player count, synced moments |
+| Match with the real world | 3 | 3 | Game language throughout; "Lock it in", "Deal choices to the table" |
+| User control | 2 | 3 | Quit works, Undo (B), Esc cancels, take over; no undo for madlib answers beyond Previous |
+| Consistency | 2 | 3 | One token system across stage, phone and Library; the Editor still has the old look |
+| Error prevention | 2 | 3 | Spoiler-free presentation mode, story problems before play, confirm before replacing a session |
+| Recognition over recall | 2 | 3 | `{key}` insert chips, outcome icons, keycaps on choices |
+| Flexibility | 1 | 3 | Keyboard shortcuts on the stage |
+| Aesthetic | 2 | 3–4 | Distinct themes, atmosphere; the Editor drags this down |
+| Error recovery | 1 | 3 | Every action surfaces the server's message; watchdog reconnects |
+| Help | 3 | 3 | Rules modal; the Library empty state explains the game |
+| **Total** | **20** | **~31** | The biggest remaining gap is the Editor |
+
 ## Bugs found while verifying (all fixed)
 - **Restarts hung forever while anyone was connected.** uvicorn waited on the open live-update streams. Every launch path now has `--timeout-graceful-shutdown 2`.
 - **Phones could sit on a dead stream.** Browsers hide SSE comment lines from JavaScript, so the heartbeat is now a real event, and a watchdog reconnects after 50 s of silence.

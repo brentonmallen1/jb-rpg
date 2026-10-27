@@ -5,6 +5,7 @@ import { useSSE } from '../hooks/useSSE'
 import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
 import { useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
+import { useWakeLock } from '../hooks/useWakeLock'
 import type { GameState, ResolvedContent } from '../types'
 import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
@@ -22,6 +23,7 @@ export default function Player() {
   const { state, resolved, storytellerConnected } = useSSE({ sessionId })
   const { current: moment, done: momentDone } = useMoments(state, resolved)
   const effects = useEffectsLevel()
+  useWakeLock(!!state)
 
   const [showRules, setShowRules] = useState(false)
   const [showHero, setShowHero] = useState(false)

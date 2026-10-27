@@ -30,6 +30,12 @@
   z-index: 50;
 }
 
+/* Reserve room for the fixed toolbar so it never covers content.
+   Higher specificity than .player-layout so the mobile padding rules don't undo it. */
+.player-toolbar + .player-layout {
+  padding-top: calc(44px + var(--space-md) * 2);
+}
+
 .player-toolbar .btn {
   padding: var(--space-xs) var(--space-sm);
   font-size: var(--text-sm);

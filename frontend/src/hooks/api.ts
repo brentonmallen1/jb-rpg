@@ -3,9 +3,17 @@ import type { Story, StorySummary, GameState } from '../types'
 const SESSION_TOKEN_KEY = 'jb_rpg_session_token'
 
 // Config endpoint
-export async function getConfig(): Promise<{ base_url: string | null; session_id: string | null }> {
+export async function getConfig(): Promise<{ base_url: string | null }> {
   const res = await fetch('/api/config')
   if (!res.ok) throw new Error(`Config fetch failed: ${res.status}`)
+  return res.json()
+}
+
+// Is a session active, and does sessionId match it? (never reveals the id)
+export async function checkSession(sessionId?: string | null): Promise<{ active: boolean; valid: boolean }> {
+  const query = sessionId ? `?s=${encodeURIComponent(sessionId)}` : ''
+  const res = await fetch(`/api/session/check${query}`)
+  if (!res.ok) throw new Error(`Session check failed: ${res.status}`)
   return res.json()
 }
 
@@ -189,7 +197,10 @@ export async function revealOutcome(): Promise<GameState> {
 }
 
 export async function restart(): Promise<void> {
-  const res = await fetch('/api/state/restart', { method: 'POST' })
+  const res = await fetch('/api/state/restart', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
   if (!res.ok) {
     const err = await res.json()
     throw new Error(err.detail || 'Failed to restart')

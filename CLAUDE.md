@@ -73,6 +73,12 @@ Copy `.env.example` to `.env` and adjust as needed:
 - `BACKEND_PORT` — FastAPI server port (default 8000)
 - `FRONTEND_PORT` — Vite dev server port (default 5173)
 - `DATA_DIR` — data directory location
+- `ADMIN_USER` / `ADMIN_PASSWORD` — HTTP Basic auth for the Library, Editor and Run pages and story APIs (empty = open)
+- `AUTH_DISABLED` — `true` bypasses admin auth and player session checks (local dev only)
+- `ALLOWED_ORIGINS` — CORS origins, comma-separated
+- `BASE_URL` — public origin for player links behind a reverse proxy
+
+Tests: `just test` (pytest). CI (`.github/workflows/ci.yml`) runs pytest, eslint and `npm run build`; keep all three green.
 
 ---
 
@@ -84,6 +90,19 @@ Copy `.env.example` to `.env` and adjust as needed:
 - **Themes travel with the story** — stored in the story JSON, not a global setting
 - **Variable injection (`{field_key}`)** happens server-side before broadcasting, using `state.character.fields`
 - **Back button replays from history** using stored `damage_amount`/`item_name` — never re-reads from the story file
+- **Players never receive the story.** Everything a player sees comes from `resolved` in the SSE payload (`scene_text`, `theme`, `visible_choices`). Choice outcomes, `result_text`, and story structure stay server-side/storyteller-only
+- **Players don't know where they are in the story** — no scene counts or progress on any player-facing screen; only the storyteller's view shows progress (design rule, see `.impeccable.md`)
+
+---
+
+## Access Model
+
+Three layers, all lightweight (no user accounts):
+1. **Admin (HTTP Basic)** — `verify_admin` + `AdminAuthMiddleware` protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Disabled when credentials are empty or `AUTH_DISABLED=true`.
+2. **Storyteller token** — `/api/state/start` returns a token (kept in memory server-side, `sessionStorage` client-side). Every other `POST /api/state/*` requires it in `X-Session-Token`; SSE takes it as `?token=`.
+3. **Player session id** — players join via `/player/{session_id}`; SSE and `GET /api/state` take it as `?s=`. `GET /api/session/check?s=` validates it without revealing the id. Never expose `session_id` from a public endpoint.
+
+On `/restart`, the server sends `session_ended` and closes every SSE stream so clients re-authenticate.
 
 ---
 
@@ -104,18 +123,25 @@ Return `409 Conflict` if an action is called in the wrong status (e.g. `choice` 
 
 ```
 (no state.json)
-      ↓  POST /api/state/start
-madlib_in_progress  →  (POST /api/state/madlib × N fields)
+      ↓  POST /api/state/start            (skips steps whose content the story doesn't have)
+madlib_in_progress   ⇄ POST /madlib, /madlib-back
+      ↓  (last answer)
+character_reveal     → POST /proceed-from-character
       ↓
-   running  →  (POST /api/state/choice × scenes)
+opening_scene_active → POST /opening-choice   (only if story.opening_scene)
       ↓
-  game_over  →  POST /api/state/finish  →  outcome: victory | defeat
+running  ⇄  awaiting_scene_selection          (non_linear stories: POST /select-scene)
+   │  POST /reveal-choices (shuffle; ?show_to_players=true pushes to phones)
+   │  POST /choice, /back
       ↓
-  POST /api/state/restart  →  (back to no state)
+game_over  →  POST /finish  →  outcome: victory | defeat
+      ↓
+POST /restart  →  (back to no state)
 ```
 
 **HP defeat:** auto-sets `status: game_over`, `outcome: "defeat"` immediately — no `/finish` call needed.
-**Finale (last scene):** sets `status: game_over`, `outcome: null` — awaits physical dice roll, then storyteller calls `/finish`.
+**Finale:** either a scene with `is_finale: true` (storyteller calls `/finish` from `running`), or the last linear scene, which sets `game_over` with `outcome: null`. Both await the physical d20 roll.
+**Choice reveal:** `shuffled_indices` maps the visual order to `scene.choices`; history stores the original index. Any scene change (choice, back, select-scene) must reset `shuffled_indices` and `choices_revealed`.
 
 ---
 
@@ -157,6 +183,6 @@ Global toggle, stored in `localStorage` on the client. Independent of theme. Bot
 ## Do Not
 
 - Do not add a database
-- Do not add authentication
+- Do not add user accounts or logins beyond the access model above
 - Do not make damage amounts configurable (always 1 HP) — `Choice.amount` exists for forward-compatibility only
 - Do not store `player_count` in `state.json` or return it from `GET /api/state` (SSE only)

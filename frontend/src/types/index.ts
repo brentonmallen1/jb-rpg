@@ -120,7 +120,8 @@ export interface GameState {
 export interface ResolvedContent {
   scene_text: string
   character_description?: string
-  choices?: Choice[]  // Optional - backend doesn't send this, choices come from story.scenes
+  theme: ThemeName
+  visible_choices: string[]  // Choice display text in shuffled order, once revealed to players
   victory_text?: string
   defeat_text?: string
 }

@@ -1,54 +1,17 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
-import type { GameState, ResolvedContent, Story, ThemeName } from '../types'
+import { useState, useCallback, useEffect, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
+import type { Story } from '../types'
 import { useSSE } from '../hooks/useSSE'
 import { useTheme } from '../hooks/useTheme'
 import * as api from '../hooks/api'
+import { GameContext, type GameContextValue } from './useGame'
 
-interface GameContextValue {
-  // State from SSE
-  state: GameState | null
-  resolved: ResolvedContent | null
-  playerCount: number
-  storytellerConnected: boolean
-  isConnected: boolean
-  isInitializing: boolean
-
-  // Session token
-  sessionToken: string | null
-  isStoryteller: boolean
-  isValidatingToken: boolean
-
-  // Theme
-  theme: ThemeName
-  colorMode: 'light' | 'dark'
-  setTheme: (theme: ThemeName) => void
-  toggleColorMode: () => void
-
-  // Current story (for editor/run)
-  currentStory: Story | null
-  setCurrentStory: (story: Story | null) => void
-
-  // Actions
-  startSession: (storyId: string) => Promise<void>
-  submitMadlib: (answer: string) => Promise<void>
-  madlibBack: () => Promise<void>
-  proceedFromCharacter: () => Promise<void>
-  makeChoice: (choiceIndex: number) => Promise<void>
-  goBack: () => Promise<void>
-  finish: (outcome: 'victory' | 'defeat') => Promise<void>
-  restart: () => Promise<void>
-  stopSession: () => Promise<void>
-  revealChoices: (showToPlayers?: boolean) => Promise<void>
-  selectScene: (sceneId: string, revisit?: boolean) => Promise<void>
-  selectOpeningChoice: (choiceIndex: number | null) => Promise<void>
-}
-
-const GameContext = createContext<GameContextValue | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(api.getSessionToken)
   const [isStoryteller, setIsStoryteller] = useState(false)
-  const [isValidatingToken, setIsValidatingToken] = useState(false)
+  const [validatedToken, setValidatedToken] = useState<string | null>(null)
+  const isValidatingToken = !!sessionToken && validatedToken !== sessionToken
   const [currentStory, setCurrentStory] = useState<Story | null>(null)
 
   // Theme management - default to 'modern' when no story is active (e.g., Library page)
@@ -56,31 +19,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
     currentStory?.theme ?? 'modern'
   )
 
-  // SSE connection
+  // Shared SSE connection for storyteller pages; the player page opens its own
+  const onPlayerPage = useLocation().pathname.startsWith('/player')
   const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing } = useSSE({
     token: sessionToken,
+    enabled: !onPlayerPage,
   })
 
-  // Validate token on mount
+  // Validate a token restored from sessionStorage (once per token)
   useEffect(() => {
-    if (sessionToken) {
-      setIsValidatingToken(true)
-      api.validateToken()
-        .then(result => {
-          setIsStoryteller(result.is_storyteller ?? false)
-          if (!result.valid) {
-            api.setSessionToken(null)
-            setSessionToken(null)
-          }
-        })
-        .catch(() => {
+    if (!sessionToken || validatedToken === sessionToken) return
+    api.validateToken()
+      .then(result => {
+        setIsStoryteller(result.is_storyteller ?? false)
+        if (!result.valid) {
           api.setSessionToken(null)
           setSessionToken(null)
-          setIsStoryteller(false)
-        })
-        .finally(() => setIsValidatingToken(false))
-    }
-  }, [sessionToken])
+        }
+      })
+      .catch(() => {
+        api.setSessionToken(null)
+        setSessionToken(null)
+        setIsStoryteller(false)
+      })
+      .finally(() => setValidatedToken(sessionToken))
+  }, [sessionToken, validatedToken])
 
   // Update theme when story changes
   useEffect(() => {
@@ -92,6 +55,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Actions
   const startSession = useCallback(async (storyId: string) => {
     const result = await api.startSession(storyId)
+    setValidatedToken(result.token)
     setSessionToken(result.token)
     setIsStoryteller(true)
   }, [])
@@ -175,12 +139,4 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>
-}
-
-export function useGame() {
-  const context = useContext(GameContext)
-  if (!context) {
-    throw new Error('useGame must be used within a GameProvider')
-  }
-  return context
 }

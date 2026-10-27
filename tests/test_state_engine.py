@@ -85,7 +85,7 @@ def test_resolve_scene_text():
                       Condition, ConditionType, GameState, Character)
     scene = Scene(
         id="s1", title="Test", base_text="{name} enters the room.",
-        choices=[Choice(kind=ChoiceKind.DAMAGE, text="Fight", amount=1)],
+        choices=[Choice(kind=ChoiceKind.DAMAGE, display_text="Fight", result_text="Fight happens", amount=1)],
         conditional_text=[
             ConditionalText(condition=Condition(type=ConditionType.HP, op="lte", value=1), text="You look injured.")
         ]
@@ -102,7 +102,7 @@ def test_resolve_scene_text_no_conditions_match():
                       Condition, ConditionType, GameState)
     scene = Scene(
         id="s1", title="Test", base_text="You enter.",
-        choices=[Choice(kind=ChoiceKind.DAMAGE, text="Fight", amount=1)],
+        choices=[Choice(kind=ChoiceKind.DAMAGE, display_text="Fight", result_text="Fight happens", amount=1)],
         conditional_text=[
             ConditionalText(condition=Condition(type=ConditionType.HP, op="lte", value=1), text="You look injured.")
         ]

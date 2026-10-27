@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useGame } from '../context/GameContext'
+import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { useAutoSave } from '../hooks/useAutoSave'
 import type { Story, Scene, Choice, ThemeName, OpeningScene, OpeningChoice, MadLibField } from '../types'
@@ -1115,14 +1115,14 @@ export default function Editor() {
                         <div className="text-sm">
                           <strong>Victory:</strong>{' '}
                           {(selectedScene.victory_text || '').replace(
-                            /\{item_text:([\w\s_:'\-]+)\}/g,
+                            /\{item_text:([\w\s_:'-]+)\}/g,
                             (_, itemName) => itemPreviewAcquired[itemName] ? (selectedScene.item_texts?.[itemName]?.victory || '') : ''
                           )}
                         </div>
                         <div className="text-sm" style={{ marginTop: 'var(--space-xs)' }}>
                           <strong>Defeat:</strong>{' '}
                           {(selectedScene.defeat_text || '').replace(
-                            /\{item_text:([\w\s_:'\-]+)\}/g,
+                            /\{item_text:([\w\s_:'-]+)\}/g,
                             (_, itemName) => itemPreviewAcquired[itemName] ? (selectedScene.item_texts?.[itemName]?.defeat || '') : ''
                           )}
                         </div>

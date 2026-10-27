@@ -115,7 +115,8 @@ export function useAutoSave<T>({
     const hasChanges = currentData !== lastSavedDataRef.current
 
     if (hasChanges) {
-      // Mark as unsaved
+      // Mark as unsaved. Syncing with the debounce timer below is this effect's job.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus('unsaved')
       statusRef.current = 'unsaved'
 

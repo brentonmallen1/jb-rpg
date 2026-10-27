@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useGame } from '../context/GameContext'
+import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import type { Story, Choice, Scene, HistoryEntry, ThemeName } from '../types'
 import { Modal, ConfirmDialog, RulesModal, HPDisplay, StatsRow, ModeToggle, PageMessage, ContentBox } from '../components'
@@ -75,6 +75,14 @@ export default function Run() {
     }
   }, [story?.theme])
 
+  // Pre-fill madlib input when the field changes (e.g. after going back)
+  const currentField = state ? story?.madlib_template.fields[state.madlib_step] : undefined
+  const [prefilledKey, setPrefilledKey] = useState<string | undefined>(undefined)
+  if (currentField?.key !== prefilledKey) {
+    setPrefilledKey(currentField?.key)
+    setMadlibInput(currentField && state ? state.madlib_answers[currentField.key] ?? '' : '')
+  }
+
   // Still connecting to SSE
   if (isInitializing) {
     return <PageMessage message="Connecting..." />
@@ -91,17 +99,17 @@ export default function Run() {
     )
   }
 
-  // Get current madlib field
-  const currentField = story?.madlib_template.fields[state.madlib_step]
   const madlibInputId = 'madlib-input'
 
-  // Pre-fill madlib input when field changes (e.g., when going back)
-  useEffect(() => {
-    if (currentField && state?.madlib_answers) {
-      const existingAnswer = state.madlib_answers[currentField.key]
-      setMadlibInput(existingAnswer ?? '')
+  // Run a storyteller action, surfacing any failure in the error banner
+  async function attempt(action: () => Promise<unknown>, fallbackMessage: string) {
+    try {
+      await action()
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : fallbackMessage)
     }
-  }, [currentField?.key, state?.madlib_answers])
+  }
 
   async function handleMadlibBack() {
     if (isSubmitting || !state || state.madlib_step <= 0) return
@@ -309,7 +317,7 @@ export default function Run() {
               </div>
               <p className="prose">{state.character.description}</p>
             </div>
-            <button className="btn" onClick={() => proceedFromCharacter()}>
+            <button className="btn" onClick={() => attempt(proceedFromCharacter, 'Failed to continue')}>
               Continue
             </button>
           </ContentBox>
@@ -329,7 +337,7 @@ export default function Run() {
                   <button
                     key={index}
                     className="btn w-full"
-                    onClick={() => selectOpeningChoice(index)}
+                    onClick={() => attempt(() => selectOpeningChoice(index), 'Failed to choose')}
                   >
                     {choice.text}
                   </button>
@@ -337,7 +345,7 @@ export default function Run() {
               </div>
             ) : (
               <div className="text-center">
-                <button className="btn" onClick={() => selectOpeningChoice(null)}>
+                <button className="btn" onClick={() => attempt(() => selectOpeningChoice(null), 'Failed to continue')}>
                   Choose Your Path
                 </button>
               </div>
@@ -388,7 +396,7 @@ export default function Run() {
                       outcome: getOutcomeDisplay(choiceMade)
                     })
                   } else {
-                    selectScene(scene.id)
+                    attempt(() => selectScene(scene.id), 'Failed to select scene')
                   }
                 }
 
@@ -502,10 +510,10 @@ export default function Run() {
                   <div className="text-center">
                     <button
                       className="btn"
-                      onClick={async () => {
+                      onClick={() => attempt(async () => {
                         await revealChoices(false) // Shuffle but don't show to players
                         setStorytellerChoicesRevealed(true)
-                      }}
+                      }, 'Failed to reveal choices')}
                     >
                       Reveal Choices
                     </button>
@@ -538,7 +546,7 @@ export default function Run() {
                   <div className="text-center mt-md">
                     <button
                       className={`btn ${state.choices_revealed ? 'btn--secondary' : ''}`}
-                      onClick={() => revealChoices(true)} // Show to players
+                      onClick={() => attempt(() => revealChoices(true), 'Failed to show choices')} // Show to players
                     >
                       {state.choices_revealed ? 'Remind Players of Choices' : 'Show Choices to Players'}
                     </button>
@@ -550,7 +558,7 @@ export default function Run() {
             {/* Back button - only for linear stories, not for non-linear (scene replay is done from scene selection) */}
             {state.history.length > 0 && !story?.settings.non_linear && (
               <div className="text-center mt-lg">
-                <button className="btn btn--secondary" onClick={() => goBack()}>
+                <button className="btn btn--secondary" onClick={() => attempt(goBack, 'Failed to go back')}>
                   Go Back
                 </button>
               </div>

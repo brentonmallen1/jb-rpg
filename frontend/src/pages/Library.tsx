@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useGame } from '../context/GameContext'
+import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import type { StorySummary, ThemeName } from '../types'
 import { RulesModal, ConfirmDialog, InputDialog, ModeToggle } from '../components'

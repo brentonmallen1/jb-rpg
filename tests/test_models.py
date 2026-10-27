@@ -49,7 +49,7 @@ def test_condition_scene_outcome():
 
 def test_choice_damage():
     from main import Choice, ChoiceKind
-    c = Choice(kind=ChoiceKind.DAMAGE, text="Take the risk", amount=1)
+    c = Choice(kind=ChoiceKind.DAMAGE, display_text="Take the risk", result_text="Take the risk happens", amount=1)
     assert c.kind == ChoiceKind.DAMAGE
     assert c.amount == 1
     assert c.item_name is None
@@ -57,7 +57,7 @@ def test_choice_damage():
 
 def test_choice_item():
     from main import Choice, ChoiceKind
-    c = Choice(kind=ChoiceKind.ITEM, text="Search", item_name="Compass", amount=1)
+    c = Choice(kind=ChoiceKind.ITEM, display_text="Search", result_text="Search happens", item_name="Compass", amount=1)
     assert c.item_name == "Compass"
 
 
@@ -68,9 +68,9 @@ def test_scene():
         title="The Start",
         base_text="You enter.",
         choices=[
-            Choice(kind=ChoiceKind.DAMAGE, text="Fight", amount=1),
-            Choice(kind=ChoiceKind.ITEM, text="Search", item_name="Key", amount=1),
-            Choice(kind=ChoiceKind.LEVEL, text="Study", amount=1),
+            Choice(kind=ChoiceKind.DAMAGE, display_text="Fight", result_text="Fight happens", amount=1),
+            Choice(kind=ChoiceKind.ITEM, display_text="Search", result_text="Search happens", item_name="Key", amount=1),
+            Choice(kind=ChoiceKind.LEVEL, display_text="Study", result_text="Study happens", amount=1),
         ]
     )
     assert s.id == "scene_1"

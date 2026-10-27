@@ -526,20 +526,38 @@ def build_resolved(state: "GameState | None") -> "dict | None":
 
     # Handle opening scene
     if state.status == SessionStatus.OPENING_SCENE_ACTIVE and story.opening_scene:
-        base_text = inject_variables(story.opening_scene.base_text, fields)
-        # Evaluate conditional text for opening scene
-        conditional_parts = []
+        scene_text = inject_variables(story.opening_scene.base_text, fields)
         for ct in story.opening_scene.conditional_text:
             if evaluate_condition(ct.condition, state):
-                conditional_parts.append(inject_variables(ct.text, fields))
-        scene_text = base_text + "".join(conditional_parts)
-        return {"scene_text": scene_text, "character_description": char_desc}
+                scene_text += " " + inject_variables(ct.text, fields)
+        return {
+            "scene_text": scene_text,
+            "character_description": char_desc,
+            "theme": story.theme.value,
+            "visible_choices": [],
+        }
 
     scene = get_current_scene(story, state.current_scene_id)
     if scene is None:
         return None
     scene_text = resolve_scene_text(scene, state)
-    resolved = {"scene_text": scene_text, "character_description": char_desc}
+
+    # Player-facing choice text, in the shuffled order, only once revealed.
+    # Players never receive the story itself, so outcomes stay hidden.
+    visible_choices = []
+    if state.choices_revealed:
+        visible_choices = [
+            inject_variables(scene.choices[i].display_text, fields)
+            for i in state.shuffled_indices
+            if 0 <= i < len(scene.choices)
+        ]
+
+    resolved = {
+        "scene_text": scene_text,
+        "character_description": char_desc,
+        "theme": story.theme.value,
+        "visible_choices": visible_choices,
+    }
 
     # Include resolved finale text with variable injection and item_text support
     if scene.victory_text:
@@ -557,37 +575,30 @@ def build_resolved(state: "GameState | None") -> "dict | None":
 # In-memory SSE connection tracking
 sse_connections: set = set()
 storyteller_connections: set = set()  # Subset of sse_connections with valid token
+player_connections: set = set()  # Subset of sse_connections with valid session_id
 sse_lock = asyncio.Lock()
 
 
-async def broadcast_state():
+async def build_payload() -> dict:
     state = load_state()
-    resolved = build_resolved(state)
-
     async with sse_lock:
-        player_count = len(sse_connections) - len(storyteller_connections)
+        player_count = len(player_connections)
         storyteller_connected = len(storyteller_connections) > 0
-        queues = list(sse_connections)
-
-    payload = {
+    return {
         "type": "state",
         "state": state.model_dump() if state else None,
-        "resolved": resolved,
+        "resolved": build_resolved(state),
         "player_count": player_count,
         "storyteller_connected": storyteller_connected,
     }
-    message = f"data: {json.dumps(payload)}\n\n"
 
-    dead = set()
+
+async def broadcast_state():
+    message = f"data: {json.dumps(await build_payload())}\n\n"
+    async with sse_lock:
+        queues = list(sse_connections)
     for queue in queues:
-        try:
-            await queue.put(message)
-        except Exception:
-            dead.add(queue)
-
-    if dead:
-        async with sse_lock:
-            sse_connections.difference_update(dead)
+        await queue.put(message)
 
 
 class CreateStoryRequest(BaseModel):
@@ -649,6 +660,8 @@ async def get_story(story_id: str, _: bool = Depends(verify_admin)) -> Story:
 @app.put("/api/stories/{story_id}")
 async def update_story(story_id: str, story: Story, _: bool = Depends(verify_admin)) -> Story:
     validate_story_id(story_id)
+    if story.id != story_id:
+        raise HTTPException(status_code=422, detail="Story id in body does not match URL")
     story_path = STORIES_DIR / f"{story_id}.json"
     if not story_path.exists():
         raise HTTPException(status_code=404, detail="Story not found")
@@ -688,11 +701,16 @@ async def delete_story(story_id: str, _: bool = Depends(verify_admin)):
 @app.get("/api/config")
 async def get_config():
     """Return public configuration values for frontend."""
+    return {"base_url": BASE_URL or None}
+
+
+@app.get("/api/session/check")
+async def check_session(s: Optional[str] = None):
+    """Public: is a session active, and does `s` match it? Never reveals the id."""
     state = load_state()
-    return {
-        "base_url": BASE_URL or None,
-        "session_id": state.session_id if state else None,
-    }
+    active = state is not None
+    valid = active and s is not None and secrets.compare_digest(s, state.session_id)
+    return {"active": active, "valid": valid}
 
 
 # SPA routes - serve index.html for client-side routing
@@ -791,13 +809,17 @@ async def sse_events(token: Optional[str] = None, s: Optional[str] = None):
         and _session_token is not None
         and secrets.compare_digest(token, _session_token)
     )
+    state = load_state()
+    is_player = (
+        not is_storyteller
+        and state is not None
+        and s is not None
+        and secrets.compare_digest(s, state.session_id)
+    )
 
-    # Players must provide valid session_id (unless auth is disabled or no session exists)
-    if not is_storyteller and not AUTH_DISABLED:
-        state = load_state()
-        # Allow if no active session (nothing to protect) or valid session_id
-        if state is not None and s != state.session_id:
-            raise HTTPException(status_code=403, detail="Invalid session")
+    # Anyone else is an observer: allowed only when there's nothing to protect
+    if not is_storyteller and not is_player and not AUTH_DISABLED and state is not None:
+        raise HTTPException(status_code=403, detail="Invalid session")
 
     queue = asyncio.Queue()
 
@@ -805,28 +827,19 @@ async def sse_events(token: Optional[str] = None, s: Optional[str] = None):
         sse_connections.add(queue)
         if is_storyteller:
             storyteller_connections.add(queue)
+        if is_player:
+            player_connections.add(queue)
 
     async def event_generator():
         try:
-            # Send initial state
-            async with sse_lock:
-                player_count = len(sse_connections) - len(storyteller_connections)
-                storyteller_connected = len(storyteller_connections) > 0
-
-            state = load_state()
-            resolved = build_resolved(state)
-            payload = {
-                "type": "state",
-                "state": state.model_dump() if state else None,
-                "resolved": resolved,
-                "player_count": player_count,
-                "storyteller_connected": storyteller_connected,
-            }
-            yield f"data: {json.dumps(payload)}\n\n"
-
-            # Send updates
+            yield f"data: {json.dumps(await build_payload())}\n\n"
+            # Player count and storyteller presence changed for everyone else
+            if is_storyteller or is_player:
+                await broadcast_state()
             while True:
                 message = await queue.get()
+                if message is None:  # session ended: close so clients re-auth
+                    break
                 yield message
         except asyncio.CancelledError:
             pass
@@ -834,8 +847,8 @@ async def sse_events(token: Optional[str] = None, s: Optional[str] = None):
             async with sse_lock:
                 sse_connections.discard(queue)
                 storyteller_connections.discard(queue)
-            # Notify others that storyteller may have disconnected
-            if is_storyteller:
+                player_connections.discard(queue)
+            if is_storyteller or is_player:
                 await broadcast_state()
 
     return StreamingResponse(
@@ -887,8 +900,10 @@ async def get_state(s: Optional[str] = None, x_session_token: Optional[str] = He
     state = load_state()
 
     # Determine access level
-    is_storyteller = x_session_token and x_session_token == _session_token
-    has_valid_session = s and state and state.session_id == s
+    is_storyteller = bool(
+        x_session_token and _session_token and secrets.compare_digest(x_session_token, _session_token)
+    )
+    has_valid_session = bool(s and state and secrets.compare_digest(s, state.session_id))
     no_active_session = state is None  # Nothing to protect
 
     # Allow if: storyteller, valid session_id, no active session, or auth disabled
@@ -1188,6 +1203,10 @@ async def go_back(_: bool = Depends(verify_storyteller)) -> GameState:
     state.current_scene_id = popped.scene_id
     state.status = SessionStatus.RUNNING
     state.outcome = None
+    state.outcome_revealed = False
+    # The shuffle belonged to whatever scene we were on; the restored scene re-reveals
+    state.choices_revealed = False
+    state.shuffled_indices = []
 
     save_state(state)
     await broadcast_state()
@@ -1417,17 +1436,15 @@ async def restart_session(_: bool = Depends(verify_storyteller)):
     payload = {"type": "session_ended"}
     message = f"data: {json.dumps(payload)}\n\n"
     for queue in queues:
-        try:
-            await queue.put(message)
-        except Exception:
-            pass
+        await queue.put(message)
+        await queue.put(None)  # then close the stream
 
     _session_token = None
-    # Clear storyteller connections since token is now invalid
+    # Token and session_id are now invalid, so nobody is a storyteller or player
     async with sse_lock:
         storyteller_connections.clear()
+        player_connections.clear()
     save_state(None)
-    await broadcast_state()
     return {"status": "restarted"}
 
 

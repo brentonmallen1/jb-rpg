@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useCallback, type ReactNode } from 'react'
 
 interface ModalProps {
   isOpen: boolean
@@ -20,8 +20,8 @@ interface ModalProps {
 export function Modal({ isOpen, onClose, title, children, titleId }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const previousActiveElement = useRef<HTMLElement | null>(null)
-  const generatedTitleId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`)
-  const actualTitleId = titleId || generatedTitleId.current
+  const generatedTitleId = `modal-title-${useId()}`
+  const actualTitleId = titleId || generatedTitleId
 
   // Store previously focused element and focus the modal when opened
   useEffect(() => {
@@ -208,7 +208,7 @@ export function InputDialog({
   required = true
 }: InputDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const inputId = useRef(`input-dialog-${Math.random().toString(36).slice(2, 9)}`)
+  const inputId = `input-dialog-${useId()}`
 
   useEffect(() => {
     if (isOpen) {
@@ -244,7 +244,7 @@ export function InputDialog({
     <Modal isOpen={isOpen} onClose={onCancel} title={title}>
       <form onSubmit={handleSubmit} noValidate>
         <label
-          htmlFor={inputId.current}
+          htmlFor={inputId}
           style={{ display: 'block', marginBottom: 'var(--space-sm)', color: 'var(--text-secondary)' }}
         >
           {label}
@@ -252,7 +252,7 @@ export function InputDialog({
         </label>
         <input
           ref={inputRef}
-          id={inputId.current}
+          id={inputId}
           type="text"
           className="input"
           placeholder={placeholder}

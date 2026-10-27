@@ -54,3 +54,16 @@ body.deep_space {
     --text-primary: #1a1a3a;
     --text-secondary: #6666aa;
 }
+
+/* Light mode: the starfield above hard-codes a black sky, which made
+   light-mode text (dark on dark) invisible. Use a pale sky with ink stars. */
+.deep_space[data-mode="light"] body,
+body.deep_space[data-mode="light"] {
+    background-color: var(--bg-primary);
+    background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(26,26,58,0.35) 50%, transparent 100%),
+    radial-gradient(1px 1px at 80% 70%, rgba(26,26,58,0.25) 50%, transparent 100%),
+    radial-gradient(2px 2px at 50% 50%, rgba(26,26,58,0.3) 50%, transparent 100%),
+    radial-gradient(1px 1px at 10% 80%, rgba(26,26,58,0.25) 50%, transparent 100%),
+    radial-gradient(2px 2px at 90% 20%, rgba(26,26,58,0.3) 50%, transparent 100%);
+}

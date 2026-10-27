@@ -66,8 +66,8 @@ function App() {
   return (
     <ErrorBoundary>
       <OfflineBanner />
-      <GameProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <GameProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Library />} />
@@ -77,8 +77,8 @@ function App() {
               <Route path="/player" element={<Player />} />
             </Routes>
           </Suspense>
-        </BrowserRouter>
-      </GameProvider>
+        </GameProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   )
 }

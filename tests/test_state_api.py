@@ -1,15 +1,4 @@
-import pytest
-from fastapi.testclient import TestClient
-import json
-
-
-@pytest.fixture
-def client(tmp_path, monkeypatch):
-    import main
-    monkeypatch.setattr(main, "STORIES_DIR", tmp_path / "stories")
-    monkeypatch.setattr(main, "STATE_FILE", tmp_path / "state.json")
-    main.STORIES_DIR.mkdir(exist_ok=True)
-    return TestClient(main.app)
+from .conftest import start
 
 
 def make_story(client, *, with_madlibs=True, scenes=None, starting_hp=3, theme="fantasy"):
@@ -24,14 +13,14 @@ def make_story(client, *, with_madlibs=True, scenes=None, starting_hp=3, theme="
                 "id": "s1",
                 "title": "Scene 1",
                 "base_text": "You are in a forest.",
-                "choices": [{"kind": "damage", "text": "Fight", "amount": 1}],
+                "choices": [{"kind": "damage", "display_text": "Fight", "result_text": "Fight happens", "amount": 1}],
                 "conditional_text": [],
             },
             {
                 "id": "s2",
                 "title": "Scene 2",
                 "base_text": "You find a cave.",
-                "choices": [{"kind": "item", "text": "Take sword", "amount": 1, "item_name": "sword"}],
+                "choices": [{"kind": "item", "display_text": "Take sword", "result_text": "Take sword happens", "amount": 1, "item_name": "sword"}],
                 "conditional_text": [],
             },
         ]
@@ -59,12 +48,14 @@ def make_story(client, *, with_madlibs=True, scenes=None, starting_hp=3, theme="
 def test_get_state_no_session(client):
     response = client.get("/api/state")
     assert response.status_code == 200
-    assert response.json() == {"state": None, "resolved": None}
+    data = response.json()
+    assert data["state"] is None
+    assert data["resolved"] is None
 
 
 def test_get_state_with_session(client):
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
     response = client.get("/api/state")
     assert response.status_code == 200
     data = response.json()
@@ -77,9 +68,9 @@ def test_get_state_with_session(client):
 
 def test_start_session(client):
     story_id = make_story(client)
-    response = client.post("/api/state/start", json={"story_id": story_id})
+    response = start(client, story_id)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["state"]
     assert data["status"] == "madlib_in_progress"
     assert data["story_id"] == story_id
     assert data["current_scene_id"] == "s1"
@@ -89,9 +80,9 @@ def test_start_session(client):
 
 def test_start_session_no_madlibs(client):
     story_id = make_story(client, with_madlibs=False)
-    response = client.post("/api/state/start", json={"story_id": story_id})
+    response = start(client, story_id)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["state"]
     assert data["status"] == "running"
     assert data["character"] is None
 
@@ -105,7 +96,7 @@ def test_start_session_story_not_found(client):
 
 def test_madlib_submit(client):
     story_id = make_story(client)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     # Submit first field
     resp1 = client.post("/api/state/madlib", json={"answer": "Alice"})
@@ -115,11 +106,11 @@ def test_madlib_submit(client):
     assert data1["madlib_step"] == 1
     assert data1["madlib_answers"]["name"] == "Alice"
 
-    # Submit second (last) field — should transition to running
+    # Submit second (last) field: storyteller reads the character to the table
     resp2 = client.post("/api/state/madlib", json={"answer": "wizard"})
     assert resp2.status_code == 200
     data2 = resp2.json()
-    assert data2["status"] == "running"
+    assert data2["status"] == "character_reveal"
     assert data2["character"] is not None
     assert data2["character"]["fields"]["name"] == "Alice"
     assert data2["character"]["fields"]["class"] == "wizard"
@@ -127,7 +118,7 @@ def test_madlib_submit(client):
 
 def test_madlib_wrong_status(client):
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     response = client.post("/api/state/madlib", json={"answer": "Alice"})
     assert response.status_code == 409
@@ -137,7 +128,7 @@ def test_madlib_wrong_status(client):
 
 def test_choice_damage(client):
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 200
@@ -155,19 +146,19 @@ def test_choice_item(client):
             "id": "s1",
             "title": "Scene 1",
             "base_text": "You find something.",
-            "choices": [{"kind": "item", "text": "Take sword", "amount": 1, "item_name": "sword"}],
+            "choices": [{"kind": "item", "display_text": "Take sword", "result_text": "Take sword happens", "amount": 1, "item_name": "sword"}],
             "conditional_text": [],
         },
         {
             "id": "s2",
             "title": "Scene 2",
             "base_text": "Next scene.",
-            "choices": [{"kind": "damage", "text": "Fight", "amount": 1}],
+            "choices": [{"kind": "damage", "display_text": "Fight", "result_text": "Fight happens", "amount": 1}],
             "conditional_text": [],
         },
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 200
@@ -183,19 +174,19 @@ def test_choice_level(client):
             "id": "s1",
             "title": "Scene 1",
             "base_text": "You level up.",
-            "choices": [{"kind": "level", "text": "Level up", "amount": 1}],
+            "choices": [{"kind": "level", "display_text": "Level up", "result_text": "Level up happens", "amount": 1}],
             "conditional_text": [],
         },
         {
             "id": "s2",
             "title": "Scene 2",
             "base_text": "Next scene.",
-            "choices": [{"kind": "damage", "text": "Fight", "amount": 1}],
+            "choices": [{"kind": "damage", "display_text": "Fight", "result_text": "Fight happens", "amount": 1}],
             "conditional_text": [],
         },
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 200
@@ -206,7 +197,7 @@ def test_choice_level(client):
 
 def test_choice_hp_zero_defeat(client):
     story_id = make_story(client, with_madlibs=False, starting_hp=1)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 200
@@ -222,12 +213,12 @@ def test_choice_last_scene_game_over(client):
             "id": "s1",
             "title": "Last Scene",
             "base_text": "The finale.",
-            "choices": [{"kind": "level", "text": "Win", "amount": 1}],
+            "choices": [{"kind": "level", "display_text": "Win", "result_text": "Win happens", "amount": 1}],
             "conditional_text": [],
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 200
@@ -242,12 +233,12 @@ def test_choice_game_over_409(client):
             "id": "s1",
             "title": "Only Scene",
             "base_text": "Fight!",
-            "choices": [{"kind": "level", "text": "End", "amount": 1}],
+            "choices": [{"kind": "level", "display_text": "End", "result_text": "End happens", "amount": 1}],
             "conditional_text": [],
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
     client.post("/api/state/choice", json={"choice_index": 0})  # -> game_over
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
@@ -258,7 +249,7 @@ def test_choice_game_over_409(client):
 
 def test_back_button(client):
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     # Make a choice (damage, hp goes 3->2)
     client.post("/api/state/choice", json={"choice_index": 0})
@@ -278,12 +269,12 @@ def test_back_from_game_over(client):
             "id": "s1",
             "title": "Scene 1",
             "base_text": "Fight!",
-            "choices": [{"kind": "level", "text": "End", "amount": 1}],
+            "choices": [{"kind": "level", "display_text": "End", "result_text": "End happens", "amount": 1}],
             "conditional_text": [],
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
     client.post("/api/state/choice", json={"choice_index": 0})  # -> game_over
 
     resp = client.post("/api/state/back")
@@ -295,7 +286,7 @@ def test_back_from_game_over(client):
 
 def test_back_empty_history_noop(client):
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     state_before = client.get("/api/state").json()["state"]
     resp = client.post("/api/state/back")
@@ -307,7 +298,7 @@ def test_back_empty_history_noop(client):
 
 def test_back_madlib_noop(client):
     story_id = make_story(client)  # with madlibs
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     state_before = client.get("/api/state").json()["state"]
     resp = client.post("/api/state/back")
@@ -325,12 +316,12 @@ def test_finish_victory(client):
             "id": "s1",
             "title": "Finale",
             "base_text": "The end.",
-            "choices": [{"kind": "level", "text": "Win", "amount": 1}],
+            "choices": [{"kind": "level", "display_text": "Win", "result_text": "Win happens", "amount": 1}],
             "conditional_text": [],
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
     client.post("/api/state/choice", json={"choice_index": 0})  # -> game_over, outcome=None
 
     resp = client.post("/api/state/finish", json={"outcome": "victory"})
@@ -346,12 +337,12 @@ def test_finish_defeat(client):
             "id": "s1",
             "title": "Finale",
             "base_text": "The end.",
-            "choices": [{"kind": "level", "text": "End", "amount": 1}],
+            "choices": [{"kind": "level", "display_text": "End", "result_text": "End happens", "amount": 1}],
             "conditional_text": [],
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
     client.post("/api/state/choice", json={"choice_index": 0})
 
     resp = client.post("/api/state/finish", json={"outcome": "defeat"})
@@ -361,7 +352,7 @@ def test_finish_defeat(client):
 
 def test_finish_wrong_status(client):
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/finish", json={"outcome": "victory"})
     assert resp.status_code == 409
@@ -369,13 +360,13 @@ def test_finish_wrong_status(client):
 
 def test_restart(client):
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/restart")
     assert resp.status_code == 200
 
     state_resp = client.get("/api/state")
-    assert state_resp.json() == {"state": None, "resolved": None}
+    assert state_resp.json()["state"] is None
 
 
 def test_choice_item_without_name_422(client):
@@ -385,12 +376,12 @@ def test_choice_item_without_name_422(client):
             "id": "s1",
             "title": "Scene 1",
             "base_text": "Find something.",
-            "choices": [{"kind": "item", "text": "Take thing", "amount": 1, "item_name": ""}],
+            "choices": [{"kind": "item", "display_text": "Take thing", "result_text": "Take thing happens", "amount": 1, "item_name": ""}],
             "conditional_text": [],
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 422
@@ -404,12 +395,12 @@ def test_choice_item_null_name_422(client):
             "id": "s1",
             "title": "Scene 1",
             "base_text": "Find something.",
-            "choices": [{"kind": "item", "text": "Take thing", "amount": 1, "item_name": None}],
+            "choices": [{"kind": "item", "display_text": "Take thing", "result_text": "Take thing happens", "amount": 1, "item_name": None}],
             "conditional_text": [],
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 0})
     assert resp.status_code == 422
@@ -418,7 +409,7 @@ def test_choice_item_null_name_422(client):
 def test_choice_index_out_of_bounds(client):
     """Choice index >= number of choices should return 422."""
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": 99})
     assert resp.status_code == 422
@@ -428,7 +419,7 @@ def test_choice_index_out_of_bounds(client):
 def test_choice_index_negative(client):
     """Negative choice index should return 422."""
     story_id = make_story(client, with_madlibs=False)
-    client.post("/api/state/start", json={"story_id": story_id})
+    start(client, story_id)
 
     resp = client.post("/api/state/choice", json={"choice_index": -1})
     assert resp.status_code == 422

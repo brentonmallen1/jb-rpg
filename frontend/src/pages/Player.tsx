@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { useGame } from '../context/GameContext'
+import { useGame } from '../context/useGame'
 import { useSSE } from '../hooks/useSSE'
 import * as api from '../hooks/api'
 import { Modal, RulesModal, HPDisplay, StatsRow, ModeToggle } from '../components'
-import type { Story, Scene } from '../types'
 import '../styles/pages/player.css'
 
 export default function Player() {
@@ -12,52 +11,32 @@ export default function Player() {
   const { toggleColorMode, colorMode, setTheme } = useGame()
 
   // Use our own SSE connection with the sessionId from URL
-  const { state, storytellerConnected, playerCount } = useSSE({ sessionId })
+  const { state, resolved, storytellerConnected, playerCount } = useSSE({ sessionId })
 
   const [showRules, setShowRules] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
-  const [sessionInvalid, setSessionInvalid] = useState(false)
-  const [isValidating, setIsValidating] = useState(true)
-  const [story, setStory] = useState<Story | null>(null)
+  const [sessionCheck, setSessionCheck] = useState<'checking' | 'valid' | 'invalid'>('checking')
+
+  // Remember that we were in a game, so an empty state reads as "ended", not "waiting"
+  const [joinedGame, setJoinedGame] = useState(false)
+  if (state && !joinedGame) setJoinedGame(true)
 
   // Validate session on mount
   useEffect(() => {
-    if (!sessionId) {
-      setIsValidating(false)
-      return
-    }
-
-    api.getConfig()
-      .then(config => {
-        // If player has a sessionId in URL, it must match the active session
-        // If no session exists OR session_id differs, the link is invalid
-        if (!config.session_id || config.session_id !== sessionId) {
-          setSessionInvalid(true)
-        } else {
-          setSessionInvalid(false)
-        }
-      })
-      .catch(() => {
-        // API error - assume valid and let SSE handle it
-        setSessionInvalid(false)
-      })
-      .finally(() => setIsValidating(false))
+    if (!sessionId) return
+    let cancelled = false
+    api.checkSession(sessionId)
+      .then(({ valid }) => { if (!cancelled) setSessionCheck(valid ? 'valid' : 'invalid') })
+      // API error: assume valid and let SSE handle it
+      .catch(() => { if (!cancelled) setSessionCheck('valid') })
+    return () => { cancelled = true }
   }, [sessionId])
 
-  const [storyError, setStoryError] = useState(false)
-
-  // Load story data and apply theme
+  // Apply the story's theme (sent by the server; players never load the story)
+  const storyTheme = resolved?.theme
   useEffect(() => {
-    if (state?.story_id) {
-      setStoryError(false)
-      api.getStory(state.story_id).then((s) => {
-        setStory(s)
-        setTheme(s.theme)
-      }).catch(() => {
-        setStoryError(true)
-      })
-    }
-  }, [state?.story_id, setTheme])
+    if (storyTheme) setTheme(storyTheme)
+  }, [storyTheme, setTheme])
 
   // If no sessionId in URL, show error
   if (!sessionId) {
@@ -72,7 +51,7 @@ export default function Player() {
   }
 
   // Show loading while validating session
-  if (isValidating) {
+  if (sessionCheck === 'checking') {
     return (
       <main className="player-layout">
         <div className="waiting-state">
@@ -83,7 +62,7 @@ export default function Player() {
   }
 
   // Session is invalid or expired
-  if (sessionInvalid) {
+  if (sessionCheck === 'invalid') {
     return (
       <main className="player-layout">
         <div className="waiting-state session-error">
@@ -95,14 +74,21 @@ export default function Player() {
     )
   }
 
-  // Waiting for session to start
+  // Session ended, or waiting for it to start
   if (!state) {
     return (
       <>
         <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
         <main className="player-layout">
           <div className="waiting-state" aria-live="polite">
-            <p>Waiting for storyteller to start...</p>
+            {joinedGame ? (
+              <>
+                <h1>The session has ended</h1>
+                <p>Thanks for playing. Ask the storyteller for a new link to join the next one.</p>
+              </>
+            ) : (
+              <p>Waiting for storyteller to start...</p>
+            )}
           </div>
         </main>
         <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
@@ -181,13 +167,6 @@ export default function Player() {
     <>
       <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} />
       <main className="player-layout">
-        {/* Story load error */}
-        {storyError && (
-          <div className="alert alert--warning mb-lg" role="alert">
-            Could not load story details
-          </div>
-        )}
-
         {/* Character section - now a proper button */}
         {state.character && (
           <button
@@ -224,27 +203,19 @@ export default function Player() {
           </ul>
         )}
 
-        {/* Revealed choices */}
-        {state.choices_revealed && state.shuffled_indices.length > 0 && story && (() => {
-          const currentScene = story.scenes.find((s: Scene) => s.id === state.current_scene_id)
-          if (!currentScene) return null
-          return (
-            <div className="revealed-choices">
-              <div className="revealed-choices-label text-sm text-secondary uppercase">
-                Current Choices
-              </div>
-              {state.shuffled_indices.map((originalIndex, visualIndex) => {
-                const choice = currentScene.choices[originalIndex]
-                if (!choice) return null
-                return (
-                  <div key={visualIndex} className="revealed-choice">
-                    {choice.display_text}
-                  </div>
-                )
-              })}
+        {/* Revealed choices (display text only; outcomes never reach players) */}
+        {resolved && resolved.visible_choices.length > 0 && (
+          <div className="revealed-choices">
+            <div className="revealed-choices-label text-sm text-secondary uppercase">
+              Current Choices
             </div>
-          )
-        })()}
+            {resolved.visible_choices.map((text, i) => (
+              <div key={i} className="revealed-choice">
+                {text}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Connection status */}
         <ConnectionStatus storytellerConnected={storytellerConnected} playerCount={playerCount} />

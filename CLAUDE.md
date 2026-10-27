@@ -26,27 +26,28 @@ Use the uv python virtual environment and package manager
 
 ```
 jb-rpg/
-├── main.py                    # FastAPI app — all routes and SSE
-├── stories/                   # One JSON file per story
-├── state.json                 # Active session state
-├── .env.example               # Environment variable template
-├── frontend/                  # React app (Vite + TypeScript)
-│   ├── package.json
-│   ├── vite.config.ts         # Vite config with API proxy
-│   ├── src/
-│   │   ├── main.tsx
-│   │   ├── App.tsx
-│   │   ├── pages/             # Library, Editor, Run, Player
-│   │   ├── components/
-│   │   ├── hooks/             # useSSE, useTheme, api.ts
-│   │   ├── context/           # GameContext
-│   │   ├── types/             # TypeScript types
-│   │   └── styles/            # CSS (base + themes)
-│   └── dist/                  # Built output (gitignored)
-├── static/                    # Legacy vanilla JS (deprecated)
-├── Dockerfile                 # Multi-stage build (Node + Python)
-├── docker-compose.yml
-└── justfile                   # Development commands
+├── main.py                    # Entry point (uvicorn main:app); the app is in app/
+├── app/
+│   ├── main.py                # FastAPI app, middleware, routers, static mounts
+│   ├── models.py              # Pydantic models; public_state() strips private fields
+│   ├── engine.py              # Pure game rules: transitions, resolved content, story_problems
+│   ├── storage.py             # Atomic JSON writes; stories + state.json
+│   ├── auth.py                # Admin Basic auth, storyteller token (hashed), player session id
+│   ├── sse.py                 # Connections by role, broadcast, heartbeat, end_session
+│   └── routes/                # stories.py, session.py, pages.py
+├── data/                      # DATA_DIR: stories/*.json + state.json (only demo-* tracked)
+├── tests/                     # pytest; conftest.py has the client fixture + start() helper
+├── frontend/src/
+│   ├── pages/                 # Library, Editor, Run (shell) + run/*, Player, DevMoments (dev only)
+│   ├── components/            # Modal, MomentLayer, Atmosphere, HealthMeter, CorruptText, Icons…
+│   ├── hooks/                 # api.ts (request helper), useSSE, useMoments, useHotkeys, useTheme…
+│   ├── lib/                   # moments.ts, themes.ts (moods, health names), story.ts, outcomes.ts
+│   ├── context/               # GameProvider (GameContext.tsx) + useGame.ts
+│   └── styles/                # base, stage (storyteller), phone (player), moments, atmosphere, health, themes/
+├── docs/                      # audit + overnight log + design spec/plans
+├── .impeccable.md             # Design context: users, tone, principles
+├── Dockerfile / docker-compose.yml
+└── justfile
 ```
 
 ---
@@ -91,7 +92,9 @@ Tests: `just test` (pytest). CI (`.github/workflows/ci.yml`) runs pytest, eslint
 - **Variable injection (`{field_key}`)** happens server-side before broadcasting, using `state.character.fields`
 - **Back button replays from history** using stored `damage_amount`/`item_name` — never re-reads from the story file
 - **Players never receive the story.** Everything a player sees comes from `resolved` in the SSE payload (`scene_text`, `theme`, `visible_choices`). Choice outcomes, `result_text`, and story structure stay server-side/storyteller-only
-- **Players don't know where they are in the story** — no scene counts or progress on any player-facing screen; only the storyteller's view shows progress (design rule, see `.impeccable.md`)
+- **Players don't know where they are in the story** — no scene counts or progress on any player-facing screen (phones or presentation mode); only the storyteller's private view shows progress (design rule, see `.impeccable.md`). `resolved.finale` is how players learn the end has come
+- **Sessions use a snapshot of the story** (`state.story`, taken at `/start`, never sent to clients). Edits to a story apply to the next game
+- **Presentation mode** (storyteller, `P`) is player-facing: anything with `.storyteller-only` is hidden there
 
 ---
 
@@ -149,9 +152,15 @@ POST /restart  →  (back to no state)
 
 ## Themes
 
-Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
+Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity` (`ThemeName`; frontend list is `THEMES` in `types/index.ts`). `modern` is also the app's own chrome (Library, Editor).
 
-Theme CSS files are in `frontend/src/styles/themes/`. The theme name is a `ThemeName` enum — no arbitrary strings. HP indicators are theme-specific.
+- `styles/themes/<theme>.css` sets tokens on the `.<theme>` class: colours (dark + a deliberate `[data-mode="light"]` set), `--font-display`, `--font-body`, `--font-reading` (long scene text). Fonts are self-hosted via `@fontsource` (no network at game time). Any element with the theme class gets its look (Library covers use this).
+- Layout CSS (`stage.css`, `phone.css`) only uses tokens, so themes restyle everything without layout changes.
+- `lib/themes.ts`: `HEALTH_LABEL` (Candles, Sight, Integrity, Hull, Sanity, Health) and `MOODS` per theme. `HealthMeter` draws health in each theme's iconography.
+- **Moods**: `Scene.mood` (set in the Editor, or unset = automatic). The server sends `resolved.mood` + `resolved.mood_seed`; `moodFor()` picks the theme's mood. `Atmosphere` renders the backdrop.
+- **Moments** (`lib/moments.ts`): `diffMoments(prev, next)` turns SSE state changes into dramatic beats played by `MomentLayer` on every screen in sync; copy and victory/defeat endings are themed. Effects level (full/subtle/off) is per device; respect `prefers-reduced-motion`; never more than 3 flashes per second.
+- **Insanity** text corruption (`CorruptText`) scales with health lost; screen readers get clean text.
+- Tune visuals at `/dev/moments` (dev builds only).
 
 ---
 

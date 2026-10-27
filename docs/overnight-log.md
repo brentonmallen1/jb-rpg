@@ -1,66 +1,137 @@
 # Overnight progress log (2026-10-26 → 27)
 
-Working through the plan in `docs/audit-2026-10-26.md` §7. Each chunk is a commit,
-verified with the test suite, lint/type-check/build, and a scripted browser run
-(storyteller + player). Nothing is pushed (the repo has no remote).
+I worked through the whole plan in `docs/audit-2026-10-26.md` §7. Every chunk is its own commit. Before each commit I checked it four ways:
+- the backend tests (now 91);
+- lint, type-check and production build;
+- a 20-step scripted browser run with a storyteller and a player, including a server restart and taking over from another tab;
+- screenshots I reviewed by eye.
 
-## Branches
+Nothing is pushed, since the repo has no remote.
 
-| Branch | Contains | State |
-|---|---|---|
-| `main` | Phase 0 (bug fixes, tests, CI) + audit docs | merged (you approved) |
-| `phase-1-foundations` | Phase 1, branched from `main` | **review, then merge** |
-| `phase-3-cinematic-shell` | Phase 3, branched from `phase-1-foundations` | see below |
+## How to review
 
-## Phase 1: Foundations (done)
+The branches are stacked, each built on the previous one:
 
-**Backend** (`68eb6af`): `main.py` is now a thin entry point; the app lives in `app/`
-(`models`, `engine`, `storage`, `auth`, `sse`, `routes/`). All game rules are pure
-functions in `app/engine.py`.
-- Atomic writes for stories and `state.json` (temp file + rename).
-- **Story snapshot**: a session keeps a copy of its story, so editing a story mid-game can't break play.
-- **Sessions survive restarts**: the storyteller token is stored as a hash in `state.json`, so `--reload` no longer kills the game.
-- **Take over**: a new tab (or device) can resume control of a running session.
-- Starting a story while another is running asks first (take over / end it and start).
-- **Story problems** (nameless items, conditions pointing at missing scenes, scenes with no choices…) are listed in the Editor and block starting a game, never saving.
-- SSE heartbeat + client watchdog; admins can observe sessions when admin auth is configured.
-- Removed the legacy vanilla-JS `static/` folder and stopped tracking the duplicate root `stories/` folder (files still on disk; `data/` is canonical, matching your `.env`).
+| Branch | Adds |
+|---|---|
+| `main` | Phase 0 (bug fixes, tests, CI) and the audit docs. You approved this merge. |
+| `phase-1-foundations` | Backend restructure, robustness work, moments engine |
+| `phase-3-cinematic-shell` | Storyteller stage, presentation mode, new phone view, Library |
+| `phase-4-themes` | Deep themes, atmosphere, moods, sanity corruption, polish. **Contains everything.** |
 
-**Frontend** (`afb2e5c`):
-- `api.ts` uses a single `request()` helper.
-- `Run.tsx` is split into one component per status, and failed actions always show up in the error banner.
-- **Moments engine**: synced dramatic overlays on every phone (HP lost, item, level up, scene change, finale, victory/defeat, character reveal), with themed copy per theme. Players get an **Effects: full / subtle / off** toggle (✦ in the player toolbar).
-- `/dev/moments` (dev builds only) lets you fire any moment in any theme. Run `just frontend-dev` and open http://localhost:5173/dev/moments.
+If you like it all: `git checkout main && git merge --ff-only phase-4-themes`.
 
-**Found while verifying** (fixed):
-- **Restarts hung while anyone was connected.** uvicorn waited forever on open live-update streams, so a stopped or reloading server lingered and kept feeding clients. Every launch path now uses `--timeout-graceful-shutdown 2`.
-- **Phones could sit on a dead connection.** Browsers hide SSE comment lines, so the heartbeat is now a real event, and a watchdog reconnects after 50 s of silence.
-- **New tabs didn't offer Take over** when admin auth isn't configured; they showed "No active session" instead. Fixed.
-- **The Victory moment was unreadable** (green on green). It now uses the theme's accent light.
+To see it, run `just backend` and `just frontend-dev`, then open:
+- http://localhost:5173 for the Library (each story is a themed cover).
+- Play a story, then open the player link on your phone (or a narrow browser window).
+- On the storyteller screen, press **P** for presentation mode (TV). Other keys: **R** reveal, **S** deal choices to phones, **1–3** pick, **Enter** confirm, **Esc** cancel, **B** undo.
+- http://localhost:5173/dev/moments to fire every moment, mood and ending in every theme.
 
-**Deferred:** self-hosting fonts moves to Phase 4, which changes several theme fonts anyway.
+## What changed, by phase
+
+### Phase 1: Foundations
+- **Backend:** split into `app/` (`models`, `engine`, `storage`, `auth`, `sse`, `routes/`). All game rules are pure functions in `engine.py`.
+- **Atomic writes:** stories and the session file are written via a temp file and rename, so a crash can't corrupt them.
+- **Story snapshot:** a session plays from a copy of its story, so editing a story mid-game can't break the game.
+- **Survives restarts:** sessions survive server restarts and code reloads; the storyteller token is stored as a hash.
+- **Take over:** a new tab or device can take control of a running game. Starting another story asks first.
+- **Story problems:** missing item names, conditions pointing at scenes that don't exist, scenes with no choices and similar issues are listed in the Editor and block starting a game. They never block saving.
+- **Moments engine:** the same dramatic beats play on every screen in sync (HP lost, item, level up, scene change, finale, victory/defeat). Players get an Effects full / subtle / off toggle.
+- **Frontend:** the API layer goes through one helper; the Run page is split into one component per game status; failed actions always show an error.
+
+### Phase 3: Cinematic shell
+- **Storyteller stage:**
+  - the screen wears the story's own theme;
+  - top bar with a progress rail (storyteller only);
+  - party rail beside the scene, with hero, health, level, items and final roll;
+  - a "Previously" recap line;
+  - scene text set in a reading font.
+- **Choices:** shown as cards with outcome icons. Selecting one opens an inline "read this aloud" panel instead of a modal. Every action has a keyboard shortcut.
+- **Presentation mode (P):** full screen with TV-sized type. Hides outcomes, progress, the madlib template and storyteller hints.
+- **Character creation:** the template stays sealed (shimmering blanks), with a peek toggle for the storyteller only. Players' phones show the question being asked.
+- **Phone:**
+  - scene title with its door name;
+  - health strip and a hero chip;
+  - "Follow along" scene text;
+  - choices dealt in one by one;
+  - the finale roll panel and the outcome.
+  - No progress is shown anywhere.
+- **Library:**
+  - stories are covers rendered in their own theme;
+  - Play is the primary action, Edit sits beside it, and Export/Delete are in a menu;
+  - "Now playing" and "Take over" banners;
+  - an empty state that explains how the game works.
+- **App chrome:** the neutral theme moved off the generic indigo to warm ink with an ember accent (Fraunces, Manrope, Newsreader).
+
+### Phase 4: Deep themes and atmosphere
+- **Themes:** all six rewritten with new palettes and deliberate light modes. Fonts are self-hosted, so game night works offline.
+  - Fantasy: candlelight, with an illuminated drop cap.
+  - Cyberpunk: hazard yellow, clipped corners.
+  - Deep Space: a distant amber sun.
+  - Horror: bone and blood, in Pirata One and Spectral.
+  - Insanity: bile green on a bruised dark, and nothing sits quite straight.
+  - Modern: ember.
+- **Themed health:** emoji are replaced by candles that gutter out, eyes that get sewn shut, integrity cells, hull shields, sanity sigils and hearts, each with its own name.
+- **Atmosphere:**
+  - a backdrop behind every screen: mood light plus texture (dust motes, scanlines, parallax stars, film grain) plus weather (acid rain, lightning, fog, glitch bands, failing lights);
+  - **per-scene moods**, chosen in the Editor ("Backdrop") or automatic;
+  - calm unless effects are set to full.
+- **Insanity:** words flicker into runes or Zalgo, faster and denser as sanity drains, and the backdrop swirl tightens. This was your idea.
+- **Signature endings per theme:**
+  - Fantasy: dawn rays / a snuffed candle.
+  - Cyberpunk: a glitching feed.
+  - Deep Space: a lightspeed jump / a hull-breach alarm.
+  - Horror: house lights come up / a blood curtain.
+  - Insanity: the spiral unwinds / the words scatter.
+- **Phones stay awake** during a game (Screen Wake Lock).
+- **Editor:** `{key}` chips insert character details at the cursor; scenes can be moved up and down.
+
+### Phase 5: Polish
+- **Responsive pass:** stage and phone checked at 390, 820 and 1280 px wide, with no horizontal scrolling.
+- **Light mode:** checked on stage, phone and Library.
+- **Docker:** image built and smoke-tested. It serves the app, API and bundled assets, rejects bad player links, and stops in 2 s.
+
+## Bugs found while verifying (all fixed)
+- **Restarts hung forever while anyone was connected.** uvicorn waited on the open live-update streams. Every launch path now has `--timeout-graceful-shutdown 2`.
+- **Phones could sit on a dead stream.** Browsers hide SSE comment lines from JavaScript, so the heartbeat is now a real event, and a watchdog reconnects after 50 s of silence.
+- **A latent CSS bug:** a missing semicolon in the base tokens silently dropped `--radius-sm`.
+- **Light mode hid ghost buttons:** they took the background colour on every themed screen.
+- **Unreadable moments:** Victory was green on green, and moment titles sat directly over page text (they now get a scrim).
+- **Zalgo rendered as boxes** in the Insanity font; it now uses a system serif. Insanity numbers also read "1" as "I".
 
 ## Decisions I made without you (easy to revisit)
-
 - **Saving never blocks.** The Editor autosaves half-finished work, so story checks only stop *starting* a game.
-- **Take over is open to any admin.** Anyone who passes admin auth can take over a running session. Without admin credentials configured, that's anyone who can reach the server (same as starting one today).
-- **Admins can watch a session without joining it**, but only when admin auth is configured. Otherwise a non-storyteller tab sees a "running elsewhere / Take over" prompt.
-- **Choices that read wrong say so.** If a stale choice order ever reaches the server, it returns 409 "reveal the choices again" instead of guessing.
+- **Take over** is open to any admin. Without admin credentials configured, that means anyone who can reach the server (same as starting a game today).
+- **Watching without joining:** admins can observe a running game only when admin auth is configured.
+- **Phones show the scene title.** The full scene text sits behind "Follow along" (collapsed), so attention stays on the storyteller.
+- **Storyteller effects:** the stage plays moments subtly in normal mode and fully in presentation mode.
+- **Corruption is Insanity-only.** Horror doesn't get it.
+- **Fonts:** fantasy keeps Cinzel / Crimson; the others changed (see Phase 4).
+
+## Not done / next candidates
+- **Editor redesign:** splitting `Editor.tsx` (1,200 lines) into panels, and a live player-view preview. Only targeted improvements so far.
+- **Ambient audio and stings** per theme. This needs sound assets, so it's your call.
+- **Story import:** Export exists, but there's no way to load a story file back in yet.
+- **A committed end-to-end test:** my browser script lives in a scratch folder. Worth adding as `just e2e`.
 
 ## For the morning: per-player decision makers (your idea, not built)
 
-Your rules doc already says *"each player being the decision maker for that scene"*.
-Here are some design notes to start the conversation:
+Your rules doc already says *"each player being the decision maker for that scene"*. Some design notes to start the conversation:
 
-- **Joining:** phones enter a name on join (stored per device, e.g. `localStorage` + a server-side player list in the session). The storyteller sees who's at the table.
-- **Mode (story or session setting):** `off` (today) | `rotate` (round-robin in join order) | `storyteller picks` (tap a name each scene).
-- **Turn display:** the current decision maker's name is on every phone and the TV ("Wren decides"). Optionally, only their phone shows the choices as tappable, sending a *suggestion* the storyteller confirms. The storyteller stays in control, and the access model doesn't change.
+- **Joining:** phones enter a name when they join. The server keeps the list in the session, and the storyteller sees who's at the table.
+- **Modes** (story or session setting):
+  - `off` (today);
+  - `rotate` (round-robin in join order);
+  - `storyteller picks` (tap a name each scene).
+- **Turn display:** the current decision maker's name shows on every phone and the TV ("Wren decides"). Optionally, only their phone shows tappable choices, sending a *suggestion* the storyteller confirms. The storyteller stays in control.
 - **Open questions:**
   1. More scenes than players: wrap around, or let the storyteller choose?
-  2. What happens when a player drops or reconnects? (Identity by device token rather than name.)
-  3. Should the decision maker's phone *submit* the choice, or only highlight it for the table?
-  4. Does Back rewind the turn order too?
-  5. Does this replace the voting idea in `ideas.md`, or live alongside it as a third mode?
-- **Fits the current design:** player identity would be a fourth access layer (a per-device player token issued at join). The engine gets a `turn` field and `players` list; `resolved` gains `decision_maker`.
-
-## Phase 3: Cinematic shell (in progress, see below)
+  2. Drop-outs and reconnects: identify players by a device token rather than their name?
+  3. Should the decision maker's phone submit the choice, or only highlight it?
+  4. Does Back rewind the turn too?
+  5. Does this replace the voting idea in `ideas.md`, or sit beside it as another mode?
+- **Fits the design:**
+  - a per-device player token (a fourth access layer);
+  - `players` and `turn` in the session;
+  - `resolved.decision_maker` for display;
+  - a new moment, "your turn", on that player's phone.

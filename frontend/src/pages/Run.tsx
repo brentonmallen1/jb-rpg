@@ -6,7 +6,7 @@ import { useAsyncAction } from '../hooks/useAsyncAction'
 import { useHotkeys } from '../hooks/useHotkeys'
 import { playSting, useAmbience, useSoundEnabled } from '../hooks/useSoundscape'
 import { useMoments } from '../hooks/useMoments'
-import type { GameState, Story } from '../types'
+import type { GameState, PlayerRef, Story } from '../types'
 import { Modal, ConfirmDialog, RulesModal, PageMessage, MomentLayer, Atmosphere } from '../components'
 import { BookIcon, CloseIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SoundOffIcon, SoundOnIcon, SunIcon } from '../components/Icons'
 import { storyProgress } from '../lib/story'
@@ -47,7 +47,7 @@ export default function Run() {
   const navigate = useNavigate()
   const {
     state, resolved, playerCount, toggleColorMode, colorMode, setTheme,
-    endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere,
+    endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere, playersOnline,
   } = useGame()
   const { run, pending, error, clearError } = useAsyncAction()
   const { current: moment, done: momentDone } = useMoments(state, resolved)
@@ -57,6 +57,7 @@ export default function Run() {
   const [showRules, setShowRules] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<PlayerRef | null>(null)
   const sound = useSoundEnabled()
   useAmbience(ambienceFor(story, state), sound.enabled && hasSound(story))
 
@@ -217,7 +218,15 @@ export default function Run() {
 
       <div className={`stage__body ${showParty ? '' : 'stage__body--solo'}`}>
         {showParty && story && (
-          <PartyRail state={state} theme={story.theme} maxHp={story.settings.starting_hp} characterDescription={resolved?.character_description} />
+          <PartyRail
+            state={state}
+            theme={story.theme}
+            maxHp={story.settings.starting_hp}
+            characterDescription={resolved?.character_description}
+            decider={resolved?.decider}
+            playersOnline={playersOnline}
+            onRemovePlayer={p => setRemoveTarget(p)}
+          />
         )}
         <main className="stage__main">
           {error && (
@@ -241,6 +250,20 @@ export default function Run() {
         title="End Session?"
         message="Are you sure you want to end the current session? All players will be disconnected."
         confirmText="End Session"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={removeTarget !== null}
+        onConfirm={() => {
+          const target = removeTarget
+          setRemoveTarget(null)
+          if (target) run(() => api.removePlayer(target.id), 'Failed to remove the player')
+        }}
+        onCancel={() => setRemoveTarget(null)}
+        title={`Remove ${removeTarget?.name}?`}
+        message="They leave the turn order. They can join again from the invite link."
+        confirmText="Remove"
         variant="danger"
       />
 

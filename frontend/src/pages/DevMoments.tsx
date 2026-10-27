@@ -15,6 +15,7 @@ const SAMPLES: Record<MomentType, Moment> = {
   level_up: { type: 'level_up', level: 2 },
   scene_changed: { type: 'scene_changed' },
   choices_revealed: { type: 'choices_revealed' },
+  decider: { type: 'decider', playerId: 'p1', name: 'Wren' },
   finale: { type: 'finale' },
   victory: { type: 'victory' },
   defeat: { type: 'defeat' },

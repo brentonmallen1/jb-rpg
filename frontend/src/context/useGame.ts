@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { GameState, ResolvedContent, Story, ThemeName } from '../types'
+import type { GameState, ResolvedContent, Story, ThemeName, TurnMode } from '../types'
 
 export interface GameContextValue {
   // State from SSE
@@ -10,6 +10,7 @@ export interface GameContextValue {
   isConnected: boolean
   isInitializing: boolean
   sessionElsewhere: boolean  // running, but this tab can't see it (take over to join)
+  playersOnline: string[]  // ids of named players connected right now
 
   // Session token
   sessionToken: string | null
@@ -27,7 +28,7 @@ export interface GameContextValue {
   setCurrentStory: (story: Story | null) => void
 
   // Actions
-  startSession: (storyId: string, force?: boolean) => Promise<void>
+  startSession: (storyId: string, force?: boolean, turnMode?: TurnMode) => Promise<void>
   resumeSession: () => Promise<void>
   endSession: () => Promise<void>
 }

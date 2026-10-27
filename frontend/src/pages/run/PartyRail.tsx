@@ -1,17 +1,21 @@
-import type { GameState, ThemeName } from '../../types'
+import type { GameState, PlayerRef, ThemeName } from '../../types'
 import { HealthMeter } from '../../components'
 import { HEALTH_LABEL } from '../../lib/themes'
-import { GemIcon } from '../../components/Icons'
+import { CloseIcon, GemIcon } from '../../components/Icons'
 
 interface PartyRailProps {
   state: GameState
   theme: ThemeName
   maxHp: number
   characterDescription?: string
+  /** Turn-taking games: who's at the table */
+  decider?: PlayerRef | null
+  playersOnline?: string[]
+  onRemovePlayer?: (player: PlayerRef) => void
 }
 
 /** The party's state, always in view beside the scene. */
-export function PartyRail({ state, theme, maxHp, characterDescription }: PartyRailProps) {
+export function PartyRail({ state, theme, maxHp, characterDescription, decider, playersOnline = [], onRemovePlayer }: PartyRailProps) {
   return (
     <aside className="party" aria-label="Party">
       {state.character && (
@@ -39,6 +43,30 @@ export function PartyRail({ state, theme, maxHp, characterDescription }: PartyRa
           <div className="party__stat-value">d20+{state.items.length}</div>
         </div>
       </div>
+
+      {state.turn_mode !== 'storyteller' && (
+        <div>
+          <span className="stage-label">At the table</span>
+          {state.players.length === 0 ? (
+            <p className="party__desc">Players join with their name from the invite link.</p>
+          ) : (
+            <ul className="party__players">
+              {state.players.map(p => (
+                <li key={p.id} className={decider?.id === p.id ? 'is-deciding' : ''}>
+                  <span className={`party__online ${playersOnline.includes(p.id) ? 'is-online' : ''}`} title={playersOnline.includes(p.id) ? 'Connected' : 'Not connected'} />
+                  <span className="party__player-name">{p.name}</span>
+                  {decider?.id === p.id && <span className="party__deciding">deciding</span>}
+                  {onRemovePlayer && (
+                    <button className="icon-btn party__remove storyteller-only" onClick={() => onRemovePlayer(p)} aria-label={`Remove ${p.name} from the table`}>
+                      <CloseIcon size={14} />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div>
         <span className="stage-label">Items</span>

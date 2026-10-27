@@ -3,11 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { loadAllThemes } from '../hooks/useTheme'
-import type { StorySummary } from '../types'
+import type { StorySummary, TurnMode } from '../types'
 import { Modal, RulesModal, ConfirmDialog, InputDialog } from '../components'
 import { BookIcon, MoonIcon, SunIcon } from '../components/Icons'
 import '../styles/stage.css'
 import '../styles/pages/library.css'
+
+const TURN_MODES: { mode: TurnMode; title: string; description: string }[] = [
+  { mode: 'storyteller', title: 'The storyteller decides', description: 'The table talks it over and you make each choice. Nobody needs to join by name.' },
+  { mode: 'rotate', title: 'Players take turns', description: 'Players join with their name; each scene, the next person in line has the final say.' },
+  { mode: 'pick', title: 'You pick who decides', description: 'Players join with their name; each scene, you choose whose call it is.' },
+]
 
 const THEME_LABEL: Record<string, string> = {
   cyberpunk: 'Cyberpunk', fantasy: 'Fantasy', deep_space: 'Deep Space', modern: 'Modern', horror: 'Horror', insanity: 'Insanity',
@@ -27,7 +33,9 @@ export default function Library() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StorySummary | null>(null)
   const [stopTarget, setStopTarget] = useState(false)
-  const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string } | null>(null)
+  const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string; mode: TurnMode } | null>(null)
+  const [playTarget, setPlayTarget] = useState<StorySummary | null>(null)
+  const [turnMode, setTurnMode] = useState<TurnMode>('storyteller')
   const [showTakeOver, setShowTakeOver] = useState(false)
   const importInput = useRef<HTMLInputElement>(null)
 
@@ -92,16 +100,17 @@ export default function Library() {
     }, 'Failed to delete story.')
   }
 
-  async function handleStartSession(story: StorySummary, force = false) {
+  async function handleStartSession(story: StorySummary, mode: TurnMode, force = false) {
     setError(null)
     setReplaceTarget(null)
+    setPlayTarget(null)
     try {
-      await startSession(story.id, force)
+      await startSession(story.id, force, mode)
       navigate('/run')
     } catch (err) {
       if (err instanceof api.ApiError && err.status === 409) {
         // Another session is running: ask before ending it
-        setReplaceTarget({ story, message: err.message })
+        setReplaceTarget({ story, message: err.message, mode })
         return
       }
       setError(err instanceof Error ? err.message : 'Failed to start session.')
@@ -209,7 +218,7 @@ export default function Library() {
                     {isActive && isStoryteller ? (
                       <button className="s-btn" onClick={() => navigate('/run')}>Resume</button>
                     ) : (
-                      <button className="s-btn" onClick={() => handleStartSession(story)} disabled={sessionLoading}>Play</button>
+                      <button className="s-btn" onClick={() => { setTurnMode('storyteller'); setPlayTarget(story) }} disabled={sessionLoading}>Play</button>
                     )}
                     <button className="s-btn s-btn--ghost" onClick={() => navigate(`/editor/${story.id}`)}>Edit</button>
                     <details className="menu">
@@ -257,12 +266,31 @@ export default function Library() {
         variant="danger"
       />
 
+      <Modal isOpen={playTarget !== null} onClose={() => setPlayTarget(null)} title={`Play “${playTarget?.title}”`}>
+        <fieldset className="turn-modes">
+          <legend>Who makes the choices?</legend>
+          {TURN_MODES.map(m => (
+            <label key={m.mode} className={`turn-mode ${turnMode === m.mode ? 'is-selected' : ''}`}>
+              <input type="radio" name="turn-mode" value={m.mode} checked={turnMode === m.mode} onChange={() => setTurnMode(m.mode)} />
+              <span>
+                <strong>{m.title}</strong>
+                <span className="turn-mode__desc">{m.description}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <div className="btn-group">
+          <button className="btn btn--secondary" onClick={() => setPlayTarget(null)}>Cancel</button>
+          <button className="btn" onClick={() => playTarget && handleStartSession(playTarget, turnMode)} autoFocus>Start the game</button>
+        </div>
+      </Modal>
+
       <Modal isOpen={replaceTarget !== null} onClose={() => setReplaceTarget(null)} title="A session is already running">
         <p className="mb-lg">{replaceTarget?.message} You can take over that game, or end it and start “{replaceTarget?.story.title}”.</p>
         <div className="btn-group">
           <button className="btn btn--secondary" onClick={() => setReplaceTarget(null)}>Cancel</button>
           <button className="btn btn--secondary" onClick={() => { setReplaceTarget(null); handleTakeOver() }}>Take over</button>
-          <button className="btn btn--danger" onClick={() => replaceTarget && handleStartSession(replaceTarget.story, true)}>
+          <button className="btn btn--danger" onClick={() => replaceTarget && handleStartSession(replaceTarget.story, replaceTarget.mode, true)}>
             End it and start
           </button>
         </div>

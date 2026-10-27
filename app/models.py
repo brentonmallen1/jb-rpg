@@ -133,6 +133,16 @@ class Character(BaseModel):
     fields: dict[str, str]
 
 
+TurnMode = Literal["storyteller", "rotate", "pick"]
+
+
+class Player(BaseModel):
+    """Someone at the table who joined by name (only in the turn-taking modes)."""
+    id: str
+    name: str
+    token_hash: str = ""  # Private: proves a phone is this player
+
+
 class GameState(BaseModel):
     session_id: str = ""  # Identifier in player URLs
     story_id: str
@@ -149,16 +159,21 @@ class GameState(BaseModel):
     outcome_revealed: bool = False
     choices_revealed: bool = False
     shuffled_indices: list[int] = []
+    # Who makes each choice: the storyteller (default), players in turn, or a player the storyteller picks
+    turn_mode: TurnMode = "storyteller"
+    players: list[Player] = []
+    decider_id: Optional[str] = None  # "pick" mode: chosen per scene
+    proposal: Optional[int] = None  # Visual index of the choice the decider is leaning towards
     # Private: never sent to clients (see public_state)
     story: Optional[Story] = None  # Snapshot taken at /start, so editing a story can't break a game
     token_hash: str = ""  # sha256 of the storyteller token, so sessions survive restarts
 
 
-PRIVATE_STATE_FIELDS = {"story", "token_hash"}
+PRIVATE_STATE_FIELDS = {"story": True, "token_hash": True, "players": {"__all__": {"token_hash"}}}
 
 
 def public_state(state: GameState | None) -> dict | None:
-    """State as clients see it: no story snapshot, no token hash."""
+    """State as clients see it: no story snapshot, no token hashes."""
     if state is None:
         return None
     return state.model_dump(mode="json", exclude=PRIVATE_STATE_FIELDS)

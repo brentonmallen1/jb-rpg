@@ -226,3 +226,47 @@
 .menu__panel .menu__danger {
   color: color-mix(in srgb, var(--danger) 80%, var(--text-primary));
 }
+
+/* --- Play dialog: who makes the choices ------------------------------------------ */
+
+.turn-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  border: 0;
+}
+
+.turn-modes legend {
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.turn-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.turn-mode.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.turn-mode input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+
+.turn-mode__desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}

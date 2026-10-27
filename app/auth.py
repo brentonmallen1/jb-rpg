@@ -133,3 +133,11 @@ def verify_storyteller(x_session_token: Optional[str] = Header(None)) -> GameSta
 
 def is_player(state: GameState | None, session_id: Optional[str]) -> bool:
     return bool(state and session_id and secrets.compare_digest(session_id, state.session_id))
+
+
+def player_for_token(state: GameState | None, token: Optional[str]):
+    """The named player a phone's token belongs to (turn-taking modes), if any."""
+    if not state or not token:
+        return None
+    hashed = hash_token(token)
+    return next((p for p in state.players if secrets.compare_digest(hashed, p.token_hash)), None)

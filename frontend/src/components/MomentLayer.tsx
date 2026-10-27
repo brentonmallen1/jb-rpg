@@ -11,10 +11,12 @@ interface MomentLayerProps {
   theme: ThemeName
   level: EffectsLevel
   onDone: (id: number) => void
+  /** The named player watching (on their phone), so their own turn reads "Your call" */
+  viewerId?: string | null
 }
 
 /** Plays one moment over the page: a themed overlay, plus shake and vibration at full effects. */
-export function MomentLayer({ moment, theme, level, onDone }: MomentLayerProps) {
+export function MomentLayer({ moment, theme, level, onDone, viewerId }: MomentLayerProps) {
   useEffect(() => {
     if (!moment) return
     if (level === 'off') {
@@ -41,8 +43,10 @@ export function MomentLayer({ moment, theme, level, onDone }: MomentLayerProps) 
 
   if (!moment || level === 'off') return null
 
-  const title = momentCopy(theme, moment.type)
+  const mine = moment.type === 'decider' && moment.playerId === viewerId
+  const title = moment.type === 'decider' ? (mine ? momentCopy(theme, 'decider') : moment.name) : momentCopy(theme, moment.type)
   const detail =
+    moment.type === 'decider' ? (mine ? 'The choice is yours to make' : 'makes this choice') :
     moment.type === 'item_gained' ? moment.item :
     moment.type === 'character_revealed' ? moment.name :
     moment.type === 'level_up' ? `Level ${moment.level}` :

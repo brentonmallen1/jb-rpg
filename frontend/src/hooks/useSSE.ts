@@ -9,6 +9,7 @@ const STALE_AFTER_MS = 50_000
 interface UseSSEOptions {
   token?: string | null
   sessionId?: string | null  // For player authentication
+  playerToken?: string | null  // A named player's token (turn-taking modes)
   enabled?: boolean          // Pages that don't need live state skip the connection
 }
 
@@ -20,10 +21,11 @@ interface UseSSEReturn {
   isConnected: boolean
   isInitializing: boolean
   sessionElsewhere: boolean  // a session is running that this client can't join (no token or link)
+  playersOnline: string[]
 }
 
 export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
-  const { token, sessionId, enabled = true } = options
+  const { token, sessionId, playerToken, enabled = true } = options
 
   const [state, setState] = useState<GameState | null>(null)
   const [resolved, setResolved] = useState<ResolvedContent | null>(null)
@@ -32,6 +34,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   const [isConnected, setIsConnected] = useState(false)
   const [isInitializing, setIsInitializing] = useState(enabled)
   const [sessionElsewhere, setSessionElsewhere] = useState(false)
+  const [playersOnline, setPlayersOnline] = useState<string[]>([])
 
   useEffect(() => {
     if (!enabled) return
@@ -54,6 +57,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
       const params = new URLSearchParams()
       if (token) params.set('token', token)
       if (sessionId) params.set('s', sessionId)
+      if (playerToken) params.set('p', playerToken)
       const query = params.toString()
       es = new EventSource(query ? `/api/events?${query}` : '/api/events')
 
@@ -80,6 +84,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
             setResolved(data.resolved)
             setPlayerCount(data.player_count)
             setStorytellerConnected(data.storyteller_connected)
+            setPlayersOnline(data.players_online ?? [])
           }
         } catch (e) {
           console.error('SSE parse error:', e)
@@ -123,7 +128,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
       if (reconnectTimer) clearTimeout(reconnectTimer)
       es?.close()
     }
-  }, [enabled, token, sessionId])
+  }, [enabled, token, sessionId, playerToken])
 
   return {
     state,
@@ -133,5 +138,6 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     isConnected,
     isInitializing: enabled && isInitializing,
     sessionElsewhere,
+    playersOnline,
   }
 }

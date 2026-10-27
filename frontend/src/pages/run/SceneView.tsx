@@ -26,6 +26,8 @@ export function SceneView({ state, resolved, story, run, pending }: SceneViewPro
   const previously = recap(story, state.history.at(-1))
   const choicesVisible = revealedToMe || state.shuffled_indices.length > 0
   const canGoBack = state.history.length > 0 && !story.settings.non_linear
+  const decider = resolved.decider
+  const proposal = state.proposal ?? null
 
   const revealToMe = () => run(async () => {
     await api.revealChoices(false) // shuffle, but don't show players yet
@@ -65,6 +67,32 @@ export function SceneView({ state, resolved, story, run, pending }: SceneViewPro
       <h1 className="stage-title ink">{scene.title}</h1>
       <p className="scene-text ink ink--late">{resolved.scene_text}</p>
 
+      {state.turn_mode !== 'storyteller' && !scene.is_finale && (
+        <div className="turn-line">
+          {decider ? (
+            <span className="turn-line__who"><strong>{decider.name}</strong> decides this one</span>
+          ) : state.turn_mode === 'pick' ? (
+            <span className="turn-line__who">Who decides this one?</span>
+          ) : (
+            <span className="turn-line__who">Waiting for players to join by name</span>
+          )}
+          {state.turn_mode === 'pick' && state.players.length > 0 && (
+            <div className="turn-line__pick storyteller-only" role="group" aria-label="Choose who decides">
+              {state.players.map(p => (
+                <button
+                  key={p.id}
+                  className="chip-btn"
+                  aria-pressed={decider?.id === p.id}
+                  onClick={() => run(() => api.setDecider(decider?.id === p.id ? null : p.id), 'Failed to choose who decides')}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {scene.is_finale ? (
         <>
           {scene.finale_setup_text && <p className="scene-text">{scene.finale_setup_text}</p>}
@@ -97,7 +125,10 @@ export function SceneView({ state, resolved, story, run, pending }: SceneViewPro
                     style={{ '--i': visualIndex } as React.CSSProperties}
                   >
                     <span className="keycap">{visualIndex + 1}</span>
-                    <span className="choice-card__text">{choice.display_text}</span>
+                    <span className="choice-card__text">
+                      {choice.display_text}
+                      {proposal === visualIndex && decider && <span className="choice-card__pick">{decider.name}'s pick</span>}
+                    </span>
                     <span className={`outcome outcome--${choice.kind} storyteller-only`}>
                       <Icon size={16} />{outcomeLabel(choice)}
                     </span>

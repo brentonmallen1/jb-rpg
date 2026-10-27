@@ -2,6 +2,7 @@
 verify caller -> engine transition (validates status) -> save -> broadcast -> return state.
 """
 
+import secrets
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -10,7 +11,7 @@ from fastapi.security import HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 from .. import auth, config, engine, sse, storage
-from ..models import GameState, Story, public_state
+from ..models import GameState, Story, TurnMode, public_state
 
 router = APIRouter(prefix="/api")
 
@@ -35,9 +36,10 @@ def can_observe(credentials: Optional[HTTPBasicCredentials]) -> bool:
 async def events(
     token: Optional[str] = None,
     s: Optional[str] = None,
+    p: Optional[str] = None,
     credentials: Optional[HTTPBasicCredentials] = Depends(auth.basic),
 ):
-    """SSE stream. Storytellers pass ?token=, players pass ?s=<session_id>."""
+    """SSE stream. Storytellers pass ?token=, players pass ?s=<session_id> (and ?p=<player token> once named)."""
     state = storage.load_state()
     if auth.is_storyteller(state, token):
         role = "storyteller"
@@ -48,8 +50,9 @@ async def events(
     else:
         raise HTTPException(status_code=403, detail="Invalid session")
 
+    player = auth.player_for_token(state, p) if role == "player" else None
     return StreamingResponse(
-        sse.stream(role),
+        sse.stream(role, player.id if player else None),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
@@ -109,6 +112,7 @@ async def session_story(state: GameState = Depends(auth.verify_storyteller)) -> 
 class StartRequest(BaseModel):
     story_id: str
     force: bool = False  # end any running session first
+    turn_mode: TurnMode = "storyteller"  # who makes each choice
 
 
 @router.post("/state/start")
@@ -124,7 +128,7 @@ async def start_session(request: StartRequest, _: bool = Depends(auth.verify_adm
             raise HTTPException(status_code=409, detail=f"A session of “{title}” is already running.")
         await sse.end_session()
 
-    state = engine.new_session(story)
+    state = engine.new_session(story, request.turn_mode)
     token = auth.issue_token(state)
     return {"state": await commit(state), "token": token}
 
@@ -231,4 +235,70 @@ async def finish(request: FinishRequest, state: GameState = Depends(auth.verify_
 @router.post("/state/reveal-outcome")
 async def reveal_outcome(state: GameState = Depends(auth.verify_storyteller)):
     engine.reveal_outcome(state)
+    return await commit(state)
+
+
+# ---------------------------------------------------------------------------
+# Players and turns
+# ---------------------------------------------------------------------------
+
+
+class JoinRequest(BaseModel):
+    s: str
+    name: str = Field(..., min_length=1, max_length=60)
+
+
+class DeciderRequest(BaseModel):
+    player_id: Optional[str] = None
+
+
+class ProposeRequest(BaseModel):
+    choice_index: Optional[int] = None  # None withdraws the pick
+
+
+def require_player(state: GameState | None, token: Optional[str]):
+    player = auth.player_for_token(state, token)
+    if player is None:
+        raise HTTPException(status_code=403, detail="Join the game first")
+    return player
+
+
+@router.post("/session/join")
+async def join_session(request: JoinRequest):
+    """A phone joins the table by name. Returns the token that proves it's this player."""
+    state = storage.load_state()
+    if not auth.is_player(state, request.s):
+        raise HTTPException(status_code=403, detail="Invalid session")
+    token = secrets.token_urlsafe(24)
+    player = engine.join(state, request.name, auth.hash_token(token))
+    await commit(state)
+    return {"player": {"id": player.id, "name": player.name}, "token": token}
+
+
+@router.get("/session/me")
+async def who_am_i(x_player_token: Optional[str] = Header(None)):
+    """Which player this phone is (after a refresh or reconnect)."""
+    player = require_player(storage.load_state(), x_player_token)
+    return {"id": player.id, "name": player.name}
+
+
+@router.post("/state/propose")
+async def propose(request: ProposeRequest, x_player_token: Optional[str] = Header(None)):
+    state = storage.load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+    engine.propose(state, require_player(state, x_player_token), request.choice_index)
+    await commit(state)
+    return {"status": "ok"}
+
+
+@router.post("/state/decider")
+async def set_decider(request: DeciderRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.set_decider(state, request.player_id)
+    return await commit(state)
+
+
+@router.delete("/state/players/{player_id}")
+async def remove_player(player_id: str, state: GameState = Depends(auth.verify_storyteller)):
+    engine.remove_player(state, player_id)
     return await commit(state)

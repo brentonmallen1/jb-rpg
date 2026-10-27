@@ -468,3 +468,14 @@ html.moment-shake #root {
 .moment--subtle .moment__title {
   animation-name: moment-fade !important;
 }
+
+/* --- The turn passes to a player ---------------------------------------- */
+
+.moment--decider .moment__title {
+  color: var(--accent);
+}
+
+.moment--decider .moment__detail {
+  font-family: var(--font-reading);
+  font-style: italic;
+}

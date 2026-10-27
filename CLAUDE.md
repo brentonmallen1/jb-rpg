@@ -104,6 +104,7 @@ Three layers, all lightweight (no user accounts):
 1. **Admin (HTTP Basic)** — `verify_admin` + `AdminPagesMiddleware` protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Only `AUTH_DISABLED=true` turns it off; with no `ADMIN_USER`/`ADMIN_PASSWORD`, a login is generated on first run, saved in `DATA_DIR/admin.json`, and logged at startup.
 2. **Storyteller token** — `/api/state/start` returns a token (kept in memory server-side, `sessionStorage` client-side). Every other `POST /api/state/*` requires it in `X-Session-Token`; SSE takes it as `?token=`.
 3. **Player session id** — players join via `/player/{session_id}`; SSE and `GET /api/state` take it as `?s=`. `GET /api/session/check?s=` validates it without revealing the id. Never expose `session_id` from a public endpoint.
+4. **Player token** — only in turn-taking games: a phone joins by name (`POST /api/session/join`) and gets a token (hash stored on the `Player`; `X-Player-Token` header, SSE `?p=`). It lets that player propose a choice when it's their turn. Token hashes never leave the server (`public_state` excludes them).
 
 On `/restart`, the server sends `session_ended` and closes every SSE stream so clients re-authenticate.
 
@@ -161,6 +162,14 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 - **Moments** (`lib/moments.ts`): `diffMoments(prev, next)` turns SSE state changes into dramatic beats played by `MomentLayer` on every screen in sync; copy and victory/defeat endings are themed. Effects level (full/subtle/off) is per device; respect `prefers-reduced-motion`; never more than 3 flashes per second.
 - **Insanity** text corruption (`CorruptText`) scales with health lost; screen readers get clean text.
 - Tune visuals at `/dev/moments` (dev builds only).
+
+## Turns
+
+Chosen when a game starts (`turn_mode` on `/api/state/start`, picked in the Library's Play dialog): `storyteller` (default: the table talks, the storyteller chooses; no names), `rotate` (players take turns in join order; the turn is `players[len(history) % n]`, so Back rewinds it), or `pick` (the storyteller chooses a player each scene via `/api/state/decider`). `resolved.decider` exists only during a running scene. The decider's phone can propose a choice (`state.proposal`, a visual index); the storyteller still confirms. Scene changes clear the decider pick and proposal.
+
+## Sound
+
+Audio files are uploaded per story (`PUT /api/stories/{id}/audio/{name}`, stored under `DATA_DIR/assets/{id}/audio`). `story.sound` holds the default ambience and a sting per moment type; `scene.ambience` overrides (`"none"` = silence). Only the storyteller's screen plays sound (speaker toggle, off until clicked); phones stay quiet.
 
 ## Editor
 

@@ -318,6 +318,116 @@
   margin-bottom: 12px;
 }
 
+/* --- Turns ----------------------------------------------------------------- */
+
+.turn-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: -12px 0 22px;
+}
+
+.turn-line__who {
+  font-family: var(--font-reading);
+  font-size: 1.15rem;
+}
+
+.turn-line__who strong {
+  font-family: var(--font-display);
+  color: var(--accent);
+}
+
+.turn-line__pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-btn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.chip-btn:hover { border-color: var(--accent); }
+.chip-btn[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.choice-card__pick {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: color-mix(in srgb, var(--bg-primary) 92%, black);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.party__players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  list-style: none;
+}
+
+.party__players li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  font-family: var(--font-reading);
+}
+
+.party__players li.is-deciding .party__player-name {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.party__online {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-secondary);
+}
+
+.party__online.is-online {
+  border-color: var(--success);
+  background: var(--success);
+}
+
+.party__deciding {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.party__remove {
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  opacity: 0;
+}
+
+.party__players li:hover .party__remove,
+.party__remove:focus-visible { opacity: 1; }
+
 /* --- Choices ----------------------------------------------------------------- */
 
 .choice-list {

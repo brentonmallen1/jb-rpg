@@ -18,6 +18,7 @@ from .models import (
     ConditionType,
     GameState,
     HistoryEntry,
+    Player,
     Scene,
     SessionStatus,
     Story,
@@ -118,6 +119,8 @@ def build_resolved(state: GameState | None) -> dict | None:
         "max_hp": story.settings.starting_hp,
         # Players never see progress; this is how they learn the end has arrived
         "finale": state.status == SessionStatus.GAME_OVER and state.outcome is None,
+        # Only during a scene: the turn begins when the scene does
+        "decider": _player_ref(current_decider(state)) if state.status == SessionStatus.RUNNING else None,
     }
 
     if state.status == SessionStatus.MADLIB_IN_PROGRESS:
@@ -239,7 +242,7 @@ def require_status(state: GameState, *allowed: SessionStatus) -> None:
         raise GameError(409, f"Not allowed in status {state.status.value} (needs {expected})")
 
 
-def new_session(story: Story) -> GameState:
+def new_session(story: Story, turn_mode: str = "storyteller") -> GameState:
     problems = story_problems(story)
     if problems:
         raise GameError(422, "This story isn't ready to play: " + " ".join(p["message"] for p in problems))
@@ -258,6 +261,7 @@ def new_session(story: Story) -> GameState:
         current_scene_id=story.scenes[0].id,
         hp=story.settings.starting_hp,
         story=story,
+        turn_mode=turn_mode,
     )
 
 
@@ -280,10 +284,77 @@ def _restore_from_history(state: GameState) -> None:
 
 
 def _enter_scene(state: GameState, scene_id: str) -> None:
-    """Every scene change starts with that scene's choices hidden and unshuffled."""
+    """Every scene change starts with that scene's choices hidden and unshuffled, and no decider picked."""
     state.current_scene_id = scene_id
     state.choices_revealed = False
     state.shuffled_indices = []
+    state.decider_id = None
+    state.proposal = None
+
+
+# ---------------------------------------------------------------------------
+# Turns: who makes each choice
+# ---------------------------------------------------------------------------
+
+MAX_PLAYERS = 12
+
+
+def _player_ref(player: Player | None) -> dict | None:
+    return {"id": player.id, "name": player.name} if player else None
+
+
+def current_decider(state: GameState) -> Player | None:
+    """The player making this scene's choice; None means the storyteller decides."""
+    if state.turn_mode == "rotate" and state.players:
+        # One turn per choice made, so undoing a choice rewinds the turn too
+        return state.players[len(state.history) % len(state.players)]
+    if state.turn_mode == "pick":
+        return next((p for p in state.players if p.id == state.decider_id), None)
+    return None
+
+
+def join(state: GameState, name: str, token_hash: str) -> Player:
+    if state.turn_mode == "storyteller":
+        raise GameError(409, "This game doesn't take turns, so there's no need to join by name")
+    name = " ".join(name.split())[:24]
+    if not name:
+        raise GameError(422, "Enter a name")
+    if any(p.name.lower() == name.lower() for p in state.players):
+        raise GameError(409, f"Someone is already called {name}. Try another name.")
+    if len(state.players) >= MAX_PLAYERS:
+        raise GameError(409, "The table is full")
+    player = Player(id=secrets.token_hex(4), name=name, token_hash=token_hash)
+    state.players.append(player)
+    return player
+
+
+def remove_player(state: GameState, player_id: str) -> None:
+    state.players = [p for p in state.players if p.id != player_id]
+    if state.decider_id == player_id:
+        state.decider_id = None
+        state.proposal = None
+
+
+def set_decider(state: GameState, player_id: str | None) -> None:
+    if state.turn_mode != "pick":
+        raise GameError(409, "Only in the mode where the storyteller picks who decides")
+    if player_id is not None and not any(p.id == player_id for p in state.players):
+        raise GameError(404, "No such player")
+    state.decider_id = player_id
+    state.proposal = None
+
+
+def propose(state: GameState, player: Player, visual_index: int | None) -> None:
+    """The decider leans towards a choice (the storyteller still confirms it). None withdraws it."""
+    require_status(state, SessionStatus.RUNNING)
+    decider = current_decider(state)
+    if decider is None or decider.id != player.id:
+        raise GameError(403, "It isn't your turn to decide")
+    if not state.choices_revealed:
+        raise GameError(409, "The choices haven't been dealt yet")
+    if visual_index is not None and not 0 <= visual_index < len(state.shuffled_indices):
+        raise GameError(422, "Invalid choice index")
+    state.proposal = visual_index
 
 
 def submit_madlib(state: GameState, answer: str) -> None:
@@ -415,6 +486,8 @@ def make_choice(state: GameState, visual_index: int) -> None:
                 return
     state.choices_revealed = False
     state.shuffled_indices = []
+    state.decider_id = None
+    state.proposal = None
 
 
 def go_back(state: GameState) -> None:

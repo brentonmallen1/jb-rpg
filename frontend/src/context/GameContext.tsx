@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
-import type { Story } from '../types'
+import type { Story, TurnMode } from '../types'
 import { useSSE } from '../hooks/useSSE'
 import { useTheme } from '../hooks/useTheme'
 import * as api from '../hooks/api'
@@ -21,7 +21,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Shared SSE connection for storyteller pages; the player page opens its own
   const onPlayerPage = useLocation().pathname.startsWith('/player')
-  const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing, sessionElsewhere } = useSSE({
+  const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing, sessionElsewhere, playersOnline } = useSSE({
     token: sessionToken,
     enabled: !onPlayerPage,
   })
@@ -60,8 +60,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setIsStoryteller(true)
   }, [])
 
-  const startSession = useCallback(async (storyId: string, force: boolean = false) => {
-    becomeStoryteller((await api.startSession(storyId, force)).token)
+  const startSession = useCallback(async (storyId: string, force: boolean = false, turnMode: TurnMode = 'storyteller') => {
+    becomeStoryteller((await api.startSession(storyId, force, turnMode)).token)
   }, [becomeStoryteller])
 
   const resumeSession = useCallback(async () => {
@@ -91,6 +91,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     isConnected,
     isInitializing,
     sessionElsewhere,
+    playersOnline,
     sessionToken,
     isStoryteller,
     isValidatingToken,

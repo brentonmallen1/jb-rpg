@@ -1,4 +1,4 @@
-import type { AudioFile, Story, StorySummary, GameState, StoryProblem } from '../types'
+import type { AudioFile, Story, StorySummary, GameState, PlayerRef, StoryProblem, TurnMode } from '../types'
 
 const SESSION_TOKEN_KEY = 'jb_rpg_session_token'
 
@@ -93,8 +93,8 @@ async function takeControl(path: string, body?: unknown) {
   return data
 }
 
-export const startSession = (storyId: string, force = false) =>
-  takeControl('/api/state/start', { story_id: storyId, force })
+export const startSession = (storyId: string, force = false, turnMode: TurnMode = 'storyteller') =>
+  takeControl('/api/state/start', { story_id: storyId, force, turn_mode: turnMode })
 export const resumeSession = () => takeControl('/api/state/resume')
 
 export async function restart(): Promise<void> {
@@ -119,6 +119,29 @@ export const selectScene = (sceneId: string, revisit = false) =>
   post<GameState>('/api/state/select-scene', { scene_id: sceneId, revisit })
 export const finish = (outcome: 'victory' | 'defeat') => post<GameState>('/api/state/finish', { outcome })
 export const revealOutcome = () => post<GameState>('/api/state/reveal-outcome')
+
+// Turns: who makes each choice
+export const setDecider = (playerId: string | null) => post<GameState>('/api/state/decider', { player_id: playerId })
+export const removePlayer = (playerId: string) => request<GameState>(`/api/state/players/${playerId}`, { method: 'DELETE' })
+
+// Player endpoints authenticate with the player's own token, not the storyteller's
+async function asPlayer<T>(path: string, token: string | null, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Player-Token': token } : {}) },
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new ApiError(res.status, typeof data?.detail === 'string' ? data.detail : `Request failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const joinSession = (sessionId: string, name: string) =>
+  asPlayer<{ player: PlayerRef; token: string }>('/api/session/join', null, { method: 'POST', body: JSON.stringify({ s: sessionId, name }) })
+export const whoAmI = (token: string) => asPlayer<PlayerRef>('/api/session/me', token)
+export const proposeChoice = (token: string, choiceIndex: number | null) =>
+  asPlayer<{ status: string }>('/api/state/propose', token, { method: 'POST', body: JSON.stringify({ choice_index: choiceIndex }) })
 
 // Export story as JSON file download
 export function downloadStoryAsJson(story: Story): void {

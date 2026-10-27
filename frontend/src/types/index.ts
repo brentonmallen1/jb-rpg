@@ -112,6 +112,14 @@ export interface Character {
   fields: Record<string, string>
 }
 
+// Who makes each choice: the storyteller, players in turn, or a player the storyteller picks
+export type TurnMode = 'storyteller' | 'rotate' | 'pick'
+
+export interface PlayerRef {
+  id: string
+  name: string
+}
+
 export interface GameState {
   session_id: string
   story_id: string
@@ -128,6 +136,10 @@ export interface GameState {
   outcome_revealed: boolean
   choices_revealed: boolean
   shuffled_indices: number[]
+  turn_mode: TurnMode
+  players: PlayerRef[]
+  decider_id?: string | null
+  proposal?: number | null  // visual index the decider is leaning towards
 }
 
 // Resolved content sent from backend
@@ -139,6 +151,7 @@ export interface ResolvedContent {
   visible_choices: string[]  // Choice display text in shuffled order, once revealed to players
   finale: boolean  // The final d20 roll is underway
   max_hp: number
+  decider: PlayerRef | null  // who makes this scene's choice (null = the storyteller)
   mood?: string | null  // the scene's chosen backdrop mood (null = automatic)
   mood_seed?: number  // stable per scene, picks the automatic mood
   scene_title?: string  // title of the current scene
@@ -156,6 +169,7 @@ export interface SSEStatePayload {
   resolved: ResolvedContent | null
   player_count: number
   storyteller_connected: boolean
+  players_online: string[]  // ids of named players with a live connection
 }
 
 export interface SSESessionEndedPayload {

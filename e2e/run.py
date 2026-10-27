@@ -1,5 +1,5 @@
 """End-to-end check: a storyteller and a player play through the risky paths in real browsers,
-then the Editor is exercised (preview, autosave, problems, Playtest).
+then the Editor is exercised (preview, autosave, problems, Playtest), then players take turns.
 
 Starts its own backend and Vite dev server on spare ports with a throwaway data
 directory, so it never touches your stories or a running game. Run: `just e2e`.
@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -67,8 +68,15 @@ def stop(proc: subprocess.Popen) -> None:
     try:
         os.killpg(proc.pid, signal.SIGTERM)
         proc.wait(timeout=10)
-    except (ProcessLookupError, subprocess.TimeoutExpired):
+    except ProcessLookupError:
+        pass  # already gone
+    except subprocess.TimeoutExpired:
         os.killpg(proc.pid, signal.SIGKILL)
+
+
+def port_in_use(port: int) -> bool:
+    with socket.socket() as sock:
+        return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
 def launch(p):
@@ -79,6 +87,11 @@ def launch(p):
 
 
 def main() -> int:
+    busy = [port for port in (BACKEND_PORT, FRONTEND_PORT) if port_in_use(port)]
+    if busy:
+        print(f"Ports {busy} are in use (a previous run still going?). Stop those processes first.")
+        return 1
+
     data_dir = Path(tempfile.mkdtemp(prefix="jb-rpg-e2e-"))
     (data_dir / "stories").mkdir()
     shutil.copy(ROOT / "data" / "stories" / f"{STORY}.json", data_dir / "stories")
@@ -207,6 +220,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
             check("The player is told the session ended", False)
 
         editor_checks(browser)
+        turn_checks(browser)
         browser.close()
 
 
@@ -239,6 +253,52 @@ def editor_checks(browser) -> None:
     page.wait_for_url(B + "/run", timeout=10000)
     page.wait_for_selector("#madlib-input", timeout=10000)
     check("Playtest starts a game of the draft", True)
+
+
+def turn_checks(browser) -> None:
+    """Players take turns: start from the Library, two phones join by name, picks reach the stage."""
+    teller = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
+    teller.goto(B + "/")
+    teller.wait_for_selector(".cover")
+    teller.click(".cover button:text-is('Play')")
+    teller.wait_for_selector("text=Who makes the choices?")
+    check("Play defaults to the storyteller deciding", teller.locator("input[value='storyteller']").is_checked())
+    teller.click("text=Players take turns")
+    teller.click("text=Start the game")
+    teller.click("button:has-text('End it and start')")  # the Playtest from the editor is still running
+    teller.wait_for_url(B + "/run", timeout=10000)
+    teller.wait_for_selector("#madlib-input", timeout=10000)
+    session_id = call("/api/state", token=teller.evaluate("sessionStorage.getItem('jb_rpg_session_token')"), method="GET")["state"]["session_id"]
+
+    phones = {}
+    for name in ["Wren", "Bea"]:
+        phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+        phone.goto(f"{B}/player/{session_id}")
+        phone.wait_for_selector("text=What should we call you?", timeout=10000)
+        phone.fill("input[aria-label='Your name']", name)
+        phone.click("text=Join the table")
+        phone.wait_for_selector("text=Creating your hero", timeout=10000)
+        phones[name] = phone
+
+    for answer in ["Bartholomew", "the Salt Marshes", "a lantern"]:
+        teller.fill("#madlib-input", answer)
+        teller.keyboard.press("Enter")
+        teller.wait_for_timeout(400)
+    teller.click("text=Begin the story")
+    phones["Wren"].wait_for_selector(".turn-banner--mine", timeout=10000)
+    check("The first player's phone says it's their call", "Wren" in phones["Bea"].locator(".turn-banner").inner_text())
+
+    teller.keyboard.press("s")
+    phones["Wren"].wait_for_selector("button.dealt__card", timeout=10000)
+    phones["Wren"].locator("button.dealt__card").nth(1).click()
+    teller.wait_for_selector(".choice-card__pick", timeout=10000)
+    check("The decider's pick shows on the stage", "Wren" in teller.locator(".choice-card").nth(1).inner_text())
+
+    teller.keyboard.press("2")
+    teller.wait_for_selector(".reading-panel")
+    teller.keyboard.press("Enter")
+    phones["Bea"].wait_for_selector(".turn-banner--mine", timeout=10000)
+    check("The turn passes to the next player", True)
 
 
 if __name__ == "__main__":

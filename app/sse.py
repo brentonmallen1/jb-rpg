@@ -11,6 +11,7 @@ Role = Literal["storyteller", "player", "observer"]
 
 # Each connection is a queue of messages; None tells its stream to close
 connections: dict[asyncio.Queue, Role] = {}
+player_ids: dict[asyncio.Queue, str] = {}  # named players' connections (turn-taking modes)
 lock = asyncio.Lock()
 
 
@@ -18,12 +19,14 @@ async def build_payload() -> dict:
     state = storage.load_state()
     async with lock:
         roles = list(connections.values())
+        online = sorted(set(player_ids.values()))
     return {
         "type": "state",
         "state": public_state(state),
         "resolved": engine.build_resolved(state),
         "player_count": roles.count("player"),
         "storyteller_connected": "storyteller" in roles,
+        "players_online": online,
     }
 
 
@@ -45,10 +48,12 @@ async def end_session() -> None:
         await queue.put(None)
 
 
-async def stream(role: Role):
+async def stream(role: Role, player_id: str | None = None):
     queue: asyncio.Queue = asyncio.Queue()
     async with lock:
         connections[queue] = role
+        if player_id:
+            player_ids[queue] = player_id
     counted = role != "observer"
     try:
         yield f"data: {json.dumps(await build_payload())}\n\n"
@@ -70,5 +75,6 @@ async def stream(role: Role):
     finally:
         async with lock:
             connections.pop(queue, None)
+            player_ids.pop(queue, None)
         if counted:
             await broadcast()

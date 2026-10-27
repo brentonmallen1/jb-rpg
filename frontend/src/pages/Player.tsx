@@ -6,6 +6,7 @@ import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
 import { useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import type { GameState, ResolvedContent } from '../types'
 import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
@@ -19,8 +20,9 @@ export default function Player() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const { toggleColorMode, colorMode, setTheme } = useGame()
 
-  // Our own SSE connection, authenticated by the session id in the URL
-  const { state, resolved, storytellerConnected } = useSSE({ sessionId })
+  // Our own SSE connection, authenticated by the session id in the URL (and our name, once joined)
+  const player = usePlayerIdentity(sessionId)
+  const { state, resolved, storytellerConnected } = useSSE({ sessionId, playerToken: player.identity?.token })
   const { current: moment, done: momentDone } = useMoments(state, resolved)
   const effects = useEffectsLevel()
   useWakeLock(!!state)
@@ -91,12 +93,17 @@ export default function Player() {
         ? screen(<Message title="The session has ended" text="Thanks for playing. Ask the storyteller for a new link to join the next one." />, { center: true })
         : screen(<Message title="Waiting for the storyteller" text="The story will begin shortly." />, { center: true })
     }
+    // Turn-taking games ask each phone for a name first (or they can just watch)
+    if (state.turn_mode !== 'storyteller' && !player.identity && !player.watching && state.status !== 'game_over') {
+      return screen(<JoinScreen onJoin={player.join} onWatch={player.watch} />, { center: true })
+    }
+
     // Insanity: text starts to misbehave as sanity drains (gentler at "subtle", never at "off")
     const madness = 1 - state.hp / Math.max(resolved.max_hp, 1)
     const corruption = resolved.theme === 'insanity' && effects.level !== 'off'
       ? { madness: effects.level === 'full' ? madness : madness / 2, enabled: true }
       : { madness: 0, enabled: false }
-    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} onShowHero={() => setShowHero(true)} />, {
+    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} me={player.identity} onShowHero={() => setShowHero(true)} />, {
       center: ['madlib_in_progress', 'character_reveal'].includes(state.status) || (state.status === 'game_over' && !!state.outcome_revealed),
     })
   }
@@ -114,7 +121,7 @@ export default function Player() {
       )}
       {renderContent()}
       <CriticalPulse active={lastLife} level={effects.level} />
-      <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={effects.level} onDone={momentDone} />
+      <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={effects.level} onDone={momentDone} viewerId={player.identity?.id} />
 
       <Modal isOpen={showHero && !!state?.character} onClose={() => setShowHero(false)} title={state?.character?.name || 'Your hero'}>
         <p className="phone-text" style={{ marginTop: 0 }}>{state?.character?.description}</p>
@@ -134,14 +141,67 @@ function Message({ title, text }: { title: string; text: string }) {
   )
 }
 
+function JoinScreen({ onJoin, onWatch }: { onJoin: (name: string) => Promise<void>; onWatch: () => void }) {
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim() || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onJoin(name)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not join')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="join" onSubmit={submit}>
+      <div className="phone-eyebrow">This game takes turns</div>
+      <h1 className="phone-title">What should we call you?</h1>
+      <p className="phone-text">When it's your turn, the choice is yours to make.</p>
+      <input
+        className="join__input"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="Your name"
+        aria-label="Your name"
+        maxLength={24}
+        autoFocus
+        autoComplete="nickname"
+      />
+      {error && <p className="join__error" role="alert">{error}</p>}
+      <button className="join__button" type="submit" disabled={!name.trim() || busy}>Join the table</button>
+      <button className="join__watch" type="button" onClick={onWatch}>Just watch</button>
+    </form>
+  )
+}
+
 interface GameScreenProps {
   state: GameState
   resolved: ResolvedContent
   corruption: { madness: number; enabled: boolean }
+  me: PlayerIdentity | null
   onShowHero: () => void
 }
 
-function GameScreen({ state, resolved, corruption, onShowHero }: GameScreenProps) {
+function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenProps) {
+  const myTurn = !!me && resolved.decider?.id === me.id
+  const [pickError, setPickError] = useState<string | null>(null)
+  async function pick(index: number) {
+    if (!me) return
+    setPickError(null)
+    try {
+      await api.proposeChoice(me.token, state.proposal === index ? null : index)
+    } catch (err) {
+      setPickError(err instanceof Error ? err.message : 'Could not pick that')
+    }
+  }
   const warp = (text: string) => <CorruptText text={text} madness={corruption.madness} enabled={corruption.enabled} />
 
   if (state.status === 'madlib_in_progress') {
@@ -231,20 +291,42 @@ function GameScreen({ state, resolved, corruption, onShowHero }: GameScreenProps
               <p className="phone-text">{warp(resolved.scene_text)}</p>
             </details>
           )}
+          {state.turn_mode !== 'storyteller' && state.status === 'running' && (
+            <TurnBanner decider={resolved.decider} mine={myTurn} mode={state.turn_mode} />
+          )}
           {resolved.visible_choices.length > 0 && (
             <div className="dealt" aria-live="polite">
-              <span className="phone-label">The choices</span>
-              {resolved.visible_choices.map((text, i) => (
-                <div key={`${resolved.scene_title}-${i}`} className="dealt__card" style={{ '--i': i } as React.CSSProperties}>
-                  <span className="dealt__numeral">{ROMAN[i] ?? i + 1}</span>
-                  <span>{warp(text)}</span>
-                </div>
-              ))}
-              <p className="phone__status" style={{ paddingTop: 6 }}>Decide together. The storyteller is listening.</p>
+              <span className="phone-label">{myTurn ? 'Tap your choice' : 'The choices'}</span>
+              {resolved.visible_choices.map((text, i) => {
+                const picked = state.proposal === i
+                const content = (
+                  <>
+                    <span className="dealt__numeral">{ROMAN[i] ?? i + 1}</span>
+                    <span>{warp(text)}</span>
+                    {picked && resolved.decider && <span className="dealt__pick">{myTurn ? 'Your pick' : `${resolved.decider.name}'s pick`}</span>}
+                  </>
+                )
+                const key = `${resolved.scene_title}-${i}`
+                const props = { className: `dealt__card ${picked ? 'is-picked' : ''}`, style: { '--i': i } as React.CSSProperties }
+                return myTurn
+                  ? <button key={key} {...props} type="button" aria-pressed={picked} onClick={() => pick(i)}>{content}</button>
+                  : <div key={key} {...props}>{content}</div>
+              })}
+              {pickError && <p className="join__error" role="alert">{pickError}</p>}
+              <p className="phone__status" style={{ paddingTop: 6 }}>
+                {myTurn ? 'Talk it over, then tap. The storyteller makes it official.' :
+                  resolved.decider ? `${resolved.decider.name} has the final say.` : 'Decide together. The storyteller is listening.'}
+              </p>
             </div>
           )}
         </>
       )}
     </>
   )
+}
+
+function TurnBanner({ decider, mine, mode }: { decider: ResolvedContent['decider']; mine: boolean; mode: GameState['turn_mode'] }) {
+  if (mine) return <div className="turn-banner turn-banner--mine" role="status">Your call</div>
+  if (decider) return <div className="turn-banner" role="status"><strong>{decider.name}</strong> decides this one</div>
+  return mode === 'pick' ? <div className="turn-banner" role="status">The storyteller will choose who decides</div> : null
 }

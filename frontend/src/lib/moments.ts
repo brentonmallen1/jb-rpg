@@ -11,6 +11,7 @@ export type Moment =
   | { type: 'level_up'; level: number }
   | { type: 'scene_changed' }
   | { type: 'choices_revealed' }
+  | { type: 'decider'; playerId: string; name: string }
   | { type: 'finale' }
   | { type: 'victory' }
   | { type: 'defeat' }
@@ -50,6 +51,12 @@ export function diffMoments(
     moments.push({ type: 'scene_changed' })
   }
 
+  // The turn passes to a player (taking turns, or the storyteller picked someone)
+  const decider = nextResolved?.decider
+  if (decider && decider.id !== prevResolved?.decider?.id && !undo && next.status === 'running') {
+    moments.push({ type: 'decider', playerId: decider.id, name: decider.name })
+  }
+
   if (!prev.choices_revealed && next.choices_revealed) moments.push({ type: 'choices_revealed' })
 
   const wasRevealed = prev.outcome_revealed && prev.outcome
@@ -68,6 +75,7 @@ export const MOMENT_DURATION: Record<MomentType, number> = {
   level_up: 1800,
   scene_changed: 1100,
   choices_revealed: 600,
+  decider: 1900,
   finale: 3200,
   victory: 4000,
   defeat: 4000,
@@ -82,6 +90,7 @@ const DEFAULT_COPY: Record<MomentType, string> = {
   level_up: 'Level up',
   scene_changed: '',
   choices_revealed: '',
+  decider: 'Your call',
   finale: 'The final roll',
   victory: 'Victory',
   defeat: 'Defeat',

@@ -58,6 +58,7 @@ export interface Scene {
   defeat_text?: string  // Read on defeat
   item_texts?: Record<string, { victory?: string; defeat?: string }>  // Item-conditional text blocks for finale
   mood?: string | null  // backdrop mood within the theme; unset = automatic
+  ambience?: string | null  // uploaded audio to loop; unset = story default, 'none' = silence
 }
 
 export interface MadLibField {
@@ -76,6 +77,16 @@ export interface StorySettings {
   non_linear: boolean
 }
 
+export interface StorySound {
+  ambience?: string | null  // default looping audio (an uploaded file name)
+  stings: Record<string, string>  // moment type (hp_lost, victory…) -> uploaded file name
+}
+
+export interface AudioFile {
+  name: string
+  size: number
+}
+
 export interface Story {
   id: string
   title: string
@@ -84,6 +95,7 @@ export interface Story {
   madlib_template: MadLibTemplate
   scenes: Scene[]
   opening_scene?: OpeningScene
+  sound?: StorySound
 }
 
 export interface HistoryEntry {

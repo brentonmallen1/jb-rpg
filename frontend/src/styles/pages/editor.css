@@ -711,6 +711,50 @@
 
 .ed-segmented--small button { min-height: 28px; padding: 0 10px; font-size: 0.8rem; }
 
+/* --- Sound ------------------------------------------------------------------------- */
+
+.ed-audio {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+}
+
+.ed-audio li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.ed-audio__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-stings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.ed-sting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.ed-sting .ed-inline-select { max-width: 55%; }
+
 /* --- Preview ------------------------------------------------------------------------ */
 
 .ed-preview {

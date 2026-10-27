@@ -1,4 +1,4 @@
-import type { Story, StorySummary, GameState, StoryProblem } from '../types'
+import type { AudioFile, Story, StorySummary, GameState, StoryProblem } from '../types'
 
 const SESSION_TOKEN_KEY = 'jb_rpg_session_token'
 
@@ -69,6 +69,22 @@ export const duplicateStory = (id: string) => post<Story>(`/api/stories/${id}/du
 export const updateStory = (id: string, story: Story) =>
   request<Story>(`/api/stories/${id}`, { method: 'PUT', body: story })
 export const deleteStory = (id: string) => request<void>(`/api/stories/${id}`, { method: 'DELETE' })
+
+// Audio uploaded to a story (ambience loops and moment stings)
+export const audioUrl = (storyId: string, name: string) => `/api/stories/${storyId}/audio/${encodeURIComponent(name)}`
+export const listAudio = (storyId: string) => request<AudioFile[]>(`/api/stories/${storyId}/audio`)
+export const deleteAudio = (storyId: string, name: string) => request<void>(audioUrl(storyId, name), { method: 'DELETE' })
+
+export async function uploadAudio(storyId: string, file: File): Promise<AudioFile> {
+  // The body is the file itself; names are tidied to what the server accepts
+  const name = file.name.replace(/[^A-Za-z0-9 ._()'-]/g, '_').replace(/^[^A-Za-z0-9]+/, '')
+  const res = await fetch(audioUrl(storyId, name), { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new ApiError(res.status, typeof data?.detail === 'string' ? data.detail : `Upload failed (${res.status})`)
+  }
+  return res.json()
+}
 
 // Session lifecycle. start/resume hand back a new storyteller token.
 async function takeControl(path: string, body?: unknown) {

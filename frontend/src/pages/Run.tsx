@@ -4,10 +4,11 @@ import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { useAsyncAction } from '../hooks/useAsyncAction'
 import { useHotkeys } from '../hooks/useHotkeys'
+import { playSting, useAmbience, useSoundEnabled } from '../hooks/useSoundscape'
 import { useMoments } from '../hooks/useMoments'
 import type { GameState, Story } from '../types'
 import { Modal, ConfirmDialog, RulesModal, PageMessage, MomentLayer, Atmosphere } from '../components'
-import { BookIcon, CloseIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SunIcon } from '../components/Icons'
+import { BookIcon, CloseIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SoundOffIcon, SoundOnIcon, SunIcon } from '../components/Icons'
 import { storyProgress } from '../lib/story'
 import { moodFor } from '../lib/themes'
 import { MadlibStep } from './run/MadlibStep'
@@ -20,6 +21,19 @@ import { PartyRail } from './run/PartyRail'
 import '../styles/stage.css'
 
 const PRESENTATION_KEY = 'jb_rpg_presentation'
+
+/** The audio that should loop right now: the scene's own ambience, else the story's. */
+function ambienceFor(story: Story | null, state: GameState | null): string | null {
+  if (!story || !state) return null
+  const scene = story.scenes.find(s => s.id === state.current_scene_id)
+  const own = ['running', 'game_over'].includes(state.status) ? scene?.ambience : undefined
+  const name = own === 'none' ? null : own || story.sound?.ambience || null
+  return name ? api.audioUrl(story.id, name) : null
+}
+
+function hasSound(story: Story | null): boolean {
+  return !!story && (!!story.sound?.ambience || Object.keys(story.sound?.stings ?? {}).length > 0 || story.scenes.some(s => s.ambience && s.ambience !== 'none'))
+}
 
 function readPresentation(): boolean {
   try {
@@ -43,6 +57,15 @@ export default function Run() {
   const [showRules, setShowRules] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+  const sound = useSoundEnabled()
+  useAmbience(ambienceFor(story, state), sound.enabled && hasSound(story))
+
+  // A moment's sting plays as the moment starts
+  const momentId = moment?.id
+  const sting = moment && story?.sound?.stings[moment.type]
+  useEffect(() => {
+    if (sound.enabled && sting && story) playSting(api.audioUrl(story.id, sting))
+  }, [momentId, sting, sound.enabled, story])
 
   // The session's own copy of the story: edits made after starting don't affect this game
   const sessionId = state?.session_id
@@ -169,6 +192,11 @@ export default function Run() {
           <span className={`stage__players storyteller-only ${playerCount > 0 ? 'stage__players--present' : ''}`} aria-live="polite">
             {playerCount} {playerCount === 1 ? 'player' : 'players'}
           </span>
+          {hasSound(story) && (
+            <button className="icon-btn" onClick={sound.toggle} aria-pressed={sound.enabled} aria-label={sound.enabled ? 'Turn sound off' : 'Turn sound on'} title={sound.enabled ? 'Sound on' : 'Sound off'}>
+              {sound.enabled ? <SoundOnIcon /> : <SoundOffIcon />}
+            </button>
+          )}
           <button className="icon-btn" onClick={togglePresentation} aria-pressed={presentation} aria-label="Presentation mode (P)" title="Presentation mode (P)">
             <PresentIcon />
           </button>

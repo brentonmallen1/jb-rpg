@@ -84,6 +84,7 @@ class Scene(BaseModel):
     # Item-conditional text blocks for finale: { "ItemName": { "victory": "...", "defeat": "..." } }
     item_texts: dict[str, dict[str, str]] = {}
     mood: Optional[str] = None  # Backdrop mood within the story's theme; None = picked automatically
+    ambience: Optional[str] = None  # Uploaded audio file to loop; None = story default, "none" = silence
 
 
 class MadLibField(BaseModel):
@@ -102,6 +103,11 @@ class StorySettings(BaseModel):
     non_linear: bool = False
 
 
+class StorySound(BaseModel):
+    ambience: Optional[str] = None  # Default looping audio (an uploaded file name)
+    stings: dict[str, str] = {}  # Moment type (hp_lost, victory…) -> uploaded file name
+
+
 class Story(BaseModel):
     id: str
     title: str
@@ -110,6 +116,7 @@ class Story(BaseModel):
     madlib_template: MadLibTemplate
     scenes: list[Scene]
     opening_scene: Optional[OpeningScene] = None
+    sound: StorySound = StorySound()
 
 
 class HistoryEntry(BaseModel):

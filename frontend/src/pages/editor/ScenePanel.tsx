@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import type { Scene, Story, StoryProblem } from '../../types'
+import type { AudioFile, Scene, Story, StoryProblem } from '../../types'
 import { MOODS } from '../../lib/themes'
 import { itemsInStory, newChoices, patchScene } from '../../lib/storyEdit'
 import { CloseIcon } from '../../components/Icons'
@@ -14,10 +14,11 @@ interface ScenePanelProps {
   problems: StoryProblem[]
   update: (change: (story: Story) => Story) => void
   textTarget: RefObject<HTMLInputElement | HTMLTextAreaElement | null>
+  audio: AudioFile[]
   onDelete: () => void
 }
 
-export function ScenePanel({ story, scene, problems, update, textTarget, onDelete }: ScenePanelProps) {
+export function ScenePanel({ story, scene, problems, update, textTarget, audio, onDelete }: ScenePanelProps) {
   const patch = (p: Partial<Scene>) => update(s => patchScene(s, scene.id, p))
   const keyTokens = story.madlib_template.fields.map(f => ({ token: `{${f.key}}`, title: f.label || f.key }))
   const sceneProblems = problems.filter(p => p.scene_id === scene.id)
@@ -64,6 +65,16 @@ export function ScenePanel({ story, scene, problems, update, textTarget, onDelet
           </select>
         </Field>
       </div>
+
+      {audio.length > 0 && (
+        <Field label="Ambience" hint="what plays on the storyteller's screen during this scene" htmlFor="scene-ambience">
+          <select id="scene-ambience" className="ed-input" value={scene.ambience ?? ''} onChange={e => patch({ ambience: e.target.value || null })}>
+            <option value="">Story default{story.sound?.ambience ? ` (${story.sound.ambience})` : ' (silence)'}</option>
+            <option value="none">Silence</option>
+            {audio.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+          </select>
+        </Field>
+      )}
 
       <Field label="The scene" hint="read aloud to the table" htmlFor="scene-text">
         <TextArea

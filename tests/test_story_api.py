@@ -142,3 +142,29 @@ def test_duplicate_story_copies_content_and_assets(client):
     client.delete(f"/api/stories/{copy['id']}")
     assert not storage.assets_dir(copy["id"]).exists()
     assert asset.exists()
+
+
+def test_audio_upload_list_serve_delete(client):
+    story = client.post("/api/stories", json={"title": "Loud"}).json()
+    base = f"/api/stories/{story['id']}/audio"
+
+    assert client.put(f"{base}/rain loop.mp3", content=b"ID3 fake").json() == {"name": "rain loop.mp3", "size": 8}
+    assert client.get(base).json() == [{"name": "rain loop.mp3", "size": 8}]
+    served = client.get(f"{base}/rain loop.mp3")
+    assert served.status_code == 200 and served.content == b"ID3 fake"
+    assert served.headers["content-type"] == "audio/mpeg"
+
+    assert client.put(f"{base}/notes.txt", content=b"x").status_code == 422
+    assert client.put(f"{base}/..%2Fescape.mp3", content=b"x").status_code in (404, 422)
+    assert client.put(f"{base}/empty.mp3", content=b"").status_code == 422
+
+    client.delete(f"{base}/rain loop.mp3")
+    assert client.get(base).json() == []
+
+
+def test_story_sound_settings_round_trip(client):
+    story = client.post("/api/stories", json={"title": "Loud"}).json()
+    assert story["sound"] == {"ambience": None, "stings": {}}
+    story["sound"] = {"ambience": "rain.mp3", "stings": {"hp_lost": "thud.mp3"}}
+    client.put(f"/api/stories/{story['id']}", json=story)
+    assert client.get(f"/api/stories/{story['id']}").json()["sound"]["stings"] == {"hp_lost": "thud.mp3"}

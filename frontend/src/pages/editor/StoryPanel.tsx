@@ -1,7 +1,8 @@
-import { THEMES, type Story, type StoryProblem } from '../../types'
+import { THEMES, type AudioFile, type Story, type StoryProblem } from '../../types'
 import { HEALTH_LABEL } from '../../lib/themes'
 import { Field, Section } from './fields'
 import type { EditorSelection } from './EditorNav'
+import { SoundSection } from './SoundSection'
 
 const THEME_LABEL: Record<string, string> = {
   cyberpunk: 'Cyberpunk', fantasy: 'Fantasy', deep_space: 'Deep Space', modern: 'Modern', horror: 'Horror', insanity: 'Insanity',
@@ -12,9 +13,11 @@ interface StoryPanelProps {
   problems: StoryProblem[]
   update: (change: (story: Story) => Story) => void
   onJump: (selection: EditorSelection) => void
+  audio: AudioFile[]
+  onAudioChange: () => void
 }
 
-export function StoryPanel({ story, problems, update, onJump }: StoryPanelProps) {
+export function StoryPanel({ story, problems, update, onJump, audio, onAudioChange }: StoryPanelProps) {
   const hp = story.settings.starting_hp
   const setHp = (value: number) => update(s => ({ ...s, settings: { ...s.settings, starting_hp: Math.min(10, Math.max(1, value)) } }))
 
@@ -99,6 +102,8 @@ export function StoryPanel({ story, problems, update, onJump }: StoryPanelProps)
           </p>
         </Field>
       </div>
+
+      <SoundSection story={story} audio={audio} onAudioChange={onAudioChange} update={update} />
     </div>
   )
 }

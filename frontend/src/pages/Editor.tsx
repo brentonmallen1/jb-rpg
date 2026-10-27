@@ -5,7 +5,7 @@ import * as api from '../hooks/api'
 import { useAutoSave } from '../hooks/useAutoSave'
 import { useUndoable } from '../hooks/useUndoable'
 import { loadAllThemes } from '../hooks/useTheme'
-import type { Story, StoryProblem } from '../types'
+import type { AudioFile, Story, StoryProblem } from '../types'
 import { ConfirmDialog, Modal, PageMessage } from '../components'
 import { BackIcon, EyeIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
 import { moveSceneTo, newScene } from '../lib/storyEdit'
@@ -46,6 +46,11 @@ export default function Editor() {
   const [replaceMessage, setReplaceMessage] = useState<string | null>(null)
   const [navOpen, setNavOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [audio, setAudio] = useState<AudioFile[]>([])
+  const refreshAudio = useCallback(() => {
+    api.listAudio(storyId).then(setAudio).catch(() => setAudio([]))
+  }, [storyId])
+  useEffect(refreshAudio, [refreshAudio])
 
   // The text field the author was last typing in, for the insert chips
   const textTarget = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
@@ -195,11 +200,12 @@ export default function Editor() {
           problems={problems}
           update={update}
           textTarget={textTarget}
+          audio={audio}
           onDelete={() => setDeleteTarget(selectedScene.id)}
         />
       )
     }
-    return <StoryPanel story={story} problems={problems} update={update} onJump={select} />
+    return <StoryPanel story={story} problems={problems} update={update} onJump={select} audio={audio} onAudioChange={refreshAudio} />
   }
 
   return (

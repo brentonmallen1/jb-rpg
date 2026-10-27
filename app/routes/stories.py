@@ -1,8 +1,10 @@
 """Story CRUD (admin only)."""
 
+import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from .. import auth, engine, sse, storage
@@ -95,4 +97,66 @@ async def delete_story(story_id: str):
         await sse.end_session()
         storage.save_state(None)
     storage.delete_story(story_id)
+    return {"status": "deleted"}
+
+
+# ---------------------------------------------------------------------------
+# Audio: ambience loops and moment stings, stored with the story
+# ---------------------------------------------------------------------------
+
+AUDIO_TYPES = {
+    ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".opus": "audio/ogg",
+    ".wav": "audio/wav", ".m4a": "audio/mp4", ".aac": "audio/aac", ".webm": "audio/webm", ".flac": "audio/flac",
+}
+MAX_AUDIO_BYTES = 30 * 1024 * 1024
+SAFE_AUDIO_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._()'-]{0,99}$")
+
+
+def audio_path(story_id: str, name: str):
+    require_story(story_id)
+    suffix = name[name.rfind("."):].lower() if "." in name else ""
+    if not SAFE_AUDIO_NAME.match(name) or suffix not in AUDIO_TYPES or "/" in name or ".." in name:
+        raise HTTPException(status_code=422, detail="Use an audio file (mp3, ogg, wav, m4a, aac, webm, flac) with a plain name")
+    return storage.assets_dir(story_id) / "audio" / name, AUDIO_TYPES[suffix]
+
+
+@router.get("/{story_id}/audio")
+async def list_audio(story_id: str) -> list[dict]:
+    require_story(story_id)
+    folder = storage.assets_dir(story_id) / "audio"
+    if not folder.exists():
+        return []
+    return [{"name": f.name, "size": f.stat().st_size} for f in sorted(folder.iterdir()) if f.is_file()]
+
+
+@router.put("/{story_id}/audio/{name}")
+async def upload_audio(story_id: str, name: str, request: Request) -> dict:
+    """Upload one audio file (the request body is the file). Same name replaces it."""
+    path, _ = audio_path(story_id, name)
+    if int(request.headers.get("content-length") or 0) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Audio files can be up to 30 MB")
+    data = await request.body()
+    if not data:
+        raise HTTPException(status_code=422, detail="The file is empty")
+    if len(data) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Audio files can be up to 30 MB")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.uploading")
+    tmp.write_bytes(data)
+    tmp.replace(path)
+    return {"name": path.name, "size": len(data)}
+
+
+@router.get("/{story_id}/audio/{name}")
+async def get_audio(story_id: str, name: str):
+    path, media_type = audio_path(story_id, name)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Audio not found")
+    return FileResponse(path, media_type=media_type)
+
+
+@router.delete("/{story_id}/audio/{name}")
+async def delete_audio(story_id: str, name: str):
+    path, _ = audio_path(story_id, name)
+    path.unlink(missing_ok=True)
     return {"status": "deleted"}

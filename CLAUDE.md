@@ -159,7 +159,7 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 - Layout CSS (`stage.css`, `phone.css`) only uses tokens, so themes restyle everything without layout changes.
 - `lib/themes.ts`: `HEALTH_LABEL` (Candles, Sight, Integrity, Hull, Sanity, Health) and `MOODS` per theme. `HealthMeter` draws health in each theme's iconography.
 - **Moods**: `Scene.mood` (set in the Editor, or unset = automatic). The server sends `resolved.mood` + `resolved.mood_seed`; `moodFor()` picks the theme's mood. `Atmosphere` renders the backdrop.
-- **Moments** (`lib/moments.ts`): `diffMoments(prev, next)` turns SSE state changes into dramatic beats played by `MomentLayer` on every screen in sync; copy and victory/defeat endings are themed. Effects level (full/subtle/off) is per device; respect `prefers-reduced-motion`; never more than 3 flashes per second.
+- **Moments** (`lib/moments.ts`): `diffMoments(prev, next)` turns SSE state changes into dramatic beats played by `MomentLayer` on every screen in sync; copy and victory/defeat endings are themed. Effects level (full/subtle/off) is per device (phones pick it from `EffectsMenu`, where subtle is called "Gentle"); respect `prefers-reduced-motion`; never more than 3 flashes per second.
 - **No flashing** (`state.no_flashing`, ticked in the Play dialog or toggled with the bolt on the stage) caps every screen, TV included, at `subtle` (`capLevel`). `subtle` must stay flash-free: slow fades only, no spikes, `steps()` glitches, glints, shake or text flicker. Anything new that flashes belongs to `full` only.
 - **Insanity** text corruption (`CorruptText`) scales with health lost; screen readers get clean text.
 - Tune visuals at `/dev/moments` (dev builds only).

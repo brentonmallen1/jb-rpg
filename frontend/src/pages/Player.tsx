@@ -4,18 +4,18 @@ import { useGame } from '../context/useGame'
 import { useSSE } from '../hooks/useSSE'
 import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
-import { capLevel, useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
+import { capLevel, useEffectsLevel } from '../hooks/useEffectsLevel'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
 import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
-import { BookIcon, D20Icon, MoonIcon, SparkIcon, SunIcon } from '../components/Icons'
+import { BookIcon, D20Icon, MoonIcon, SunIcon } from '../components/Icons'
+import { EffectsMenu } from './player/EffectsMenu'
 import '../styles/phone.css'
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX']
-const EFFECTS_LABEL: Record<EffectsLevel, string> = { full: 'Effects: full', subtle: 'Effects: subtle', off: 'Effects: off' }
 
 export default function Player() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -28,7 +28,6 @@ export default function Player() {
   const effects = useEffectsLevel()
   // This phone's own choice, capped when the table asked for no flashing
   const level = capLevel(effects.level, state?.no_flashing)
-  const effectsLabel = EFFECTS_LABEL[level] + (level !== effects.level ? ' (the table asked for no flashing)' : '')
   useWakeLock(!!state)
 
   const [showRules, setShowRules] = useState(false)
@@ -59,9 +58,7 @@ export default function Player() {
     <header className="phone__bar">
       <span className="phone__story">{resolved?.story_title ?? "J&B's RPG"}</span>
       <div className="phone__tools">
-        <button className="phone__tool" onClick={effects.cycle} aria-label={`${effectsLabel} (tap to change)`} title={effectsLabel}>
-          <SparkIcon style={{ opacity: level === 'off' ? 0.35 : level === 'subtle' ? 0.65 : 1 }} />
-        </button>
+        <EffectsMenu chosen={effects.level} tableCalm={!!state?.no_flashing} onChange={effects.setLevel} />
         <button className="phone__tool" onClick={() => setShowRules(true)} aria-label="Rules">
           <BookIcon />
         </button>

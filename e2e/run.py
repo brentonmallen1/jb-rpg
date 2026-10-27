@@ -361,12 +361,22 @@ def flashing_checks(browser) -> None:
     phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
     phone.goto(f"{B}/player/{session_id}")
     phone.wait_for_selector("text=Creating your hero", timeout=10000)
-    effects = phone.locator(".phone__tool").first
-    check("No flashing caps a phone set to full effects", "no flashing" in (effects.get_attribute("title") or ""))
+    effects = phone.locator(".effects__button")
+    check("No flashing caps a phone set to full effects", effects.inner_text().strip() == "Effects: Gentle", effects.inner_text())
+    effects.click()
+    check("Full is locked while the table asks for no flashing", phone.locator("input[value='full']").is_disabled())
+    if os.environ.get("E2E_SHOTS"):
+        phone.wait_for_timeout(400)  # let the panel finish fading in
+        phone.screenshot(path=os.environ["E2E_SHOTS"] + "/effects-menu.png")
+    phone.keyboard.press("Escape")
 
     teller.click("button[aria-pressed='true'][title='No flashing (all screens)']")
-    phone.wait_for_selector(".phone__tool[title='Effects: full']", timeout=10000)
+    phone.wait_for_selector(".effects__button:has-text('Effects: Full')", timeout=10000)
     check("The storyteller can turn flashing back on mid-game", True)
+
+    effects.click()
+    phone.click("text=Gentle")
+    check("A phone can choose its own level", effects.inner_text().strip() == "Effects: Gentle")
 
 
 if __name__ == "__main__":

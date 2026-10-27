@@ -19,6 +19,8 @@
 }
 
 .phone__bar {
+  position: relative;
+  z-index: 20; /* above the page, so the effects panel can open over it */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -465,3 +467,84 @@ button.dealt__card {
 }
 
 .effects-off .vote__clock.is-urgent { animation: none; }
+
+/* --- Effects on this phone --------------------------------------------------- */
+
+.phone__tool.effects__button {
+  width: auto;
+  gap: 6px;
+  grid-auto-flow: column;
+  padding: 0 10px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.effects__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  width: min(300px, calc(100vw - 32px));
+  margin: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.35);
+  animation: effects-in 180ms var(--ease-out-expo) both;
+}
+
+.effects__panel legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.effects__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.effects__option.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.effects__option.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.effects__option input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+
+.effects__desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+@keyframes effects-in {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+
+.effects-off .effects__panel { animation: none; }

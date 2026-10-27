@@ -4,7 +4,6 @@ import { useCallback, useState } from 'react'
 export type EffectsLevel = 'full' | 'subtle' | 'off'
 
 const STORAGE_KEY = 'jb_rpg_effects'
-const ORDER: EffectsLevel[] = ['full', 'subtle', 'off']
 
 function initialLevel(): EffectsLevel {
   try {
@@ -33,9 +32,6 @@ export function useEffectsLevel() {
     }
   }, [])
 
-  const cycle = useCallback(() => {
-    setLevel(ORDER[(ORDER.indexOf(level) + 1) % ORDER.length])
-  }, [level, setLevel])
 
-  return { level, setLevel, cycle }
+  return { level, setLevel }
 }

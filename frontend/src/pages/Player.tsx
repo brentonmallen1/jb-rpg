@@ -1,32 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import { useSSE } from '../hooks/useSSE'
 import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
 import { useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
-import { Modal, RulesModal, HPDisplay, StatsRow, ModeToggle, MomentLayer, CriticalPulse } from '../components'
-import '../styles/pages/player.css'
+import type { GameState, ResolvedContent } from '../types'
+import { Modal, RulesModal, HPDisplay, MomentLayer, CriticalPulse } from '../components'
+import { BookIcon, D20Icon, MoonIcon, SparkIcon, SunIcon } from '../components/Icons'
+import '../styles/phone.css'
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX']
+const EFFECTS_LABEL: Record<EffectsLevel, string> = { full: 'Effects: full', subtle: 'Effects: subtle', off: 'Effects: off' }
 
 export default function Player() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const { toggleColorMode, colorMode, setTheme } = useGame()
 
-  // Use our own SSE connection with the sessionId from URL
-  const { state, resolved, storytellerConnected, playerCount } = useSSE({ sessionId })
-
+  // Our own SSE connection, authenticated by the session id in the URL
+  const { state, resolved, storytellerConnected } = useSSE({ sessionId })
   const { current: moment, done: momentDone } = useMoments(state, resolved)
   const effects = useEffectsLevel()
 
   const [showRules, setShowRules] = useState(false)
-  const [showCharacterModal, setShowCharacterModal] = useState(false)
+  const [showHero, setShowHero] = useState(false)
   const [sessionCheck, setSessionCheck] = useState<'checking' | 'valid' | 'invalid'>('checking')
 
   // Remember that we were in a game, so an empty state reads as "ended", not "waiting"
   const [joinedGame, setJoinedGame] = useState(false)
   if (state && !joinedGame) setJoinedGame(true)
 
-  // Validate session on mount
   useEffect(() => {
     if (!sessionId) return
     let cancelled = false
@@ -37,211 +40,57 @@ export default function Player() {
     return () => { cancelled = true }
   }, [sessionId])
 
-  // Apply the story's theme (sent by the server; players never load the story)
+  // The story's theme comes from the server; players never load the story itself
   const storyTheme = resolved?.theme
   useEffect(() => {
     if (storyTheme) setTheme(storyTheme)
   }, [storyTheme, setTheme])
 
-  function renderContent() {
-    // If no sessionId in URL, show error
-    if (!sessionId) {
-      return (
-        <main className="player-layout">
-          <div className="waiting-state session-error">
-            <h1>Session Link Required</h1>
-            <p>Please use the link provided by your storyteller to join the game.</p>
-          </div>
-        </main>
-      )
-    }
+  const toolbar = (
+    <header className="phone__bar">
+      <span className="phone__story">{resolved?.story_title ?? "J&B's RPG"}</span>
+      <div className="phone__tools">
+        <button className="phone__tool" onClick={effects.cycle} aria-label={`${EFFECTS_LABEL[effects.level]} (tap to change)`} title={EFFECTS_LABEL[effects.level]}>
+          <SparkIcon style={{ opacity: effects.level === 'off' ? 0.35 : effects.level === 'subtle' ? 0.65 : 1 }} />
+        </button>
+        <button className="phone__tool" onClick={() => setShowRules(true)} aria-label="Rules">
+          <BookIcon />
+        </button>
+        <button className="phone__tool" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
+          {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
+        </button>
+      </div>
+    </header>
+  )
 
-    // Show loading while validating session
-    if (sessionCheck === 'checking') {
-      return (
-        <main className="player-layout">
-          <div className="waiting-state">
-            <p>Connecting...</p>
-          </div>
-        </main>
-      )
-    }
-
-    // Session is invalid or expired
-    if (sessionCheck === 'invalid') {
-      return (
-        <main className="player-layout">
-          <div className="waiting-state session-error">
-            <h1>Session Not Found</h1>
-            <p>This session link is invalid or has expired.</p>
-            <p>Ask the storyteller for a new link.</p>
-          </div>
-        </main>
-      )
-    }
-
-    // Session ended, or waiting for it to start
-    if (!state) {
-      return (
-        <>
-          <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} effects={effects.level} onCycleEffects={effects.cycle} />
-          <main className="player-layout">
-            <div className="waiting-state" aria-live="polite">
-              {joinedGame ? (
-                <>
-                  <h1>The session has ended</h1>
-                  <p>Thanks for playing. Ask the storyteller for a new link to join the next one.</p>
-                </>
-              ) : (
-                <p>Waiting for storyteller to start...</p>
-              )}
-            </div>
-          </main>
-          <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
-        </>
-      )
-    }
-
-    // Character creation phase
-    if (state.status === 'madlib_in_progress') {
-      return (
-        <>
-          <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} effects={effects.level} onCycleEffects={effects.cycle} />
-          <main className="player-layout">
-            <div className="creation-header">
-              <h1>Character Creation</h1>
-              <p className="text-secondary italic">
-                The storyteller is gathering character details...
-              </p>
-            </div>
-            <div className="creation-footer">
-              <p className="text-accent font-semibold" aria-live="polite">
-                Your character is being created!
-              </p>
-            </div>
-          </main>
-          <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
-        </>
-      )
-    }
-
-    // Game over
-    if (state.status === 'game_over') {
-      return (
-        <>
-          <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} effects={effects.level} onCycleEffects={effects.cycle} />
-          <main className="player-layout">
-            {state.outcome && state.outcome_revealed ? (
-              <div className="finale-section">
-                <div
-                  className={`finale-outcome font-bold ${state.outcome === 'victory' ? 'text-success' : 'text-danger'}`}
-                  role="status"
-                  aria-live="assertive"
-                >
-                  {state.outcome === 'victory' ? 'VICTORY!' : 'DEFEAT'}
-                </div>
-                <div className="stats-section">
-                  <StatsRow level={state.level} itemCount={state.items.length} />
-                </div>
-                {state.items.length > 0 && (
-                  <div className="finale-items text-secondary text-sm">
-                    {state.items.join(', ')}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="finale-section">
-                <h2>Final Showdown!</h2>
-                <p className="text-secondary">
-                  {state.outcome ? 'Awaiting results...' : 'Waiting for the dice roll...'}
-                </p>
-                <div className="finale-roll-info">
-                  <p>Roll a d20 + {state.items.length} (items)</p>
-                  <p>You have {state.level} attempt(s)</p>
-                  <p>Need 20+ to win!</p>
-                </div>
-              </div>
-            )}
-          </main>
-          <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
-        </>
-      )
-    }
-
-    // Running game (also handles awaiting_scene_selection - players see normal view)
+  function screen(main: ReactNode, { center = false } = {}) {
     return (
-      <>
-        <Toolbar onToggleMode={toggleColorMode} onShowRules={() => setShowRules(true)} colorMode={colorMode} effects={effects.level} onCycleEffects={effects.cycle} />
-        <main className="player-layout">
-          {/* Character section - now a proper button */}
-          {state.character && (
-            <button
-              type="button"
-              className="character-section"
-              onClick={() => setShowCharacterModal(true)}
-              aria-label={`View details for ${state.character.name}`}
-            >
-              <div className="character-name font-bold truncate">
-                {state.character.name}
-              </div>
-              <div className="character-description-preview text-secondary line-clamp-2">
-                {state.character.description}
-              </div>
-            </button>
-          )}
-
-          {/* HP Display */}
-          <div className="hp-section">
-            <HPDisplay hp={state.hp} indicatorSize={48} showLabel />
-          </div>
-
-          {/* Stats */}
-          <div className="stats-section">
-            <StatsRow level={state.level} itemCount={state.items.length} size="large" />
-          </div>
-
-          {/* Items list */}
-          {state.items.length > 0 && (
-            <ul className="items-list">
-              {state.items.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
-          )}
-
-          {/* Revealed choices (display text only; outcomes never reach players) */}
-          {resolved && resolved.visible_choices.length > 0 && (
-            <div className="revealed-choices">
-              <div className="revealed-choices-label text-sm text-secondary uppercase">
-                Current Choices
-              </div>
-              {resolved.visible_choices.map((text, i) => (
-                <div key={i} className="revealed-choice" style={{ '--i': i } as React.CSSProperties}>
-                  {text}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Connection status */}
-          <ConnectionStatus storytellerConnected={storytellerConnected} playerCount={playerCount} />
-        </main>
-
-        {/* Character Modal */}
-        <Modal
-          isOpen={showCharacterModal && !!state.character}
-          onClose={() => setShowCharacterModal(false)}
-          title={state.character?.name || 'Character'}
-        >
-          <p className="character-modal-description text-secondary">{state.character?.description}</p>
-          <button className="btn btn--secondary character-modal-close" onClick={() => setShowCharacterModal(false)}>
-            Close
-          </button>
-        </Modal>
-
-        <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
-      </>
+      <div className={`phone ${effects.level === 'off' ? 'effects-off' : ''}`}>
+        {toolbar}
+        <main className={`phone__main ${center ? 'phone__main--center' : ''}`}>{main}</main>
+        {state && !storytellerConnected && (
+          <p className="phone__status phone__status--warn" role="status">The storyteller has stepped away…</p>
+        )}
+      </div>
     )
+  }
+
+  function renderContent() {
+    if (!sessionId) {
+      return screen(<Message title="Session link required" text="Use the link your storyteller shared to join the game." />, { center: true })
+    }
+    if (sessionCheck === 'checking') return screen(<p className="phone-label">Connecting…</p>, { center: true })
+    if (sessionCheck === 'invalid') {
+      return screen(<Message title="Session not found" text="This link is invalid or has expired. Ask the storyteller for a new one." />, { center: true })
+    }
+    if (!state || !resolved) {
+      return joinedGame
+        ? screen(<Message title="The session has ended" text="Thanks for playing. Ask the storyteller for a new link to join the next one." />, { center: true })
+        : screen(<Message title="Waiting for the storyteller" text="The story will begin shortly." />, { center: true })
+    }
+    return screen(<GameScreen state={state} resolved={resolved} onShowHero={() => setShowHero(true)} />, {
+      center: ['madlib_in_progress', 'character_reveal'].includes(state.status) || (state.status === 'game_over' && !!state.outcome_revealed),
+    })
   }
 
   const lastLife = !!state && state.hp === 1 && state.status !== 'game_over'
@@ -250,51 +99,124 @@ export default function Player() {
       {renderContent()}
       <CriticalPulse active={lastLife} level={effects.level} />
       <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={effects.level} onDone={momentDone} />
+
+      <Modal isOpen={showHero && !!state?.character} onClose={() => setShowHero(false)} title={state?.character?.name || 'Your hero'}>
+        <p className="phone-text" style={{ marginTop: 0 }}>{state?.character?.description}</p>
+        <button className="btn btn--secondary mt-md" onClick={() => setShowHero(false)}>Close</button>
+      </Modal>
+      <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </>
   )
 }
 
-const EFFECTS_LABEL: Record<EffectsLevel, string> = { full: 'Effects: full', subtle: 'Effects: subtle', off: 'Effects: off' }
-
-interface ToolbarProps {
-  onToggleMode: () => void
-  onShowRules: () => void
-  colorMode: 'light' | 'dark'
-  effects: EffectsLevel
-  onCycleEffects: () => void
-}
-
-function Toolbar({ onToggleMode, onShowRules, colorMode, effects, onCycleEffects }: ToolbarProps) {
+function Message({ title, text }: { title: string; text: string }) {
   return (
-    <div className="player-toolbar">
-      <button
-        className="btn btn--secondary"
-        onClick={onCycleEffects}
-        aria-label={`${EFFECTS_LABEL[effects]} (tap to change)`}
-        title={EFFECTS_LABEL[effects]}
-      >
-        {effects === 'full' ? '✦' : effects === 'subtle' ? '✧' : '○'}
-      </button>
-      <button
-        className="btn btn--secondary"
-        onClick={onShowRules}
-        aria-label="Game rules"
-      >
-        ?
-      </button>
-      <ModeToggle colorMode={colorMode} onToggle={onToggleMode} />
+    <div aria-live="polite">
+      <h1 className="phone-title">{title}</h1>
+      <p className="phone-text">{text}</p>
     </div>
   )
 }
 
-function ConnectionStatus({ storytellerConnected, playerCount }: { storytellerConnected: boolean; playerCount: number }) {
+function GameScreen({ state, resolved, onShowHero }: { state: GameState; resolved: ResolvedContent; onShowHero: () => void }) {
+  if (state.status === 'madlib_in_progress') {
+    return (
+      <div aria-live="polite">
+        <div className="phone-eyebrow">Creating your hero</div>
+        {resolved.madlib_question && <h1 className="phone-question" key={resolved.madlib_question}>{resolved.madlib_question}</h1>}
+        <p className="phone-text">Call out your answer to the storyteller.</p>
+        {resolved.madlib_progress && (
+          <p className="phone-label" style={{ marginTop: 18 }}>
+            Question {resolved.madlib_progress.step} of {resolved.madlib_progress.total}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (state.status === 'character_reveal' && state.character) {
+    return (
+      <div>
+        <div className="phone-eyebrow">Your hero</div>
+        <h1 className="phone-title">{state.character.name}</h1>
+        <p className="phone-text">{state.character.description}</p>
+      </div>
+    )
+  }
+
+  if (state.status === 'game_over' && state.outcome && state.outcome_revealed) {
+    return (
+      <div>
+        <div className={`phone-outcome phone-outcome--${state.outcome}`} role="status" aria-live="assertive">
+          {state.outcome === 'victory' ? 'Victory' : 'Defeat'}
+        </div>
+        <p className="phone-text">
+          Level {state.level} · {state.items.length === 1 ? '1 item' : `${state.items.length} items`}
+          {state.items.length > 0 && `: ${state.items.join(', ')}`}
+        </p>
+      </div>
+    )
+  }
+
+  const choosingDoor = state.status === 'awaiting_scene_selection'
   return (
-    <div className="connection-status text-secondary text-sm" aria-live="polite">
-      {storytellerConnected ? (
-        <span>{playerCount} {playerCount === 1 ? 'player' : 'players'}</span>
-      ) : (
-        <span className="text-warning">Storyteller disconnected</span>
+    <>
+      <div>
+        <div className="phone-eyebrow">
+          {resolved.finale ? 'The end has come' : choosingDoor ? 'The way forward' : state.status === 'opening_scene_active' ? 'Prologue' : resolved.scene_subtitle || 'Now'}
+        </div>
+        <h1 className="phone-title" key={resolved.finale ? 'finale' : resolved.scene_title}>
+          {resolved.finale ? 'The final roll' : choosingDoor ? 'Choosing the next door…' : resolved.scene_title}
+        </h1>
+      </div>
+
+      <div className="party-strip">
+        <HPDisplay hp={state.hp} indicatorSize={36} />
+        <div className="party-strip__stats">
+          <div><div className="phone-label">Level</div><div className="party-strip__value">{state.level}</div></div>
+          <div><div className="phone-label">Items</div><div className="party-strip__value">{state.items.length}</div></div>
+        </div>
+      </div>
+
+      {state.character && (
+        <button type="button" className="hero-chip" onClick={onShowHero} aria-label={`About ${state.character.name}`}>
+          <span className="hero-chip__name">{state.character.name}</span>
+          <span className="hero-chip__desc">{state.character.description}</span>
+        </button>
       )}
-    </div>
+
+      {resolved.finale ? (
+        <div className="phone-roll">
+          <D20Icon size={140} className="d20" />
+          <div className="phone-roll__stats">
+            <div className="phone-roll__stat"><div className="phone-label">Bonus</div><div className="phone-roll__value">+{state.items.length}</div></div>
+            <div className="phone-roll__stat"><div className="phone-label">Attempts</div><div className="phone-roll__value">{state.level}</div></div>
+            <div className="phone-roll__stat"><div className="phone-label">Target</div><div className="phone-roll__value">20+</div></div>
+          </div>
+          <p className="phone-text" style={{ textAlign: 'center' }}>Roll a real d20 and add your bonus.</p>
+        </div>
+      ) : (
+        <>
+          {!choosingDoor && resolved.scene_text && (
+            <details className="follow">
+              <summary>Follow along</summary>
+              <p className="phone-text">{resolved.scene_text}</p>
+            </details>
+          )}
+          {resolved.visible_choices.length > 0 && (
+            <div className="dealt" aria-live="polite">
+              <span className="phone-label">The choices</span>
+              {resolved.visible_choices.map((text, i) => (
+                <div key={`${resolved.scene_title}-${i}`} className="dealt__card" style={{ '--i': i } as React.CSSProperties}>
+                  <span className="dealt__numeral">{ROMAN[i] ?? i + 1}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+              <p className="phone__status" style={{ paddingTop: 6 }}>Decide together. The storyteller is listening.</p>
+            </div>
+          )}
+        </>
+      )}
+    </>
   )
 }

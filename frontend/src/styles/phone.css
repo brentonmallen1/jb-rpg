@@ -1,0 +1,311 @@
+/* ==========================================================================
+   Phone: the player's view. Read in a dark room at arm's length, mid-conversation.
+   Big type, clear state, no clutter, and never any spoilers or story progress.
+   ========================================================================== */
+
+.phone {
+  --line: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  --surface: color-mix(in srgb, var(--bg-secondary) 85%, transparent);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 12px 20px 20px;
+  color: var(--text-primary);
+}
+
+.phone__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+}
+
+.phone__story {
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone__tools {
+  display: flex;
+  gap: 2px;
+}
+
+.phone__tool {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.phone__tool:hover,
+.phone__tool:focus-visible {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  outline: none;
+}
+
+.phone__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: 20px;
+}
+
+.phone__main--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.phone-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.phone-eyebrow {
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 1.05rem;
+  color: var(--accent);
+}
+
+.phone-title {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 9vw, 2.6rem);
+  line-height: 1.05;
+  text-wrap: balance;
+  text-shadow: 0 2px 24px rgb(0 0 0 / 0.45);
+  animation: phone-ink 1s var(--ease-out-expo) both;
+}
+
+.phone-text {
+  margin-top: 14px;
+  font-family: var(--font-reading);
+  font-size: 1.15rem;
+  line-height: 1.55;
+  white-space: pre-line;
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--text-secondary));
+}
+
+.phone-question {
+  margin-top: 8px;
+  font-family: var(--font-reading);
+  font-size: clamp(1.7rem, 7.5vw, 2.2rem);
+  font-weight: 400;
+  line-height: 1.2;
+  text-wrap: balance;
+  animation: phone-ink 1s var(--ease-out-expo) both;
+}
+
+@keyframes phone-ink {
+  from { opacity: 0; filter: blur(5px); transform: translateY(6px); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+
+/* --- Party strip: health is the ambient state ------------------------------ */
+
+.party-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.party-strip__stats {
+  display: flex;
+  gap: 20px;
+  text-align: right;
+}
+
+.party-strip__value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.hero-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hero-chip__name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.hero-chip__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* --- Follow along (scene text, collapsed by default) ------------------------ */
+
+.follow {
+  margin-top: 18px;
+}
+
+.follow summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.follow summary::-webkit-details-marker {
+  display: none;
+}
+
+.follow summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s;
+}
+
+.follow[open] summary::before {
+  transform: rotate(45deg);
+}
+
+/* --- Choices dealt to the table ---------------------------------------------- */
+
+.dealt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 28px;
+}
+
+.dealt__card {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 14px;
+  background: var(--surface);
+  font-family: var(--font-reading);
+  font-size: 1.15rem;
+  line-height: 1.35;
+  animation: phone-deal 0.7s var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 120ms);
+}
+
+.dealt__numeral {
+  flex-shrink: 0;
+  width: 1.6em;
+  font-family: var(--font-display);
+  color: var(--accent);
+}
+
+@keyframes phone-deal {
+  from { opacity: 0; transform: translateY(18px) rotate(-1.2deg) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.effects-off .dealt__card,
+.effects-off .phone-title {
+  animation: none;
+}
+
+.phone__status {
+  padding-top: 18px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.phone__status--warn {
+  color: var(--warning);
+}
+
+/* --- Finale ------------------------------------------------------------------ */
+
+.phone-roll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.phone-roll .d20 {
+  animation: phone-d20 2.4s var(--ease-out-expo) both;
+}
+
+@keyframes phone-d20 {
+  from { transform: rotate(-200deg) scale(0.7); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.phone-roll__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.phone-roll__stat {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.phone-roll__value {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+}
+
+.phone-outcome {
+  font-family: var(--font-display);
+  font-size: clamp(3.2rem, 16vw, 5rem);
+  line-height: 1;
+}
+
+.phone-outcome--victory { color: var(--accent); text-shadow: 0 0 36px color-mix(in srgb, var(--accent) 45%, transparent); }
+.phone-outcome--defeat { color: color-mix(in srgb, var(--danger) 80%, var(--text-primary)); }

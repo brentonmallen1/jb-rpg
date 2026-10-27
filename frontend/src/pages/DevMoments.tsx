@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useGame } from '../context/useGame'
-import { CriticalPulse, HPDisplay, MomentLayer, StatsRow } from '../components'
+import { CriticalPulse, HPDisplay, MomentLayer } from '../components'
 import type { QueuedMoment } from '../hooks/useMoments'
 import type { EffectsLevel } from '../hooks/useEffectsLevel'
 import type { Moment, MomentType } from '../lib/moments'
 import { THEMES, type ThemeName } from '../types'
-import '../styles/pages/player.css'
+import '../styles/phone.css'
 
 const SAMPLES: Record<MomentType, Moment> = {
   character_revealed: { type: 'character_revealed', name: 'Bartholomew' },
@@ -38,7 +38,7 @@ export default function DevMoments() {
   const done = useCallback((id: number) => setQueue(q => q.filter(m => m.id !== id)), [])
 
   return (
-    <main className="player-layout" style={{ gap: 'var(--space-lg)' }}>
+    <main className="phone" style={{ gap: 'var(--space-lg)' }}>
       <h1>Moments</h1>
       <div className="row gap-sm" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
         <select className="input" value={theme} onChange={e => setTheme(e.target.value as ThemeName)} aria-label="Theme">
@@ -63,10 +63,9 @@ export default function DevMoments() {
       </div>
 
       <div className="hp-section"><HPDisplay hp={critical ? 1 : 2} indicatorSize={48} showLabel /></div>
-      <StatsRow level={2} itemCount={1} size="large" />
-      <div className="revealed-choices" style={{ width: '100%' }}>
+      <div className="dealt" style={{ width: '100%' }}>
         {['Kneel and take the ring?', 'Give voice to the carved words?', 'Arrange the scattered bones?'].map((text, i) => (
-          <div key={`${text}-${nextId}`} className="revealed-choice" style={{ '--i': i } as React.CSSProperties}>{text}</div>
+          <div key={`${text}-${nextId}`} className="dealt__card" style={{ '--i': i } as React.CSSProperties}>{text}</div>
         ))}
       </div>
 

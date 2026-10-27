@@ -14,6 +14,7 @@
 
     --font-body: 'Crimson Text', 'Georgia', serif;
     --font-display: 'Cinzel', 'Trajan Pro', 'Palatino Linotype', serif;
+    --font-reading: var(--font-body);
 }
 
 .fantasy .card {

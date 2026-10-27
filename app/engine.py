@@ -111,23 +111,36 @@ def build_resolved(state: GameState | None) -> dict | None:
     char_desc = state.character.description if state.character else None
     base = {
         "character_description": char_desc,
+        "story_title": story.title,
         "theme": story.theme.value,
         "visible_choices": [],
         # Players never see progress; this is how they learn the end has arrived
         "finale": state.status == SessionStatus.GAME_OVER and state.outcome is None,
     }
 
+    if state.status == SessionStatus.MADLIB_IN_PROGRESS:
+        # Players see the question being asked, never the template it fills
+        questions = story.madlib_template.fields
+        if state.madlib_step < len(questions):
+            base["madlib_question"] = questions[state.madlib_step].label
+            base["madlib_progress"] = {"step": state.madlib_step + 1, "total": len(questions)}
+
     if state.status == SessionStatus.OPENING_SCENE_ACTIVE and story.opening_scene:
         text = inject_variables(story.opening_scene.base_text, fields)
         for ct in story.opening_scene.conditional_text:
             if evaluate_condition(ct.condition, state):
                 text += " " + inject_variables(ct.text, fields)
-        return {**base, "scene_text": text}
+        return {**base, "scene_text": text, "scene_title": story.opening_scene.title}
 
     scene = get_scene(story, state.current_scene_id)
     if scene is None:
         return None
-    resolved = {**base, "scene_text": resolve_scene_text(scene, state)}
+    resolved = {
+        **base,
+        "scene_text": resolve_scene_text(scene, state),
+        "scene_title": scene.title,
+        "scene_subtitle": scene.display_name,
+    }
     if scene.is_finale and state.status == SessionStatus.RUNNING:
         resolved["finale"] = True
 

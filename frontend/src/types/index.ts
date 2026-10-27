@@ -121,9 +121,14 @@ export interface GameState {
 export interface ResolvedContent {
   scene_text: string
   character_description?: string
+  story_title: string
   theme: ThemeName
   visible_choices: string[]  // Choice display text in shuffled order, once revealed to players
   finale: boolean  // The final d20 roll is underway
+  scene_title?: string  // title of the current scene
+  scene_subtitle?: string | null  // its display_name (the poetic door name), if any
+  madlib_question?: string  // the question being asked during character creation
+  madlib_progress?: { step: number; total: number }
   victory_text?: string
   defeat_text?: string
 }

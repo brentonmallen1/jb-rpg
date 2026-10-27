@@ -1,153 +1,142 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import * as api from '../../hooks/api'
+import { useHotkeys } from '../../hooks/useHotkeys'
 import type { RunAction } from '../../hooks/useAsyncAction'
-import type { Choice, GameState, ResolvedContent, Story } from '../../types'
-import { HPDisplay, Modal, StatsRow, ThemedScope } from '../../components'
-import { outcomeLabel } from '../../lib/outcomes'
+import type { GameState, ResolvedContent, Story } from '../../types'
+import { BackIcon, EyeOffIcon } from '../../components/Icons'
+import { outcomeLabel, OUTCOME_ICON } from '../../lib/outcomes'
+import { recap, sceneName } from '../../lib/story'
 import { FinaleRoll } from './FinaleRoll'
 
 interface SceneViewProps {
   state: GameState
   resolved: ResolvedContent
   story: Story
-  colorMode: 'light' | 'dark'
   run: RunAction
   pending: boolean
 }
 
-const OUTCOME_TEXT_CLASS = { damage: 'text-danger', item: 'text-success', level: 'text-warning' } as const
+const NUMBER_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
-/** A running scene. Rendered with key={scene id}, so local reveal state resets per scene. */
-export function SceneView({ state, resolved, story, colorMode, run, pending }: SceneViewProps) {
+/** A running scene. Rendered with key={scene id}, so local state resets per scene. */
+export function SceneView({ state, resolved, story, run, pending }: SceneViewProps) {
   const [revealedToMe, setRevealedToMe] = useState(false)
-  const [pendingChoice, setPendingChoice] = useState<{ visualIndex: number; choice: Choice } | null>(null)
+  const [selected, setSelected] = useState<number | null>(null)
   const scene = story.scenes.find(s => s.id === state.current_scene_id)
+  const previously = recap(story, state.history.at(-1))
+  const choicesVisible = revealedToMe || state.shuffled_indices.length > 0
+  const canGoBack = state.history.length > 0 && !story.settings.non_linear
 
-  async function confirmChoice() {
-    if (!pendingChoice || pending) return
-    if (await run(() => api.makeChoice(pendingChoice.visualIndex), 'Failed to make choice')) {
-      setPendingChoice(null)
-    }
+  const revealToMe = () => run(async () => {
+    await api.revealChoices(false) // shuffle, but don't show players yet
+    setRevealedToMe(true)
+  }, 'Failed to reveal choices')
+  const dealToTable = () => run(() => api.revealChoices(true), 'Failed to show choices')
+  const confirm = () => {
+    if (selected === null || pending) return
+    run(() => api.makeChoice(selected), 'Failed to make choice')
   }
+  const goBack = () => run(api.goBack, 'Failed to go back')
 
-  function renderChoices() {
-    if (scene?.is_finale) {
-      return (
-        <div className="text-center">
-          {scene.finale_setup_text && (
-            <div className="card mb-lg">
-              <p className="prose">{scene.finale_setup_text}</p>
-            </div>
-          )}
-          <FinaleRoll state={state} resolved={resolved} run={run} infoClassName="mb-lg text-secondary" />
-        </div>
-      )
-    }
+  const choiceCount = scene?.is_finale ? 0 : state.shuffled_indices.length
+  useHotkeys({
+    r: !choicesVisible && !scene?.is_finale ? revealToMe : undefined,
+    s: !scene?.is_finale ? dealToTable : undefined,
+    enter: selected !== null ? confirm : undefined,
+    escape: selected !== null ? () => setSelected(null) : undefined,
+    b: canGoBack ? goBack : undefined,
+    ...Object.fromEntries(
+      NUMBER_KEYS.slice(0, choicesVisible ? choiceCount : 0).map((key, i) => [key, () => setSelected(i)])
+    ),
+  })
 
-    // Storyteller hasn't looked at the choices yet
-    if (!revealedToMe && !state.shuffled_indices.length) {
-      return (
-        <div className="text-center">
-          <button
-            className="btn"
-            onClick={() => run(async () => {
-              await api.revealChoices(false) // shuffle, but don't show players yet
-              setRevealedToMe(true)
-            }, 'Failed to reveal choices')}
-          >
-            Reveal Choices
-          </button>
-        </div>
-      )
-    }
-
-    return (
-      <>
-        <div className="stack gap-md">
-          {state.shuffled_indices.map((originalIndex, visualIndex) => {
-            const choice = scene?.choices[originalIndex]
-            if (!choice) return null
-            return (
-              <button
-                key={visualIndex}
-                className={`btn choice-btn choice-btn--${choice.kind} text-left`}
-                onClick={() => setPendingChoice({ visualIndex, choice })}
-                style={{ padding: 'var(--space-md)' }}
-              >
-                <div>{choice.display_text}</div>
-                <div className="text-sm mt-xs" style={{ opacity: 0.8 }}>{outcomeLabel(choice)}</div>
-              </button>
-            )
-          })}
-        </div>
-        <div className="text-center mt-md">
-          <button
-            className={`btn ${state.choices_revealed ? 'btn--secondary' : ''}`}
-            onClick={() => run(() => api.revealChoices(true), 'Failed to show choices')}
-          >
-            {state.choices_revealed ? 'Remind Players of Choices' : 'Show Choices to Players'}
-          </button>
-        </div>
-      </>
-    )
-  }
+  if (!scene) return null
 
   return (
-    <div className="run-content">
-      {state.character && (
-        <div className="card mb-lg">
-          <div className="font-semibold mb-xs">{state.character.name}</div>
-          <div className="text-secondary">{resolved.character_description}</div>
-        </div>
+    <article>
+      {previously && (
+        <p className="recap">
+          <span className="stage-label">Previously</span>
+          <span className="recap__text">{previously.scene}: you {previously.outcome}.</span>
+        </p>
       )}
 
-      <ThemedScope theme={story.theme} colorMode={colorMode}>
-        <div className="mb-lg">
-          <HPDisplay hp={state.hp} />
-        </div>
-        <div className="mb-lg">
-          <StatsRow level={state.level} itemCount={state.items.length} />
-        </div>
-      </ThemedScope>
+      {scene.display_name && <div className="eyebrow ink">{scene.display_name}</div>}
+      <h1 className="stage-title ink">{scene.title}</h1>
+      <p className="scene-text ink ink--late">{resolved.scene_text}</p>
 
-      <div className="card mb-lg">
-        <p className="prose">{resolved.scene_text}</p>
-      </div>
-
-      {renderChoices()}
-
-      {/* Non-linear stories replay scenes from scene selection instead */}
-      {state.history.length > 0 && !story.settings.non_linear && (
-        <div className="text-center mt-lg">
-          <button className="btn btn--secondary" onClick={() => run(api.goBack, 'Failed to go back')}>
-            Go Back
+      {scene.is_finale ? (
+        <>
+          {scene.finale_setup_text && <p className="scene-text">{scene.finale_setup_text}</p>}
+          <FinaleRoll state={state} resolved={resolved} run={run} />
+        </>
+      ) : !choicesVisible ? (
+        <div className="action-row">
+          <button className="s-btn" onClick={revealToMe}>
+            Reveal choices <span className="kbd">R</span>
           </button>
+          <span className="stage-hint storyteller-only">Only you will see them until you deal them to the table.</span>
         </div>
+      ) : (
+        <>
+          <div className="section-label stage-label storyteller-only">
+            <EyeOffIcon size={16} /> Choices · outcomes are only on your screen
+          </div>
+          <div className={`choice-list ${selected !== null ? 'choice-list--deciding' : ''}`}>
+            {state.shuffled_indices.map((originalIndex, visualIndex) => {
+              const choice = scene.choices[originalIndex]
+              if (!choice) return null
+              const Icon = OUTCOME_ICON[choice.kind]
+              const isSelected = selected === visualIndex
+              return (
+                <Fragment key={visualIndex}>
+                  <button
+                    className="choice-card"
+                    aria-pressed={isSelected}
+                    onClick={() => setSelected(isSelected ? null : visualIndex)}
+                    style={{ '--i': visualIndex } as React.CSSProperties}
+                  >
+                    <span className="keycap">{visualIndex + 1}</span>
+                    <span className="choice-card__text">{choice.display_text}</span>
+                    <span className={`outcome outcome--${choice.kind} storyteller-only`}>
+                      <Icon size={16} />{outcomeLabel(choice)}
+                    </span>
+                  </button>
+                  {isSelected && (
+                    <div className="reading-panel" role="region" aria-label="Confirm this choice">
+                      <span className="stage-label">Read this aloud</span>
+                      <p className="reading-panel__text">{choice.result_text}</p>
+                      <div className="action-row" style={{ marginTop: 0 }}>
+                        <button className="s-btn" onClick={confirm} disabled={pending}>
+                          Confirm choice <span className="kbd">⏎</span>
+                        </button>
+                        <button className="s-btn s-btn--ghost" onClick={() => setSelected(null)}>
+                          Cancel <span className="kbd">Esc</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </Fragment>
+              )
+            })}
+          </div>
+          <div className="action-row">
+            <button className={`s-btn ${state.choices_revealed ? 's-btn--ghost' : ''}`} onClick={dealToTable}>
+              {state.choices_revealed ? 'Show choices on phones again' : 'Deal choices to the table'} <span className="kbd">S</span>
+            </button>
+            <span className="stage-hint storyteller-only">Press 1–{choiceCount} to choose</span>
+          </div>
+        </>
       )}
 
-      <Modal isOpen={!!pendingChoice} onClose={() => setPendingChoice(null)} title="Choice Result">
-        {pendingChoice && (
-          <>
-            <div
-              className={OUTCOME_TEXT_CLASS[pendingChoice.choice.kind]}
-              style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-md)', textAlign: 'center' }}
-            >
-              {outcomeLabel(pendingChoice.choice)}
-            </div>
-            <div className="card mb-lg">
-              <p className="prose">{pendingChoice.choice.result_text}</p>
-            </div>
-            <div className="btn-group">
-              <button className="btn" onClick={confirmChoice} disabled={pending}>
-                Continue
-              </button>
-              <button className="btn btn--secondary" onClick={() => setPendingChoice(null)}>
-                Cancel
-              </button>
-            </div>
-          </>
-        )}
-      </Modal>
-    </div>
+      {canGoBack && (
+        <div className="action-row storyteller-only">
+          <button className="s-btn s-btn--ghost" onClick={goBack}>
+            <BackIcon size={16} /> Undo last choice <span className="kbd">B</span>
+          </button>
+          {previously && <span className="stage-hint" style={{ marginLeft: 0 }}>Returns to {sceneName(story.scenes.find(s => s.id === state.history.at(-1)?.scene_id) ?? scene)}</span>}
+        </div>
+      )}
+    </article>
   )
 }

@@ -21,6 +21,7 @@
     /* Typography */
     --font-body: system-ui, -apple-system, sans-serif;
     --font-display: var(--font-body);
+    --font-reading: var(--font-body); /* long-form scene text; themes override */
     --font-mono: ui-monospace, monospace;
 
     /* Type Scale */
@@ -37,7 +38,7 @@
     /* Text on colored backgrounds */
     --text-on-accent: #fff;
     --text-on-danger: #fff;
-    --text-on-success: #fff
+    --text-on-success: #fff;
 
     /* Borders */
     --radius-sm: 4px;

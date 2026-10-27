@@ -137,3 +137,27 @@ def test_resolved_flags_the_finale_only_when_it_arrives(client):
     assert client.get("/api/state").json()["resolved"]["finale"] is True
     client.post("/api/state/finish", json={"outcome": "victory"})
     assert client.get("/api/state").json()["resolved"]["finale"] is False
+
+
+def test_players_see_the_madlib_question_but_not_the_template(client):
+    story = client.post("/api/stories", json={"title": "T"}).json()
+    story["scenes"] = TWO_SCENES
+    story["madlib_template"] = {
+        "prompt": "{name} hails from {home}.",
+        "fields": [{"key": "name", "label": "What do the bards call you?"}, {"key": "home", "label": "Where from?"}],
+    }
+    client.put(f"/api/stories/{story['id']}", json=story)
+    start(client, story["id"])
+
+    resolved = client.get("/api/state").json()["resolved"]
+    assert resolved["madlib_question"] == "What do the bards call you?"
+    assert resolved["madlib_progress"] == {"step": 1, "total": 2}
+    assert "hails from" not in str(resolved)
+
+
+def test_players_get_the_scene_title(client):
+    scenes = [dict(TWO_SCENES[0], display_name="The door with vines"), TWO_SCENES[1]]
+    start(client, make_story(client, scenes))
+    resolved = client.get("/api/state").json()["resolved"]
+    assert resolved["scene_title"] == "A"
+    assert resolved["scene_subtitle"] == "The door with vines"

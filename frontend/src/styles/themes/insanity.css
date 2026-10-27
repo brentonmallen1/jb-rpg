@@ -14,6 +14,7 @@
 
     --font-body: 'Sorts Mill Goudy', serif;
     --font-display: 'IM Fell English SC', serif;
+    --font-reading: var(--font-body);
 }
 
 /* Brain HP indicators */

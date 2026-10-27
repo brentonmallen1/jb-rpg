@@ -1,18 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { useAsyncAction } from '../hooks/useAsyncAction'
-import type { Story } from '../types'
-import { Modal, ConfirmDialog, RulesModal, ModeToggle, PageMessage } from '../components'
-import { getThemeVars } from '../styles/themeVars'
+import { useHotkeys } from '../hooks/useHotkeys'
+import { useMoments } from '../hooks/useMoments'
+import type { GameState, Story } from '../types'
+import { Modal, ConfirmDialog, RulesModal, PageMessage, MomentLayer } from '../components'
+import { BookIcon, CloseIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SunIcon } from '../components/Icons'
+import { storyProgress } from '../lib/story'
 import { MadlibStep } from './run/MadlibStep'
 import { CharacterReveal } from './run/CharacterReveal'
 import { OpeningScene } from './run/OpeningScene'
 import { SceneSelect } from './run/SceneSelect'
 import { SceneView } from './run/SceneView'
 import { GameOver } from './run/GameOver'
-import '../styles/pages/run.css'
+import { PartyRail } from './run/PartyRail'
+import '../styles/stage.css'
+
+const PRESENTATION_KEY = 'jb_rpg_presentation'
+
+function readPresentation(): boolean {
+  try {
+    return localStorage.getItem(PRESENTATION_KEY) === 'on'
+  } catch {
+    return false
+  }
+}
 
 export default function Run() {
   const navigate = useNavigate()
@@ -21,8 +35,10 @@ export default function Run() {
     endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere,
   } = useGame()
   const { run, pending, error, clearError } = useAsyncAction()
+  const { current: moment, done: momentDone } = useMoments(state, resolved)
 
   const [story, setStory] = useState<Story | null>(null)
+  const [presentation, setPresentation] = useState(readPresentation)
   const [showRules, setShowRules] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
@@ -38,16 +54,28 @@ export default function Run() {
     return () => { cancelled = true }
   }, [sessionId, isStoryteller])
 
-  // The storyteller's chrome uses the modern theme; the story's theme colours the stats
+  // The whole stage wears the story's theme
+  const storyTheme = story?.theme
   useEffect(() => {
-    setTheme('modern')
-  }, [setTheme])
+    if (storyTheme) setTheme(storyTheme)
+  }, [storyTheme, setTheme])
 
-  useEffect(() => {
-    if (story?.theme && story.theme !== 'modern') {
-      import(`../styles/themes/${story.theme}.css`)
-    }
-  }, [story?.theme])
+  const togglePresentation = useCallback(() => {
+    setPresentation(on => {
+      const next = !on
+      try {
+        localStorage.setItem(PRESENTATION_KEY, next ? 'on' : 'off')
+      } catch {
+        // per-device preference only
+      }
+      // Full screen on a TV; ignore browsers that refuse
+      if (next && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {})
+      if (!next && document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+      return next
+    })
+  }, [])
+
+  useHotkeys({ p: togglePresentation }, !!state && isStoryteller)
 
   if (isInitializing || isValidatingToken) {
     return <PageMessage message="Connecting..." />
@@ -82,8 +110,7 @@ export default function Run() {
     if (await run(endSession, 'Failed to end session')) navigate('/')
   }
 
-  function renderStatus() {
-    if (!state || !story) return null
+  function renderStatus(state: GameState, story: Story) {
     switch (state.status) {
       case 'madlib_in_progress':
         return <MadlibStep state={state} story={story} run={run} pending={pending} />
@@ -94,58 +121,77 @@ export default function Run() {
           ? <OpeningScene scene={story.opening_scene} sceneText={resolved.scene_text} run={run} />
           : null
       case 'awaiting_scene_selection':
-        return (
-          <SceneSelect
-            state={state}
-            story={story}
-            colorMode={colorMode}
-            run={run}
-            onError={message => run(() => Promise.reject(new Error(message)))}
-          />
-        )
+        return <SceneSelect state={state} story={story} run={run} />
       case 'running':
         return resolved ? (
-          <SceneView
-            key={state.current_scene_id}
-            state={state}
-            resolved={resolved}
-            story={story}
-            colorMode={colorMode}
-            run={run}
-            pending={pending}
-          />
+          <SceneView key={state.current_scene_id} state={state} resolved={resolved} story={story} run={run} pending={pending} />
         ) : null
       case 'game_over':
-        return <GameOver state={state} resolved={resolved} run={run} onReturnToLibrary={returnToLibrary} />
+        return <GameOver state={state} resolved={resolved} story={story} run={run} onReturnToLibrary={returnToLibrary} />
     }
   }
 
+  const steps = story ? storyProgress(story, state) : []
+  const sceneNumber = steps.filter(s => s.status !== 'upcoming').length
+  const showProgress = story && ['running', 'awaiting_scene_selection', 'game_over'].includes(state.status)
+  const showParty = !['madlib_in_progress', 'character_reveal'].includes(state.status)
+
   return (
-    <>
-      <nav className={`nav ${story?.theme || 'modern'}`} style={story ? getThemeVars(story.theme, colorMode) : undefined}>
-        <span className="nav__title">J&B's RPG</span>
-        <div className="nav__actions">
-          <span className="text-secondary text-sm" aria-live="polite">
+    <div className={`stage ${presentation ? 'stage--presentation' : ''}`}>
+      <header className="stage__bar">
+        <div className="stage__story">
+          <span className="stage__story-title">{story?.title ?? 'Loading…'}</span>
+          {showProgress && (
+            <span className="stage-label storyteller-only">Scene {Math.max(sceneNumber, 1)} of {steps.length}</span>
+          )}
+        </div>
+
+        {showProgress && (
+          <ol className="progress-rail storyteller-only" aria-label="Story progress">
+            {steps.map(step => step.finale && step.status === 'upcoming' ? (
+              <li key={step.id} className="is-finale" title={`${step.name} (finale)`}><LockIcon size={14} label="Finale" /></li>
+            ) : (
+              <li key={step.id} className={`is-${step.status}`} title={`${step.name}: ${step.status}`} />
+            ))}
+          </ol>
+        )}
+
+        <div className="stage__tools">
+          <span className={`stage__players storyteller-only ${playerCount > 0 ? 'stage__players--present' : ''}`} aria-live="polite">
             {playerCount} {playerCount === 1 ? 'player' : 'players'}
           </span>
-          <button className="btn" onClick={() => setShowShare(true)}>Share</button>
-          <button className="btn btn--secondary" onClick={() => setShowQuitConfirm(true)}>Quit</button>
-          <button className="btn btn--secondary" onClick={() => setShowRules(true)} aria-label="Game rules">?</button>
-          <ModeToggle colorMode={colorMode} onToggle={toggleColorMode} />
+          <button className="icon-btn" onClick={togglePresentation} aria-pressed={presentation} aria-label="Presentation mode (P)" title="Presentation mode (P)">
+            <PresentIcon />
+          </button>
+          <button className="icon-btn storyteller-only" onClick={() => setShowShare(true)} aria-label="Invite players" title="Invite players">
+            <LinkIcon />
+          </button>
+          <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
+            {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </button>
+          <button className="icon-btn" onClick={() => setShowRules(true)} aria-label="Rules" title="Rules">
+            <BookIcon />
+          </button>
+          <button className="icon-btn storyteller-only" onClick={() => setShowQuitConfirm(true)} aria-label="End session" title="End session">
+            <CloseIcon />
+          </button>
         </div>
-      </nav>
+      </header>
 
-      <main className="container">
-        {error && (
-          <div className="alert alert--danger mb-md" role="alert">
-            <span>{error}</span>
-            <button className="btn btn--secondary" onClick={clearError} style={{ marginLeft: 'var(--space-md)' }}>
-              Dismiss
-            </button>
-          </div>
-        )}
-        {renderStatus()}
-      </main>
+      <div className={`stage__body ${showParty ? '' : 'stage__body--solo'}`}>
+        {showParty && <PartyRail state={state} characterDescription={resolved?.character_description} />}
+        <main className="stage__main">
+          {error && (
+            <div className="stage-error" role="alert">
+              <span>{error}</span>
+              <button className="s-btn s-btn--ghost" onClick={clearError}>Dismiss</button>
+            </div>
+          )}
+          {story && renderStatus(state, story)}
+        </main>
+      </div>
+
+      <MomentLayer moment={moment} theme={story?.theme ?? 'modern'} level={presentation ? 'full' : 'subtle'} onDone={momentDone} />
 
       <ShareModal isOpen={showShare} sessionId={state.session_id} onClose={() => setShowShare(false)} />
 
@@ -160,7 +206,7 @@ export default function Run() {
       />
 
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
-    </>
+    </div>
   )
 }
 
@@ -183,8 +229,8 @@ function ShareModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sessionId
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Share with Players">
-      <p className="text-secondary mb-md">Players can join using this link:</p>
+    <Modal isOpen={isOpen} onClose={onClose} title="Invite players">
+      <p className="text-secondary mb-md">Players join on their phones with this link:</p>
       <input
         type="text"
         readOnly

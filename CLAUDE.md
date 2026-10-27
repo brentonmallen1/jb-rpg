@@ -104,6 +104,8 @@ Three layers, all lightweight (no user accounts):
 
 On `/restart`, the server sends `session_ended` and closes every SSE stream so clients re-authenticate.
 
+Always run uvicorn with `--timeout-graceful-shutdown` (the justfile and Dockerfile do): SSE streams never close on their own, so without it a stopped or reloading server lingers and keeps feeding clients.
+
 ---
 
 ## API Conventions

@@ -23,7 +23,7 @@ install-dev:
 
 # Run backend server (FastAPI)
 backend:
-    uv run uvicorn main:app --reload --host 0.0.0.0 --port {{backend_port}}
+    uv run uvicorn main:app --reload --timeout-graceful-shutdown 2 --host 0.0.0.0 --port {{backend_port}}
 
 # Run frontend dev server (Vite)
 frontend-dev:
@@ -36,7 +36,7 @@ frontend-build:
 # Run both backend and frontend dev servers
 dev:
     @echo "Starting backend on http://localhost:{{backend_port}} and frontend on http://localhost:{{frontend_port}}"
-    uv run uvicorn main:app --reload --host 0.0.0.0 --port {{backend_port}} & \
+    uv run uvicorn main:app --reload --timeout-graceful-shutdown 2 --host 0.0.0.0 --port {{backend_port}} & \
     cd frontend && BACKEND_PORT={{backend_port}} FRONTEND_PORT={{frontend_port}} npm run dev
 
 # Run tests

@@ -1,0 +1,320 @@
+/* ==========================================================================
+   Moments: dramatic overlays played in sync on every screen.
+   Each plays once: attack -> hold -> release, exponential ease-out, no bounce.
+   Durations come from --moment-duration (set per moment in MomentLayer).
+   --intensity scales every effect: 1 at full, ~0.45 at "subtle".
+   Themes can restyle any moment with `.<theme> .moment--<type>`.
+   ========================================================================== */
+
+.moment {
+  --intensity: 1;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.moment--subtle {
+  --intensity: 0.45;
+}
+
+.moment__backdrop {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.moment__scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  animation: moment-fade var(--moment-duration) ease both;
+}
+
+.moment__card {
+  position: relative;
+  max-width: min(90vw, 42rem);
+  padding: 0 var(--space-lg, 24px);
+  text-align: center;
+  animation: moment-card var(--moment-duration) var(--ease-out-expo) both;
+}
+
+.moment__title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 4.5rem);
+  line-height: 1.05;
+  color: var(--text-primary);
+  text-shadow: 0 2px 30px rgb(0 0 0 / 0.55);
+  text-wrap: balance;
+}
+
+.moment__detail {
+  margin-top: 0.5rem;
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 3.5vw, 1.4rem);
+  color: var(--text-secondary);
+}
+
+@keyframes moment-card {
+  0% { opacity: 0; transform: translateY(10px) scale(1.04); filter: blur(6px); }
+  18% { opacity: 1; transform: none; filter: blur(0); }
+  78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Subtle: no movement, just fades */
+.moment--subtle .moment__card {
+  animation-name: moment-fade;
+}
+
+@keyframes moment-fade {
+  0%, 100% { opacity: 0; }
+  20%, 75% { opacity: 1; }
+}
+
+/* --- HP lost: sharp red impact, then a slow settle --------------------- */
+
+.moment--hp_lost .moment__backdrop {
+  background:
+    radial-gradient(ellipse at center, transparent 30%, color-mix(in srgb, var(--danger) 80%, transparent) 100%),
+    color-mix(in srgb, var(--danger) 22%, transparent);
+  animation: moment-hit var(--moment-duration) var(--ease-out-expo) both;
+}
+
+.moment--hp_lost .moment__card {
+  animation-delay: 120ms;
+}
+
+.moment--hp_lost .moment__title {
+  color: color-mix(in srgb, var(--danger) 35%, var(--text-primary));
+}
+
+@keyframes moment-hit {
+  0% { opacity: 0; }
+  5% { opacity: calc(1 * var(--intensity)); }
+  28% { opacity: calc(0.5 * var(--intensity)); }
+  100% { opacity: 0; }
+}
+
+/* Damped shake of the app (MomentLayer renders outside #root, so it stays put) */
+html.moment-shake #root {
+  animation: moment-shake 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes moment-shake {
+  0% { transform: none; }
+  12% { transform: translate(-6px, 2px); }
+  26% { transform: translate(5px, -2px); }
+  42% { transform: translate(-3px, 1px); }
+  60% { transform: translate(2px, 0); }
+  80% { transform: translate(-1px, 0); }
+  100% { transform: none; }
+}
+
+/* --- Scene changed: lights down, lights up ----------------------------- */
+
+.moment--scene_changed .moment__backdrop {
+  background: color-mix(in srgb, var(--bg-primary) 55%, black);
+  animation: moment-lights var(--moment-duration) cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes moment-lights {
+  0% { opacity: 0; }
+  22%, 45% { opacity: calc(1 * var(--intensity)); }
+  100% { opacity: 0; }
+}
+
+/* --- Item gained: a card rises from the bottom with a glint ------------ */
+
+.moment--item_gained {
+  place-items: end center;
+  padding-bottom: 14vh;
+}
+
+.moment--item_gained .moment__card {
+  overflow: hidden;
+  padding: var(--space-md, 16px) var(--space-xl, 32px);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: var(--radius-lg, 16px);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.35), 0 0 30px color-mix(in srgb, var(--accent) 25%, transparent);
+  animation-name: moment-rise;
+}
+
+.moment--item_gained .moment__card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--accent) 45%, white) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: moment-glint 900ms 300ms var(--ease-out-expo) both;
+}
+
+.moment--item_gained .moment__title {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-shadow: none;
+}
+
+.moment--item_gained .moment__detail {
+  margin-top: 0.25rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  color: var(--accent);
+}
+
+@keyframes moment-rise {
+  0% { opacity: 0; transform: translateY(40px) scale(0.96); }
+  20% { opacity: 1; transform: none; }
+  80% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+@keyframes moment-glint {
+  to { transform: translateX(120%); }
+}
+
+/* --- Level up: a band of light sweeps upward --------------------------- */
+
+.moment--level_up .moment__backdrop {
+  inset: auto 0 0;
+  height: 45vh;
+  background: linear-gradient(to top, transparent, color-mix(in srgb, var(--accent) 40%, transparent), transparent);
+  animation: moment-sweep var(--moment-duration) var(--ease-out-expo) both;
+}
+
+.moment--level_up .moment__title {
+  color: var(--accent);
+}
+
+@keyframes moment-sweep {
+  0% { opacity: 0; transform: translateY(45vh); }
+  15% { opacity: calc(1 * var(--intensity)); }
+  100% { opacity: 0; transform: translateY(-110vh); }
+}
+
+/* --- Finale: everything goes dark, then the title card lands ----------- */
+
+.moment--finale .moment__backdrop {
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--bg-primary) 40%, black) 0%, black 100%);
+  animation: moment-blackout var(--moment-duration) cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.moment--finale .moment__card {
+  animation: moment-title-card var(--moment-duration) var(--ease-out-expo) both;
+  animation-delay: 350ms;
+}
+
+.moment--finale .moment__title {
+  font-size: clamp(2.4rem, 10vw, 6rem);
+  color: var(--accent);
+}
+
+@keyframes moment-blackout {
+  0% { opacity: 0; }
+  15%, 80% { opacity: calc(0.94 * var(--intensity)); }
+  100% { opacity: 0; }
+}
+
+@keyframes moment-title-card {
+  0% { opacity: 0; letter-spacing: 0.3em; filter: blur(8px); }
+  25% { opacity: 1; letter-spacing: 0.04em; filter: blur(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* --- Victory: a burst of the theme's accent light ------------------------ */
+
+.moment--victory .moment__backdrop {
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--accent) 45%, white) 0%, transparent 42%),
+    repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--accent) 30%, transparent) 0deg 6deg, transparent 6deg 18deg);
+  mask-image: radial-gradient(circle at center, black 10%, transparent 70%);
+  animation: moment-burst var(--moment-duration) var(--ease-out-expo) both;
+}
+
+.moment--victory .moment__title {
+  color: color-mix(in srgb, var(--text-primary) 85%, white);
+  font-size: clamp(3rem, 13vw, 7rem);
+  text-shadow:
+    0 0 28px color-mix(in srgb, var(--accent) 80%, transparent),
+    0 2px 10px rgb(0 0 0 / 0.7);
+}
+
+@keyframes moment-burst {
+  0% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  20% { opacity: calc(1 * var(--intensity)); }
+  75% { opacity: calc(0.8 * var(--intensity)); }
+  100% { opacity: 0; transform: scale(1.6) rotate(25deg); }
+}
+
+/* --- Defeat: darkness wipes down ---------------------------------------- */
+
+.moment--defeat .moment__backdrop {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--danger) 45%, black) 0%, black 85%);
+  animation: moment-wipe var(--moment-duration) cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.moment--defeat .moment__title {
+  color: var(--danger);
+  font-size: clamp(3rem, 13vw, 7rem);
+}
+
+@keyframes moment-wipe {
+  0% { opacity: calc(0.95 * var(--intensity)); transform: translateY(-100%); }
+  25%, 80% { opacity: calc(0.95 * var(--intensity)); transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+
+/* --- Character revealed -------------------------------------------------- */
+
+.moment--character_revealed .moment__backdrop {
+  background: color-mix(in srgb, var(--bg-primary) 50%, black);
+  animation: moment-lights var(--moment-duration) cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.moment--character_revealed .moment__title {
+  font-family: var(--font-body);
+  font-size: clamp(0.9rem, 3vw, 1.1rem);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.moment--character_revealed .moment__detail {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 10vw, 5rem);
+  color: var(--text-primary);
+}
+
+/* --- Last life: heartbeat at the screen edges ---------------------------- */
+
+.critical-pulse {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+  box-shadow: inset 0 0 110px 16px color-mix(in srgb, var(--danger) 70%, transparent);
+  animation: critical-heartbeat 1.5s ease-in-out infinite;
+}
+
+.critical-pulse--subtle {
+  opacity: 0.3;
+  animation: none;
+}
+
+@keyframes critical-heartbeat {
+  0%, 55%, 100% { opacity: 0.22; }
+  10% { opacity: 0.75; }
+  20% { opacity: 0.32; }
+  30% { opacity: 0.62; }
+}

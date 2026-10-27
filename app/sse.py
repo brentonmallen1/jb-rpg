@@ -58,8 +58,9 @@ async def stream(role: Role):
             try:
                 message = await asyncio.wait_for(queue.get(), timeout=config.SSE_HEARTBEAT_SECONDS)
             except asyncio.TimeoutError:
-                # Comment line: keeps proxies from closing an idle stream between scenes
-                yield ": ping\n\n"
+                # Keeps proxies from closing an idle stream between scenes, and lets
+                # clients notice a dead connection (EventSource hides comment lines)
+                yield "event: ping\ndata: {}\n\n"
                 continue
             if message is None:
                 break

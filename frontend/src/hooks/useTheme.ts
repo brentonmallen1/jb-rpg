@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { ThemeName } from '../types'
+import { THEMES, type ThemeName } from '../types'
 
 type ColorMode = 'light' | 'dark'
 
@@ -38,8 +38,7 @@ export function useTheme(initialTheme: ThemeName = 'cyberpunk'): UseThemeReturn 
     const html = document.documentElement
 
     // Remove all theme classes
-    const themeClasses: ThemeName[] = ['cyberpunk', 'fantasy', 'deep_space', 'modern', 'horror', 'insanity']
-    themeClasses.forEach(t => html.classList.remove(t))
+    THEMES.forEach(t => html.classList.remove(t))
 
     // Load theme CSS if not already loaded
     if (!loadedThemes.has(theme) && !loadingRef.current) {

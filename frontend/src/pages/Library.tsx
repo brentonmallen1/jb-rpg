@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import type { StorySummary, ThemeName } from '../types'
-import { RulesModal, ConfirmDialog, InputDialog, ModeToggle } from '../components'
+import { Modal, RulesModal, ConfirmDialog, InputDialog, ModeToggle } from '../components'
 import { getThemeVars } from '../styles/themeVars'
 import '../styles/pages/library.css'
 
 export default function Library() {
   const navigate = useNavigate()
-  const { state, toggleColorMode, colorMode, startSession, stopSession, isStoryteller, setCurrentStory, isInitializing, isValidatingToken } = useGame()
+  const { state, toggleColorMode, colorMode, startSession, resumeSession, endSession, isStoryteller, sessionElsewhere, setCurrentStory, isInitializing, isValidatingToken } = useGame()
   const [stories, setStories] = useState<StorySummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -20,6 +20,8 @@ export default function Library() {
   const [deleteTarget, setDeleteTarget] = useState<StorySummary | null>(null)
   const [stopTarget, setStopTarget] = useState<StorySummary | null>(null)
   const [stopping, setStopping] = useState(false)
+  const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string } | null>(null)
+  const [showTakeOver, setShowTakeOver] = useState(false)
 
   // Clear currentStory so the page uses the default 'modern' theme
   useEffect(() => {
@@ -67,14 +69,30 @@ export default function Library() {
     }
   }
 
-  async function handleStartSession(storyId: string) {
+  async function handleStartSession(story: StorySummary, force = false) {
     setError(null)
+    setReplaceTarget(null)
     try {
-      await startSession(storyId)
+      await startSession(story.id, force)
       navigate('/run')
     } catch (err) {
-      console.error('Failed to start session:', err)
-      setError('Failed to start session. Please try again.')
+      if (err instanceof api.ApiError && err.status === 409) {
+        // Another session is running: confirm before ending it
+        setReplaceTarget({ story, message: err.message })
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Failed to start session. Please try again.')
+    }
+  }
+
+  async function handleTakeOver() {
+    setShowTakeOver(false)
+    setError(null)
+    try {
+      await resumeSession()
+      navigate('/run')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to take over the session.')
     }
   }
 
@@ -84,7 +102,7 @@ export default function Library() {
     setStopping(true)
     setError(null)
     try {
-      await stopSession()
+      await endSession()
     } catch (err) {
       console.error('Failed to stop session:', err)
       setError(err instanceof Error ? err.message : 'Failed to stop session. Please try again.')
@@ -125,6 +143,13 @@ export default function Library() {
           <h1>Story Library</h1>
           <button className="btn" onClick={() => setShowCreateDialog(true)}>New Story</button>
         </div>
+
+        {sessionElsewhere && (
+          <div className="alert alert--warning mb-lg" role="status">
+            <span>A session is running from another tab or device.</span>
+            <button className="btn text-sm" onClick={() => setShowTakeOver(true)}>Take over</button>
+          </div>
+        )}
 
         {/* Error message */}
         {error && (
@@ -204,14 +229,14 @@ export default function Library() {
                         </button>
                       </>
                     ) : (
-                      // Someone else is running the session
-                      <span className="text-secondary" style={{ padding: 'var(--space-xs) 0' }}>
-                        Session in progress
-                      </span>
+                      // Running in another tab or device
+                      <button className="btn" onClick={() => setShowTakeOver(true)}>
+                        Take over
+                      </button>
                     )
                   ) : (
                     // No active session for this story
-                    <button className="btn" onClick={() => handleStartSession(story.id)}>
+                    <button className="btn" onClick={() => handleStartSession(story)}>
                       Play
                     </button>
                   )}
@@ -262,6 +287,29 @@ export default function Library() {
         message={`Are you sure you want to delete "${deleteTarget?.title}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
+      />
+
+      {/* Starting while another session runs */}
+      <Modal isOpen={replaceTarget !== null} onClose={() => setReplaceTarget(null)} title="A session is already running">
+        <p className="mb-lg">{replaceTarget?.message} You can take over that game, or end it and start “{replaceTarget?.story.title}”.</p>
+        <div className="btn-group">
+          <button className="btn btn--secondary" onClick={() => setReplaceTarget(null)}>Cancel</button>
+          <button className="btn btn--secondary" onClick={() => { setReplaceTarget(null); handleTakeOver() }}>Take over</button>
+          <button className="btn btn--danger" onClick={() => replaceTarget && handleStartSession(replaceTarget.story, true)}>
+            End it and start
+          </button>
+        </div>
+      </Modal>
+
+      {/* Taking over a session run from another tab */}
+      <ConfirmDialog
+        isOpen={showTakeOver}
+        onConfirm={handleTakeOver}
+        onCancel={() => setShowTakeOver(false)}
+        title="Take over this session?"
+        message="You'll become the storyteller here. The game continues where it is, and the other tab loses control."
+        confirmText="Take over"
+        variant="default"
       />
 
       {/* Stop Session Confirmation Dialog */}

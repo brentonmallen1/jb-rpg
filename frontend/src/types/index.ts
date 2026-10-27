@@ -1,5 +1,6 @@
-// Theme names matching backend ThemeName enum
-export type ThemeName = 'cyberpunk' | 'fantasy' | 'deep_space' | 'modern' | 'horror' | 'insanity'
+// Theme names matching backend ThemeName enum: the single list for the frontend
+export const THEMES = ['cyberpunk', 'fantasy', 'deep_space', 'modern', 'horror', 'insanity'] as const
+export type ThemeName = typeof THEMES[number]
 
 // Session status matching backend SessionStatus enum
 export type SessionStatus = 'madlib_in_progress' | 'character_reveal' | 'opening_scene_active' | 'running' | 'awaiting_scene_selection' | 'game_over'
@@ -122,6 +123,7 @@ export interface ResolvedContent {
   character_description?: string
   theme: ThemeName
   visible_choices: string[]  // Choice display text in shuffled order, once revealed to players
+  finale: boolean  // The final d20 roll is underway
   victory_text?: string
   defeat_text?: string
 }

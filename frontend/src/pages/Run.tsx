@@ -2,94 +2,58 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
-import type { Story, Choice, Scene, HistoryEntry, ThemeName } from '../types'
-import { Modal, ConfirmDialog, RulesModal, HPDisplay, StatsRow, ModeToggle, PageMessage, ContentBox } from '../components'
+import { useAsyncAction } from '../hooks/useAsyncAction'
+import type { Story } from '../types'
+import { Modal, ConfirmDialog, RulesModal, ModeToggle, PageMessage } from '../components'
 import { getThemeVars } from '../styles/themeVars'
+import { MadlibStep } from './run/MadlibStep'
+import { CharacterReveal } from './run/CharacterReveal'
+import { OpeningScene } from './run/OpeningScene'
+import { SceneSelect } from './run/SceneSelect'
+import { SceneView } from './run/SceneView'
+import { GameOver } from './run/GameOver'
 import '../styles/pages/run.css'
 
 export default function Run() {
   const navigate = useNavigate()
   const {
-    state,
-    resolved,
-    playerCount,
-    toggleColorMode,
-    colorMode,
-    setTheme,
-    submitMadlib,
-    madlibBack,
-    proceedFromCharacter,
-    makeChoice,
-    goBack,
-    finish,
-    restart,
-    stopSession,
-    revealChoices,
-    selectScene,
-    selectOpeningChoice,
-    isInitializing
+    state, resolved, playerCount, toggleColorMode, colorMode, setTheme,
+    endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere,
   } = useGame()
+  const { run, pending, error, clearError } = useAsyncAction()
 
   const [story, setStory] = useState<Story | null>(null)
-  const [madlibInput, setMadlibInput] = useState('')
   const [showRules, setShowRules] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
-  const [copyFeedback, setCopyFeedback] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [storytellerChoicesRevealed, setStorytellerChoicesRevealed] = useState(false)
-  const [pendingChoice, setPendingChoice] = useState<{ visualIndex: number; choice: Choice } | null>(null)
-  const [pendingRevisit, setPendingRevisit] = useState<{ sceneId: string; sceneTitle: string; outcome: string } | null>(null)
-  const [pendingOutcome, setPendingOutcome] = useState<{ outcome: 'victory' | 'defeat'; text: string } | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [madlibInputNode, setMadlibInputNode] = useState<HTMLInputElement | null>(null)
 
-  // Focus madlib input when it mounts AND isSubmitting is false
+  // The session's own copy of the story: edits made after starting don't affect this game
+  const sessionId = state?.session_id
   useEffect(() => {
-    if (madlibInputNode && !isSubmitting && state?.status === 'madlib_in_progress') {
-      madlibInputNode.focus()
-    }
-  }, [madlibInputNode, isSubmitting, state?.status, state?.madlib_step])
+    if (!sessionId || !isStoryteller) return
+    let cancelled = false
+    api.getSessionStory()
+      .then(s => { if (!cancelled) setStory(s) })
+      .catch(console.error)
+    return () => { cancelled = true }
+  }, [sessionId, isStoryteller])
 
-  // Load story data
-  useEffect(() => {
-    if (state?.story_id) {
-      api.getStory(state.story_id).then(setStory).catch(console.error)
-    }
-  }, [state?.story_id])
-
-  // Reset storyteller's local reveal state when scene changes
-  useEffect(() => {
-    setStorytellerChoicesRevealed(false)
-  }, [state?.current_scene_id])
-
-  // Force modern theme for storyteller's Run page
+  // The storyteller's chrome uses the modern theme; the story's theme colours the stats
   useEffect(() => {
     setTheme('modern')
   }, [setTheme])
 
-  // Load story's theme CSS for themed stats display
   useEffect(() => {
     if (story?.theme && story.theme !== 'modern') {
       import(`../styles/themes/${story.theme}.css`)
     }
   }, [story?.theme])
 
-  // Pre-fill madlib input when the field changes (e.g. after going back)
-  const currentField = state ? story?.madlib_template.fields[state.madlib_step] : undefined
-  const [prefilledKey, setPrefilledKey] = useState<string | undefined>(undefined)
-  if (currentField?.key !== prefilledKey) {
-    setPrefilledKey(currentField?.key)
-    setMadlibInput(currentField && state ? state.madlib_answers[currentField.key] ?? '' : '')
-  }
-
-  // Still connecting to SSE
-  if (isInitializing) {
+  if (isInitializing || isValidatingToken) {
     return <PageMessage message="Connecting..." />
   }
 
-  // No active session (confirmed after SSE connected)
-  if (!state) {
+  if (!state && !sessionElsewhere) {
     return (
       <PageMessage
         title="No Active Session"
@@ -99,595 +63,95 @@ export default function Run() {
     )
   }
 
-  const madlibInputId = 'madlib-input'
+  if (!state || !isStoryteller) {
+    return (
+      <PageMessage
+        title="Session running elsewhere"
+        message="This game is being run from another tab or device. Take over to continue it here."
+        action={
+          <div className="btn-group">
+            <button className="btn btn--secondary" onClick={() => navigate('/')}>Go to Library</button>
+            <button className="btn" onClick={() => run(resumeSession, 'Failed to take over')}>Take over</button>
+          </div>
+        }
+      />
+    )
+  }
 
-  // Run a storyteller action, surfacing any failure in the error banner
-  async function attempt(action: () => Promise<unknown>, fallbackMessage: string) {
-    try {
-      await action()
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : fallbackMessage)
+  async function returnToLibrary() {
+    if (await run(endSession, 'Failed to end session')) navigate('/')
+  }
+
+  function renderStatus() {
+    if (!state || !story) return null
+    switch (state.status) {
+      case 'madlib_in_progress':
+        return <MadlibStep state={state} story={story} run={run} pending={pending} />
+      case 'character_reveal':
+        return state.character ? <CharacterReveal character={state.character} run={run} /> : null
+      case 'opening_scene_active':
+        return story.opening_scene && resolved
+          ? <OpeningScene scene={story.opening_scene} sceneText={resolved.scene_text} run={run} />
+          : null
+      case 'awaiting_scene_selection':
+        return (
+          <SceneSelect
+            state={state}
+            story={story}
+            colorMode={colorMode}
+            run={run}
+            onError={message => run(() => Promise.reject(new Error(message)))}
+          />
+        )
+      case 'running':
+        return resolved ? (
+          <SceneView
+            key={state.current_scene_id}
+            state={state}
+            resolved={resolved}
+            story={story}
+            colorMode={colorMode}
+            run={run}
+            pending={pending}
+          />
+        ) : null
+      case 'game_over':
+        return <GameOver state={state} resolved={resolved} run={run} onReturnToLibrary={returnToLibrary} />
     }
-  }
-
-  async function handleMadlibBack() {
-    if (isSubmitting || !state || state.madlib_step <= 0) return
-    setIsSubmitting(true)
-    try {
-      await madlibBack()
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to go back')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  async function handleMadlibSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!madlibInput.trim() || isSubmitting) return
-    setIsSubmitting(true)
-    try {
-      await submitMadlib(madlibInput.trim())
-      setMadlibInput('')
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  function handleChoice(visualIndex: number, choice: Choice) {
-    // Show confirmation modal instead of immediately making choice
-    setPendingChoice({ visualIndex, choice })
-  }
-
-  async function confirmChoice() {
-    if (!pendingChoice || isSubmitting) return
-    setIsSubmitting(true)
-    try {
-      await makeChoice(pendingChoice.visualIndex)
-      setPendingChoice(null)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to make choice')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  function cancelChoice() {
-    setPendingChoice(null)
-  }
-
-  async function handleFinish(outcome: 'victory' | 'defeat') {
-    if (isSubmitting) return
-    setIsSubmitting(true)
-    try {
-      await finish(outcome)
-      setError(null)
-      setPendingOutcome(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to finish game')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  function showFinaleOutcome(outcome: 'victory' | 'defeat') {
-    // Use resolved text from backend (has variable injection applied)
-    const text = outcome === 'victory' ? resolved?.victory_text : resolved?.defeat_text
-    setPendingOutcome({ outcome, text: text || '' })
-  }
-
-  async function handleRestart() {
-    try {
-      await restart()
-      navigate('/')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to restart')
-    }
-  }
-
-  async function handleQuit() {
-    setShowQuitConfirm(false)
-    try {
-      await stopSession()
-      navigate('/')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to end session')
-    }
-  }
-
-  function handleCopyLink() {
-    if (!state) return
-    navigator.clipboard.writeText(`${window.location.origin}/player/${state.session_id}`)
-    setCopyFeedback(true)
-    setTimeout(() => setCopyFeedback(false), 2000)
   }
 
   return (
     <>
-      <nav
-        className={`nav ${story?.theme || 'modern'}`}
-        style={story ? getThemeVars(story.theme as ThemeName, colorMode) : undefined}
-      >
+      <nav className={`nav ${story?.theme || 'modern'}`} style={story ? getThemeVars(story.theme, colorMode) : undefined}>
         <span className="nav__title">J&B's RPG</span>
         <div className="nav__actions">
           <span className="text-secondary text-sm" aria-live="polite">
             {playerCount} {playerCount === 1 ? 'player' : 'players'}
           </span>
-          <button
-            className="btn"
-            onClick={() => setShowShare(true)}
-          >
-            Share
-          </button>
-          <button
-            className="btn btn--secondary"
-            onClick={() => setShowQuitConfirm(true)}
-          >
-            Quit
-          </button>
-          <button
-            className="btn btn--secondary"
-            onClick={() => setShowRules(true)}
-            aria-label="Game rules"
-          >
-            ?
-          </button>
+          <button className="btn" onClick={() => setShowShare(true)}>Share</button>
+          <button className="btn btn--secondary" onClick={() => setShowQuitConfirm(true)}>Quit</button>
+          <button className="btn btn--secondary" onClick={() => setShowRules(true)} aria-label="Game rules">?</button>
           <ModeToggle colorMode={colorMode} onToggle={toggleColorMode} />
         </div>
       </nav>
 
       <main className="container">
-        {/* Error Banner */}
         {error && (
           <div className="alert alert--danger mb-md" role="alert">
             <span>{error}</span>
-            <button
-              className="btn btn--secondary"
-              onClick={() => setError(null)}
-              style={{ marginLeft: 'var(--space-md)' }}
-            >
+            <button className="btn btn--secondary" onClick={clearError} style={{ marginLeft: 'var(--space-md)' }}>
               Dismiss
             </button>
           </div>
         )}
-
-        {/* Character Creation Phase */}
-        {state.status === 'madlib_in_progress' && currentField && (
-          <ContentBox width="narrow" centered>
-            <h1 className="mb-lg">Character Creation</h1>
-            <div className="card mb-lg">
-              <p className="prose">{story?.madlib_template.prompt}</p>
-            </div>
-            <div className="text-secondary mb-md">
-              Field {state.madlib_step + 1} of {story?.madlib_template.fields.length}
-            </div>
-            <form onSubmit={handleMadlibSubmit}>
-              <label htmlFor={madlibInputId} className="text-xl mb-sm" style={{ display: 'block' }}>
-                {currentField.label}
-              </label>
-              {currentField.hint && (
-                <div className="text-secondary text-sm mb-sm italic">({currentField.hint})</div>
-              )}
-              <div className="text-secondary text-sm mb-sm">
-                → fills <code className="code-inline">{'{' + currentField.key + '}'}</code>
-              </div>
-              <input
-                ref={setMadlibInputNode}
-                key={state.madlib_step}
-                id={madlibInputId}
-                type="text"
-                value={madlibInput}
-                onChange={e => setMadlibInput(e.target.value)}
-                className="input w-full mb-md"
-                autoFocus
-                disabled={isSubmitting}
-              />
-              <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                {state.madlib_step > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={handleMadlibBack}
-                    disabled={isSubmitting}
-                  >
-                    Back
-                  </button>
-                )}
-                <button type="submit" className="btn" disabled={!madlibInput.trim() || isSubmitting}>
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
-                </button>
-              </div>
-            </form>
-          </ContentBox>
-        )}
-
-        {/* Character Reveal Phase */}
-        {state.status === 'character_reveal' && state.character && (
-          <ContentBox width="narrow" centered>
-            <h1 className="mb-lg">Read to Players</h1>
-            <div className="card mb-lg text-left">
-              <div className="font-semibold" style={{ marginBottom: 'var(--space-sm)', fontSize: 'var(--text-xl)' }}>
-                {state.character.name}
-              </div>
-              <p className="prose">{state.character.description}</p>
-            </div>
-            <button className="btn" onClick={() => attempt(proceedFromCharacter, 'Failed to continue')}>
-              Continue
-            </button>
-          </ContentBox>
-        )}
-
-        {/* Opening Scene Phase */}
-        {state.status === 'opening_scene_active' && resolved && story?.opening_scene && (
-          <div className="run-content">
-            <h1 className="run-title">{story.opening_scene.title}</h1>
-            <div className="card mb-lg">
-              <p className="prose">{resolved.scene_text}</p>
-            </div>
-
-            {story.opening_scene.choices.length > 0 ? (
-              <div className="btn-group--stack">
-                {story.opening_scene.choices.map((choice, index) => (
-                  <button
-                    key={index}
-                    className="btn w-full"
-                    onClick={() => attempt(() => selectOpeningChoice(index), 'Failed to choose')}
-                  >
-                    {choice.text}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center">
-                <button className="btn" onClick={() => attempt(() => selectOpeningChoice(null), 'Failed to continue')}>
-                  Choose Your Path
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Scene Selection Phase */}
-        {state.status === 'awaiting_scene_selection' && story && (
-          <div className="run-content--narrow">
-            <h1 className="mb-md">Select Next Scene</h1>
-
-            {/* Player Stats (themed) */}
-            <div className={story.theme} style={getThemeVars(story.theme as ThemeName, colorMode)}>
-              <div className="run-stats-row">
-                <HPDisplay hp={state.hp} />
-                <StatsRow level={state.level} itemCount={state.items.length} />
-              </div>
-            </div>
-            <div className="stack gap-md">
-              {story.scenes.map(scene => {
-                const historyEntry = state.history.find(h => h.scene_id === scene.id)
-                const isPlayed = !!historyEntry
-                const choiceMade = isPlayed ? scene.choices[historyEntry.choice_index] : null
-                const isFinale = scene.is_finale
-                const nonFinaleScenes = story.scenes.filter((s: Scene) => !s.is_finale)
-                const playedIds = new Set(state.history.map((h: HistoryEntry) => h.scene_id))
-                const allNonFinalesPlayed = nonFinaleScenes.every((s: Scene) => playedIds.has(s.id))
-                const isFinaleDisabled = isFinale && !allNonFinalesPlayed
-
-                const getOutcomeDisplay = (choice: { kind: string; item_name?: string }) => {
-                  if (choice.kind === 'damage') return '-1 HP'
-                  if (choice.kind === 'item') return `Item: ${choice.item_name || 'Unknown'}`
-                  if (choice.kind === 'level') return '+1 Level'
-                  return ''
-                }
-
-                const handleSceneClick = () => {
-                  if (isFinaleDisabled) {
-                    setError('Complete all scenes before accessing the finale')
-                    return
-                  }
-                  if (isPlayed && choiceMade) {
-                    // Show confirmation for revisit
-                    setPendingRevisit({
-                      sceneId: scene.id,
-                      sceneTitle: scene.display_name || scene.title,
-                      outcome: getOutcomeDisplay(choiceMade)
-                    })
-                  } else {
-                    attempt(() => selectScene(scene.id), 'Failed to select scene')
-                  }
-                }
-
-                return (
-                  <button
-                    key={scene.id}
-                    className="card"
-                    onClick={handleSceneClick}
-                    aria-current={scene.id === state.current_scene_id ? 'true' : undefined}
-                    aria-disabled={isFinaleDisabled}
-                    style={{
-                      textAlign: 'left',
-                      cursor: isFinaleDisabled ? 'not-allowed' : 'pointer',
-                      border: scene.id === state.current_scene_id ? '2px solid var(--accent)' : undefined,
-                      opacity: isFinaleDisabled ? 0.4 : isPlayed ? 0.7 : 1
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xs)' }}>
-                      <div className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        {scene.display_name || scene.title}
-                        {isFinale && <span className="text-sm text-secondary"> (Finale)</span>}
-                      </div>
-                      {isPlayed && (
-                        <span className="text-sm text-secondary" style={{ fontStyle: 'italic' }}>Played</span>
-                      )}
-                      {isFinaleDisabled && (
-                        <span className="text-sm text-secondary" style={{ fontStyle: 'italic' }}>🔒</span>
-                      )}
-                    </div>
-                    {isPlayed && choiceMade ? (
-                      <div className="text-sm" style={{ color: 'var(--accent)' }}>
-                        {getOutcomeDisplay(choiceMade)}
-                      </div>
-                    ) : (
-                      <div className="text-secondary text-sm">
-                        {scene.base_text.slice(0, 100)}...
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Running Phase */}
-        {state.status === 'running' && resolved && story && (
-          <div className="run-content">
-            {/* Character info */}
-            {state.character && (
-              <div className="card mb-lg">
-                <div className="font-semibold mb-xs">{state.character.name}</div>
-                <div className="text-secondary">{resolved.character_description}</div>
-              </div>
-            )}
-
-            {/* HP Display & Stats (themed) */}
-            <div className={story.theme} style={getThemeVars(story.theme as ThemeName, colorMode)}>
-              <div className="mb-lg">
-                <HPDisplay hp={state.hp} />
-              </div>
-              <div className="mb-lg">
-                <StatsRow level={state.level} itemCount={state.items.length} />
-              </div>
-            </div>
-
-            {/* Scene text */}
-            <div className="card mb-lg">
-              <p className="prose">{resolved.scene_text}</p>
-            </div>
-
-            {/* Choices or Finale */}
-            {(() => {
-              const currentScene = story.scenes.find(s => s.id === state.current_scene_id)
-              const getOutcomeLabel = (choice: { kind: string; item_name?: string }) => {
-                if (choice.kind === 'damage') return '−1 HP'
-                if (choice.kind === 'item') return choice.item_name || 'Item'
-                if (choice.kind === 'level') return 'Level Up'
-                return ''
-              }
-
-              // Finale scene - show setup text and outcome buttons instead of choices
-              if (currentScene?.is_finale) {
-                return (
-                  <div className="text-center">
-                    {currentScene.finale_setup_text && (
-                      <div className="card mb-lg">
-                        <p className="prose">{currentScene.finale_setup_text}</p>
-                      </div>
-                    )}
-                    <div className="mb-lg">
-                      <p className="text-secondary">Roll a d20 and add {state.items.length} (items)</p>
-                      <p className="text-secondary">You have {state.level} roll attempt(s)</p>
-                      <p className="text-secondary">Need 20+ total to win!</p>
-                    </div>
-                    <div className="btn-group">
-                      <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
-                        Victory!
-                      </button>
-                      <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
-                        Defeat
-                      </button>
-                    </div>
-                  </div>
-                )
-              }
-
-              // Storyteller hasn't revealed choices yet - show reveal button
-              if (!storytellerChoicesRevealed && !state.shuffled_indices.length) {
-                return (
-                  <div className="text-center">
-                    <button
-                      className="btn"
-                      onClick={() => attempt(async () => {
-                        await revealChoices(false) // Shuffle but don't show to players
-                        setStorytellerChoicesRevealed(true)
-                      }, 'Failed to reveal choices')}
-                    >
-                      Reveal Choices
-                    </button>
-                  </div>
-                )
-              }
-
-              // Choices revealed to storyteller - show choice buttons + player controls
-              return (
-                <>
-                  <div className="stack gap-md">
-                    {state.shuffled_indices.map((originalIndex: number, visualIndex: number) => {
-                      const choice = currentScene?.choices[originalIndex]
-                      if (!choice) return null
-                      return (
-                        <button
-                          key={visualIndex}
-                          className={`btn choice-btn choice-btn--${choice.kind} text-left`}
-                          onClick={() => handleChoice(visualIndex, choice)}
-                          style={{ padding: 'var(--space-md)' }}
-                        >
-                          <div>{choice.display_text}</div>
-                          <div className="text-sm mt-xs" style={{ opacity: 0.8 }}>
-                            {getOutcomeLabel(choice)}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="text-center mt-md">
-                    <button
-                      className={`btn ${state.choices_revealed ? 'btn--secondary' : ''}`}
-                      onClick={() => attempt(() => revealChoices(true), 'Failed to show choices')} // Show to players
-                    >
-                      {state.choices_revealed ? 'Remind Players of Choices' : 'Show Choices to Players'}
-                    </button>
-                  </div>
-                </>
-              )
-            })()}
-
-            {/* Back button - only for linear stories, not for non-linear (scene replay is done from scene selection) */}
-            {state.history.length > 0 && !story?.settings.non_linear && (
-              <div className="text-center mt-lg">
-                <button className="btn btn--secondary" onClick={() => attempt(goBack, 'Failed to go back')}>
-                  Go Back
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Game Over Phase */}
-        {state.status === 'game_over' && (
-          <div className="run-content--narrow text-center">
-            {state.outcome ? (
-              <>
-                <h1
-                  className={`text-5xl mb-lg ${state.outcome === 'victory' ? 'text-success' : 'text-danger'}`}
-                  aria-live="assertive"
-                >
-                  {state.outcome === 'victory' ? 'VICTORY!' : 'DEFEAT'}
-                </h1>
-                <div className="mb-xl">
-                  <p>Level: {state.level}</p>
-                  <p>Items: {state.items.length}</p>
-                  {state.items.length > 0 && (
-                    <p className="text-secondary">{state.items.join(', ')}</p>
-                  )}
-                </div>
-                {!state.outcome_revealed ? (
-                  <button
-                    className="btn btn--success"
-                    onClick={async () => {
-                      try {
-                        await api.revealOutcome()
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : 'Failed to reveal outcome')
-                      }
-                    }}
-                  >
-                    Reveal to Players
-                  </button>
-                ) : (
-                  <button className="btn" onClick={handleRestart}>
-                    Return to Library
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <h1 className="mb-lg">Final Showdown!</h1>
-                <div className="card mb-lg">
-                  <p className="mb-md">Roll a d20 and add {state.items.length} (items)</p>
-                  <p className="mb-md">You have {state.level} roll attempt(s)</p>
-                  <p>Need 20+ total to win!</p>
-                </div>
-                <div className="btn-group">
-                  <button className="btn btn--success" onClick={() => showFinaleOutcome('victory')}>
-                    Victory!
-                  </button>
-                  <button className="btn btn--danger" onClick={() => showFinaleOutcome('defeat')}>
-                    Defeat
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+        {renderStatus()}
       </main>
 
-      {/* Finale Outcome Modal */}
-      <Modal
-        isOpen={!!pendingOutcome}
-        onClose={() => setPendingOutcome(null)}
-        title={pendingOutcome?.outcome === 'victory' ? 'Victory!' : 'Defeat'}
-      >
-        <div className="mb-lg">
-          {pendingOutcome?.text ? (
-            <p className="prose">{pendingOutcome.text}</p>
-          ) : (
-            <p className="text-secondary">No text provided for this outcome.</p>
-          )}
-        </div>
-        <p className="text-secondary text-sm mb-lg">
-          Read the text above to your players, then click Continue.
-        </p>
-        <div className="btn-group">
-          <button className="btn btn--secondary" onClick={() => setPendingOutcome(null)}>
-            Cancel
-          </button>
-          <button
-            className={pendingOutcome?.outcome === 'victory' ? 'btn btn--success' : 'btn btn--danger'}
-            onClick={() => pendingOutcome && handleFinish(pendingOutcome.outcome)}
-          >
-            Continue
-          </button>
-        </div>
-      </Modal>
+      <ShareModal isOpen={showShare} sessionId={state.session_id} onClose={() => setShowShare(false)} />
 
-      {/* Share Modal */}
-      <Modal
-        isOpen={showShare && !!state?.session_id}
-        onClose={() => setShowShare(false)}
-        title="Share with Players"
-      >
-        <p className="text-secondary mb-md">Players can join using this link:</p>
-        <input
-          type="text"
-          readOnly
-          value={`${window.location.origin}/player/${state.session_id}`}
-          aria-label="Player join link"
-          className="input text-center mb-md"
-          onClick={e => (e.target as HTMLInputElement).select()}
-        />
-        <div className="btn-group">
-          <button className="btn" onClick={handleCopyLink}>
-            {copyFeedback ? 'Copied!' : 'Copy Link'}
-          </button>
-          <button className="btn btn--secondary" onClick={() => setShowShare(false)}>
-            Close
-          </button>
-        </div>
-        {copyFeedback && (
-          <p role="status" aria-live="polite" className="text-success text-sm text-center mt-sm">
-            Link copied to clipboard
-          </p>
-        )}
-      </Modal>
-
-      {/* Quit Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showQuitConfirm}
-        onConfirm={handleQuit}
+        onConfirm={() => { setShowQuitConfirm(false); returnToLibrary() }}
         onCancel={() => setShowQuitConfirm(false)}
         title="End Session?"
         message="Are you sure you want to end the current session? All players will be disconnected."
@@ -695,60 +159,49 @@ export default function Run() {
         variant="danger"
       />
 
-      {/* Scene Revisit Confirmation Modal */}
-      <ConfirmDialog
-        isOpen={!!pendingRevisit}
-        onConfirm={async () => {
-          if (pendingRevisit) {
-            try {
-              await selectScene(pendingRevisit.sceneId, true)
-              setPendingRevisit(null)
-              setError(null)
-            } catch (err) {
-              setError(err instanceof Error ? err.message : 'Failed to revisit scene')
-            }
-          }
-        }}
-        onCancel={() => setPendingRevisit(null)}
-        title="Revisit Scene?"
-        message={pendingRevisit ? `Revisiting "${pendingRevisit.sceneTitle}" will revert: ${pendingRevisit.outcome}` : ''}
-        confirmText="Revisit"
-        variant="default"
-      />
-
-      {/* Choice Confirmation Modal */}
-      <Modal
-        isOpen={!!pendingChoice}
-        onClose={cancelChoice}
-        title="Choice Result"
-      >
-        {pendingChoice && (
-          <>
-            <div
-              className={`text-${pendingChoice.choice.kind === 'damage' ? 'danger' : pendingChoice.choice.kind === 'item' ? 'success' : 'warning'}`}
-              style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-md)', textAlign: 'center' }}
-            >
-              {pendingChoice.choice.kind === 'damage' && '−1 HP'}
-              {pendingChoice.choice.kind === 'item' && (pendingChoice.choice.item_name || 'Item Gained')}
-              {pendingChoice.choice.kind === 'level' && 'Level Up!'}
-            </div>
-            <div className="card mb-lg">
-              <p className="prose">{pendingChoice.choice.result_text}</p>
-            </div>
-            <div className="btn-group">
-              <button className="btn" onClick={confirmChoice}>
-                Continue
-              </button>
-              <button className="btn btn--secondary" onClick={cancelChoice}>
-                Cancel
-              </button>
-            </div>
-          </>
-        )}
-      </Modal>
-
-      {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </>
+  )
+}
+
+function ShareModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sessionId: string; onClose: () => void }) {
+  const [baseUrl, setBaseUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // BASE_URL (behind a reverse proxy) wins over the address the storyteller happens to use
+  useEffect(() => {
+    if (!isOpen) return
+    api.getConfig().then(c => setBaseUrl(c.base_url)).catch(() => setBaseUrl(null))
+  }, [isOpen])
+
+  const link = `${(baseUrl || window.location.origin).replace(/\/$/, '')}/player/${sessionId}`
+
+  function copy() {
+    navigator.clipboard.writeText(link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Share with Players">
+      <p className="text-secondary mb-md">Players can join using this link:</p>
+      <input
+        type="text"
+        readOnly
+        value={link}
+        aria-label="Player join link"
+        className="input text-center mb-md"
+        onClick={e => (e.target as HTMLInputElement).select()}
+      />
+      <div className="btn-group">
+        <button className="btn" onClick={copy}>{copied ? 'Copied!' : 'Copy Link'}</button>
+        <button className="btn btn--secondary" onClick={onClose}>Close</button>
+      </div>
+      {copied && (
+        <p role="status" aria-live="polite" className="text-success text-sm text-center mt-sm">
+          Link copied to clipboard
+        </p>
+      )}
+    </Modal>
   )
 }

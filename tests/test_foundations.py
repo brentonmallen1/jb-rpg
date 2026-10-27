@@ -201,7 +201,7 @@ def test_sse_counts_players_and_sends_heartbeats(client, monkeypatch):
         assert list(sse.connections.values()).count("player") == 1
 
         await player.__anext__()  # the broadcast announcing the player
-        assert await player.__anext__() == ": ping\n\n"
+        assert await player.__anext__() == "event: ping\ndata: {}\n\n"
 
         await sse.end_session()
         rest = [m async for m in player]

@@ -109,7 +109,13 @@ def build_resolved(state: GameState | None) -> dict | None:
     story = state.story
     fields = state.character.fields if state.character else None
     char_desc = state.character.description if state.character else None
-    base = {"character_description": char_desc, "theme": story.theme.value, "visible_choices": []}
+    base = {
+        "character_description": char_desc,
+        "theme": story.theme.value,
+        "visible_choices": [],
+        # Players never see progress; this is how they learn the end has arrived
+        "finale": state.status == SessionStatus.GAME_OVER and state.outcome is None,
+    }
 
     if state.status == SessionStatus.OPENING_SCENE_ACTIVE and story.opening_scene:
         text = inject_variables(story.opening_scene.base_text, fields)
@@ -122,6 +128,8 @@ def build_resolved(state: GameState | None) -> dict | None:
     if scene is None:
         return None
     resolved = {**base, "scene_text": resolve_scene_text(scene, state)}
+    if scene.is_finale and state.status == SessionStatus.RUNNING:
+        resolved["finale"] = True
 
     # Player-facing choice text in shuffled order, once revealed. Outcomes never leave the server.
     if state.choices_revealed:

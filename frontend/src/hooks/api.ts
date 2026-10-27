@@ -2,22 +2,16 @@ import type { Story, StorySummary, GameState } from '../types'
 
 const SESSION_TOKEN_KEY = 'jb_rpg_session_token'
 
-// Config endpoint
-export async function getConfig(): Promise<{ base_url: string | null }> {
-  const res = await fetch('/api/config')
-  if (!res.ok) throw new Error(`Config fetch failed: ${res.status}`)
-  return res.json()
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
 }
 
-// Is a session active, and does sessionId match it? (never reveals the id)
-export async function checkSession(sessionId?: string | null): Promise<{ active: boolean; valid: boolean }> {
-  const query = sessionId ? `?s=${encodeURIComponent(sessionId)}` : ''
-  const res = await fetch(`/api/session/check${query}`)
-  if (!res.ok) throw new Error(`Session check failed: ${res.status}`)
-  return res.json()
-}
-
-// Get/set session token
+// Storyteller token (sessionStorage: one per tab)
 export function getSessionToken(): string | null {
   return sessionStorage.getItem(SESSION_TOKEN_KEY)
 }
@@ -30,222 +24,83 @@ export function setSessionToken(token: string | null): void {
   }
 }
 
-function getAuthHeaders(): HeadersInit {
-  const headers: HeadersInit = { 'Content-Type': 'application/json' }
+// Every API call goes through here: JSON in/out, storyteller token attached,
+// and failures surface the server's `detail` message.
+async function request<T>(path: string, { body, method }: { body?: unknown; method?: string } = {}): Promise<T> {
+  const headers: Record<string, string> = {}
   const token = getSessionToken()
-  if (token) {
-    headers['X-Session-Token'] = token
-  }
-  return headers
-}
+  if (token) headers['X-Session-Token'] = token
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
 
-// Story endpoints
-export async function getStories(): Promise<StorySummary[]> {
-  const res = await fetch('/api/stories')
-  if (!res.ok) throw new Error(`Failed to fetch stories: ${res.status}`)
-  return res.json()
-}
-
-export async function getStory(id: string): Promise<Story> {
-  const res = await fetch(`/api/stories/${id}`)
-  if (!res.ok) throw new Error('Story not found')
-  return res.json()
-}
-
-export async function createStory(title: string): Promise<Story> {
-  const res = await fetch('/api/stories', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title }),
-  })
-  if (!res.ok) throw new Error(`Failed to create story: ${res.status}`)
-  return res.json()
-}
-
-export async function updateStory(id: string, story: Story): Promise<Story> {
-  const res = await fetch(`/api/stories/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(story),
-  })
-  if (!res.ok) throw new Error(`Failed to update story: ${res.status}`)
-  return res.json()
-}
-
-export async function deleteStory(id: string): Promise<void> {
-  const res = await fetch(`/api/stories/${id}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error(`Failed to delete story: ${res.status}`)
-}
-
-// State endpoints
-export async function getState(): Promise<{ state: GameState | null; resolved: unknown }> {
-  const res = await fetch('/api/state')
-  if (!res.ok) throw new Error(`Failed to fetch state: ${res.status}`)
-  return res.json()
-}
-
-export async function validateToken(): Promise<{ valid: boolean; is_storyteller: boolean }> {
-  const headers: HeadersInit = {}
-  const token = getSessionToken()
-  if (token) {
-    headers['X-Session-Token'] = token
-  }
-  const res = await fetch('/api/state/validate-token', { headers })
-  return res.json()
-}
-
-export async function startSession(storyId: string): Promise<{ state: GameState; token: string }> {
-  const res = await fetch('/api/state/start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ story_id: storyId }),
+  const res = await fetch(path, {
+    method: method ?? (body !== undefined ? 'POST' : 'GET'),
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to start session')
+    const data = await res.json().catch(() => null)
+    const detail = typeof data?.detail === 'string' ? data.detail : `Request failed (${res.status})`
+    throw new ApiError(res.status, detail)
   }
-  const data = await res.json()
+  return res.json()
+}
+
+const post = <T>(path: string, body: unknown = {}) => request<T>(path, { body })
+
+// Config and session lookup
+export const getConfig = () => request<{ base_url: string | null }>('/api/config')
+
+// Is a session active, and does sessionId match it? (never reveals the id)
+export const checkSession = (sessionId?: string | null) =>
+  request<{ active: boolean; valid: boolean }>(
+    `/api/session/check${sessionId ? `?s=${encodeURIComponent(sessionId)}` : ''}`
+  )
+
+export const validateToken = () =>
+  request<{ valid: boolean; is_storyteller: boolean }>('/api/state/validate-token')
+
+// Stories
+export const getStories = () => request<StorySummary[]>('/api/stories')
+export const getStory = (id: string) => request<Story>(`/api/stories/${id}`)
+export const getStoryProblems = (id: string) => request<{ problems: string[] }>(`/api/stories/${id}/problems`)
+export const createStory = (title: string) => post<Story>('/api/stories', { title })
+export const updateStory = (id: string, story: Story) =>
+  request<Story>(`/api/stories/${id}`, { method: 'PUT', body: story })
+export const deleteStory = (id: string) => request<void>(`/api/stories/${id}`, { method: 'DELETE' })
+
+// Session lifecycle. start/resume hand back a new storyteller token.
+async function takeControl(path: string, body?: unknown) {
+  const data = await post<{ state: GameState; token: string }>(path, body)
   setSessionToken(data.token)
-  return { state: data.state, token: data.token }
+  return data
 }
 
-export async function submitMadlib(answer: string): Promise<GameState> {
-  const res = await fetch('/api/state/madlib', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ answer }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to submit madlib')
-  }
-  return res.json()
-}
-
-export async function madlibBack(): Promise<GameState> {
-  const res = await fetch('/api/state/madlib-back', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to go back')
-  }
-  return res.json()
-}
-
-export async function proceedFromCharacter(): Promise<GameState> {
-  const res = await fetch('/api/state/proceed-from-character', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to proceed')
-  }
-  return res.json()
-}
-
-export async function makeChoice(choiceIndex: number): Promise<GameState> {
-  const res = await fetch('/api/state/choice', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ choice_index: choiceIndex }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to make choice')
-  }
-  return res.json()
-}
-
-export async function goBack(): Promise<GameState> {
-  const res = await fetch('/api/state/back', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to go back')
-  }
-  return res.json()
-}
-
-export async function finish(outcome: 'victory' | 'defeat'): Promise<GameState> {
-  const res = await fetch('/api/state/finish', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ outcome }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to finish')
-  }
-  return res.json()
-}
-
-export async function revealOutcome(): Promise<GameState> {
-  const res = await fetch('/api/state/reveal-outcome', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to reveal outcome')
-  }
-  return res.json()
-}
+export const startSession = (storyId: string, force = false) =>
+  takeControl('/api/state/start', { story_id: storyId, force })
+export const resumeSession = () => takeControl('/api/state/resume')
 
 export async function restart(): Promise<void> {
-  const res = await fetch('/api/state/restart', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to restart')
-  }
+  await post('/api/state/restart')
   setSessionToken(null)
 }
 
-export async function revealChoices(showToPlayers: boolean = true): Promise<GameState> {
-  const url = `/api/state/reveal-choices?show_to_players=${showToPlayers}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to reveal choices')
-  }
-  return res.json()
-}
+// The story as it was when the session started
+export const getSessionStory = () => request<Story>('/api/state/story')
 
-export async function selectScene(sceneId: string, revisit: boolean = false): Promise<GameState> {
-  const res = await fetch('/api/state/select-scene', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ scene_id: sceneId, revisit }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to select scene')
-  }
-  return res.json()
-}
-
-export async function openingChoice(choiceIndex: number | null): Promise<GameState> {
-  const res = await fetch('/api/state/opening-choice', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ choice_index: choiceIndex }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.detail || 'Failed to make opening choice')
-  }
-  return res.json()
-}
+// Storyteller actions
+export const submitMadlib = (answer: string) => post<GameState>('/api/state/madlib', { answer })
+export const madlibBack = () => post<GameState>('/api/state/madlib-back')
+export const proceedFromCharacter = () => post<GameState>('/api/state/proceed-from-character')
+export const openingChoice = (choiceIndex: number | null) =>
+  post<GameState>('/api/state/opening-choice', { choice_index: choiceIndex })
+export const revealChoices = (showToPlayers = true) =>
+  post<GameState>(`/api/state/reveal-choices?show_to_players=${showToPlayers}`)
+export const makeChoice = (choiceIndex: number) => post<GameState>('/api/state/choice', { choice_index: choiceIndex })
+export const goBack = () => post<GameState>('/api/state/back')
+export const selectScene = (sceneId: string, revisit = false) =>
+  post<GameState>('/api/state/select-scene', { scene_id: sceneId, revisit })
+export const finish = (outcome: 'victory' | 'defeat') => post<GameState>('/api/state/finish', { outcome })
+export const revealOutcome = () => post<GameState>('/api/state/reveal-outcome')
 
 // Export story as JSON file download
 export function downloadStoryAsJson(story: Story): void {
@@ -254,7 +109,6 @@ export function downloadStoryAsJson(story: Story): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  // Sanitize title for filename
   const filename = story.title
     .replace(/[^a-z0-9\s-]/gi, '')
     .replace(/\s+/g, '-')

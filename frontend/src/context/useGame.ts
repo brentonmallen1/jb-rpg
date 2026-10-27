@@ -9,6 +9,7 @@ export interface GameContextValue {
   storytellerConnected: boolean
   isConnected: boolean
   isInitializing: boolean
+  sessionElsewhere: boolean  // running, but this tab can't see it (take over to join)
 
   // Session token
   sessionToken: string | null
@@ -26,18 +27,9 @@ export interface GameContextValue {
   setCurrentStory: (story: Story | null) => void
 
   // Actions
-  startSession: (storyId: string) => Promise<void>
-  submitMadlib: (answer: string) => Promise<void>
-  madlibBack: () => Promise<void>
-  proceedFromCharacter: () => Promise<void>
-  makeChoice: (choiceIndex: number) => Promise<void>
-  goBack: () => Promise<void>
-  finish: (outcome: 'victory' | 'defeat') => Promise<void>
-  restart: () => Promise<void>
-  stopSession: () => Promise<void>
-  revealChoices: (showToPlayers?: boolean) => Promise<void>
-  selectScene: (sceneId: string, revisit?: boolean) => Promise<void>
-  selectOpeningChoice: (choiceIndex: number | null) => Promise<void>
+  startSession: (storyId: string, force?: boolean) => Promise<void>
+  resumeSession: () => Promise<void>
+  endSession: () => Promise<void>
 }
 
 export const GameContext = createContext<GameContextValue | null>(null)

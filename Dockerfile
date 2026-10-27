@@ -33,4 +33,5 @@ COPY --from=frontend-builder /app/frontend/dist ./static
 COPY data/stories/demo-*.json /data/stories/
 
 EXPOSE ${BACKEND_PORT}
-CMD uv run uvicorn main:app --host 0.0.0.0 --port ${BACKEND_PORT}
+# SSE streams never end on their own, so cap graceful shutdown or restarts hang
+CMD uv run uvicorn main:app --host 0.0.0.0 --port ${BACKEND_PORT} --timeout-graceful-shutdown 2

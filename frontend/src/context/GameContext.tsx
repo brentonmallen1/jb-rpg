@@ -21,7 +21,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Shared SSE connection for storyteller pages; the player page opens its own
   const onPlayerPage = useLocation().pathname.startsWith('/player')
-  const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing } = useSSE({
+  const { state, resolved, playerCount, storytellerConnected, isConnected, isInitializing, sessionElsewhere } = useSSE({
     token: sessionToken,
     enabled: !onPlayerPage,
   })
@@ -53,60 +53,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [currentStory, setTheme])
 
   // Actions
-  const startSession = useCallback(async (storyId: string) => {
-    const result = await api.startSession(storyId)
-    setValidatedToken(result.token)
-    setSessionToken(result.token)
+  // start/resume issue a fresh storyteller token for this tab
+  const becomeStoryteller = useCallback((token: string) => {
+    setValidatedToken(token)
+    setSessionToken(token)
     setIsStoryteller(true)
   }, [])
 
-  const submitMadlib = useCallback(async (answer: string) => {
-    await api.submitMadlib(answer)
-  }, [])
+  const startSession = useCallback(async (storyId: string, force: boolean = false) => {
+    becomeStoryteller((await api.startSession(storyId, force)).token)
+  }, [becomeStoryteller])
 
-  const madlibBack = useCallback(async () => {
-    await api.madlibBack()
-  }, [])
+  const resumeSession = useCallback(async () => {
+    becomeStoryteller((await api.resumeSession()).token)
+  }, [becomeStoryteller])
 
-  const proceedFromCharacter = useCallback(async () => {
-    await api.proceedFromCharacter()
-  }, [])
 
-  const makeChoice = useCallback(async (choiceIndex: number) => {
-    await api.makeChoice(choiceIndex)
-  }, [])
 
-  const goBack = useCallback(async () => {
-    await api.goBack()
-  }, [])
 
-  const finish = useCallback(async (outcome: 'victory' | 'defeat') => {
-    await api.finish(outcome)
-  }, [])
 
-  const restart = useCallback(async () => {
+
+
+  const endSession = useCallback(async () => {
     await api.restart()
     setSessionToken(null)
     setIsStoryteller(false)
   }, [])
 
-  const stopSession = useCallback(async () => {
-    await api.restart()
-    setSessionToken(null)
-    setIsStoryteller(false)
-  }, [])
 
-  const revealChoices = useCallback(async (showToPlayers: boolean = true) => {
-    await api.revealChoices(showToPlayers)
-  }, [])
 
-  const selectScene = useCallback(async (sceneId: string, revisit: boolean = false) => {
-    await api.selectScene(sceneId, revisit)
-  }, [])
-
-  const selectOpeningChoice = useCallback(async (choiceIndex: number | null) => {
-    await api.openingChoice(choiceIndex)
-  }, [])
 
   const value: GameContextValue = {
     state,
@@ -115,6 +90,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     storytellerConnected,
     isConnected,
     isInitializing,
+    sessionElsewhere,
     sessionToken,
     isStoryteller,
     isValidatingToken,
@@ -125,17 +101,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     currentStory,
     setCurrentStory,
     startSession,
-    submitMadlib,
-    madlibBack,
-    proceedFromCharacter,
-    makeChoice,
-    goBack,
-    finish,
-    restart,
-    stopSession,
-    revealChoices,
-    selectScene,
-    selectOpeningChoice,
+    resumeSession,
+    endSession,
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

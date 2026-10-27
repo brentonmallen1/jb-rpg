@@ -3,11 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { useAutoSave } from '../hooks/useAutoSave'
-import type { Story, Scene, Choice, ThemeName, OpeningScene, OpeningChoice, MadLibField } from '../types'
+import { THEMES, type Story, type Scene, type Choice, type ThemeName, type OpeningScene, type OpeningChoice, type MadLibField } from '../types'
 import { ConfirmDialog, ModeToggle, Collapsible } from '../components'
 import '../styles/pages/editor.css'
 
-const THEMES: ThemeName[] = ['cyberpunk', 'fantasy', 'deep_space', 'modern', 'horror', 'insanity']
 
 // Built-in character creation presets with indirect, creative questions
 const BUILTIN_PRESETS: Record<string, { name: string; prompt: string; fields: MadLibField[] }> = {
@@ -132,6 +131,18 @@ export default function Editor() {
     debounceMs: 2000,
     enabled: !loading && story !== null
   })
+
+  // What would stop this story from being played, re-checked after every save
+  const [problems, setProblems] = useState<string[]>([])
+  const [showProblems, setShowProblems] = useState(false)
+  useEffect(() => {
+    if (!storyId || saveStatus !== 'saved') return
+    let cancelled = false
+    api.getStoryProblems(storyId)
+      .then(r => { if (!cancelled) setProblems(r.problems) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [storyId, saveStatus])
 
   // Warn on browser/tab close if unsaved
   useEffect(() => {
@@ -426,6 +437,16 @@ export default function Editor() {
           <button className="btn btn--secondary" onClick={() => navigate('/')}>
             Back
           </button>
+          {problems.length > 0 && (
+            <button
+              className="btn btn--secondary text-warning"
+              onClick={() => setShowProblems(!showProblems)}
+              aria-expanded={showProblems}
+              aria-controls="story-problems"
+            >
+              {problems.length} {problems.length === 1 ? 'problem' : 'problems'}
+            </button>
+          )}
           <span className={`save-status save-status--${saveStatus}`}>
             {saveStatus === 'saving' && 'Saving...'}
             {saveStatus === 'saved' && 'Saved'}
@@ -437,6 +458,18 @@ export default function Editor() {
           <ModeToggle colorMode={colorMode} onToggle={toggleColorMode} />
         </div>
       </nav>
+
+      {showProblems && problems.length > 0 && (
+        <div id="story-problems" className="alert alert--warning editor-problems" role="status">
+          <div>
+            <strong>This story can't be played yet:</strong>
+            <ul>
+              {problems.map(p => <li key={p}>{p}</li>)}
+            </ul>
+          </div>
+          <button className="btn btn--secondary text-sm" onClick={() => setShowProblems(false)}>Hide</button>
+        </div>
+      )}
 
       {/* Sidebar overlay (mobile) */}
       <div

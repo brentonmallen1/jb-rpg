@@ -579,3 +579,17 @@
     padding: var(--space-sm) var(--space-md);
   }
 }
+
+/* Story problems panel (below the nav) */
+.editor-problems {
+  margin: var(--space-md) var(--space-lg) 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.editor-problems ul {
+  margin: var(--space-xs) 0 0;
+  padding-left: var(--space-lg);
+}

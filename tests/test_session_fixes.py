@@ -124,3 +124,16 @@ def test_opening_conditional_text_is_space_separated(client):
     start(client, make_story(client, TWO_SCENES, opening_scene=opening))
     resolved = client.get("/api/state").json()["resolved"]
     assert resolved["scene_text"] == "You wake. You feel fine."
+
+
+def test_resolved_flags_the_finale_only_when_it_arrives(client):
+    scenes = [
+        {"id": "a", "title": "A", "base_text": "A.", "choices": [choice("level", "a1")]},
+        {"id": "z", "title": "Z", "base_text": "The end.", "is_finale": True},
+    ]
+    start(client, make_story(client, scenes))
+    assert client.get("/api/state").json()["resolved"]["finale"] is False
+    client.post("/api/state/choice", json={"choice_index": 0})  # -> finale scene
+    assert client.get("/api/state").json()["resolved"]["finale"] is True
+    client.post("/api/state/finish", json={"outcome": "victory"})
+    assert client.get("/api/state").json()["resolved"]["finale"] is False

@@ -12,6 +12,8 @@ const Library = lazy(() => import('./pages/Library'))
 const Editor = lazy(() => import('./pages/Editor'))
 const Run = lazy(() => import('./pages/Run'))
 const Player = lazy(() => import('./pages/Player'))
+// Dev-only effect tuning page; compiled out of production builds
+const DevMoments = import.meta.env.DEV ? lazy(() => import('./pages/DevMoments')) : null
 
 // Offline indicator banner
 function OfflineBanner() {
@@ -75,6 +77,7 @@ function App() {
               <Route path="/run" element={<Run />} />
               <Route path="/player/:sessionId" element={<Player />} />
               <Route path="/player" element={<Player />} />
+              {DevMoments && <Route path="/dev/moments" element={<DevMoments />} />}
             </Routes>
           </Suspense>
         </GameProvider>

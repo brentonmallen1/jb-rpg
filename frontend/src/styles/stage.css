@@ -800,4 +800,22 @@
   .stage-hint {
     display: none;
   }
+
+  /* Narrow top bar: keep the story title, drop the scene count */
+  .stage__story .stage-label {
+    display: none;
+  }
+
+  .stage__bar {
+    gap: 8px;
+    padding: 0 8px 0 16px;
+  }
+
+  .stage__tools {
+    gap: 0;
+  }
+
+  .stage__players {
+    margin-right: 2px;
+  }
 }

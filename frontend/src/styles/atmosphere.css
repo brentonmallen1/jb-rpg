@@ -126,7 +126,7 @@
   transform-origin: 15% 0;
 }
 .atmos--fantasy.mood--crypt { --g1: #9fb2c434; --g1-at: 50% 0%; --g2: #2a2f3a56; --mote: #c9d3dc; }
-.atmos--fantasy.mood--storm { --g1: #3d4c6a56; --g1-at: 50% -10%; --g2: #1a2233; --mote: #9fb2c4; }
+.atmos--fantasy.mood--storm { --g1: #3d4c6a56; --g1-at: 50% -10%; --g2: #1a223366; --mote: #9fb2c4; }
 .atmos--fantasy.mood--storm .atmos__fx {
   background: #eef3ff;
   opacity: 0;

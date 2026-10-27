@@ -83,6 +83,7 @@ class Scene(BaseModel):
     defeat_text: Optional[str] = None  # Read on defeat
     # Item-conditional text blocks for finale: { "ItemName": { "victory": "...", "defeat": "..." } }
     item_texts: dict[str, dict[str, str]] = {}
+    mood: Optional[str] = None  # Backdrop mood within the story's theme; None = picked automatically
 
 
 class MadLibField(BaseModel):

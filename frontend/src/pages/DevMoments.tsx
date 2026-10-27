@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useGame } from '../context/useGame'
-import { CriticalPulse, HPDisplay, MomentLayer } from '../components'
+import { Atmosphere, CriticalPulse, HealthMeter, MomentLayer } from '../components'
+import { MOODS } from '../lib/themes'
 import type { QueuedMoment } from '../hooks/useMoments'
 import type { EffectsLevel } from '../hooks/useEffectsLevel'
 import type { Moment, MomentType } from '../lib/moments'
@@ -26,6 +27,9 @@ export default function DevMoments() {
   const [queue, setQueue] = useState<QueuedMoment[]>([])
   const [nextId, setNextId] = useState(0)
   const [critical, setCritical] = useState(false)
+  const [moodIndex, setMoodIndex] = useState(0)
+  const moods = MOODS[theme]
+  const mood = moods[moodIndex % moods.length].id
 
   useEffect(() => {
     setTheme('fantasy')
@@ -49,6 +53,9 @@ export default function DevMoments() {
           <option value="subtle">subtle</option>
           <option value="off">off</option>
         </select>
+        <select className="input" value={mood} onChange={e => setMoodIndex(moods.findIndex(m => m.id === e.target.value))} aria-label="Mood">
+          {moods.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
         <label className="row gap-sm">
           <input type="checkbox" checked={critical} onChange={e => setCritical(e.target.checked)} /> last life
         </label>
@@ -62,7 +69,8 @@ export default function DevMoments() {
         <button className="btn" onClick={() => fire('item_gained', 'finale')}>item → finale</button>
       </div>
 
-      <div className="hp-section"><HPDisplay hp={critical ? 1 : 2} indicatorSize={48} showLabel /></div>
+      <Atmosphere theme={theme} mood={mood} level={level} madness={critical ? 0.67 : 0.33} />
+      <HealthMeter hp={critical ? 1 : 2} max={3} theme={theme} size={36} />
       <div className="dealt" style={{ width: '100%' }}>
         {['Kneel and take the ring?', 'Give voice to the carved words?', 'Arrange the scattered bones?'].map((text, i) => (
           <div key={`${text}-${nextId}`} className="dealt__card" style={{ '--i': i } as React.CSSProperties}>{text}</div>

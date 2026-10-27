@@ -1,9 +1,17 @@
-import type { GameState } from '../../types'
-import { HPDisplay } from '../../components'
+import type { GameState, ThemeName } from '../../types'
+import { HealthMeter } from '../../components'
+import { HEALTH_LABEL } from '../../lib/themes'
 import { GemIcon } from '../../components/Icons'
 
+interface PartyRailProps {
+  state: GameState
+  theme: ThemeName
+  maxHp: number
+  characterDescription?: string
+}
+
 /** The party's state, always in view beside the scene. */
-export function PartyRail({ state, characterDescription }: { state: GameState; characterDescription?: string }) {
+export function PartyRail({ state, theme, maxHp, characterDescription }: PartyRailProps) {
   return (
     <aside className="party" aria-label="Party">
       {state.character && (
@@ -15,9 +23,9 @@ export function PartyRail({ state, characterDescription }: { state: GameState; c
       )}
 
       <div>
-        <span className="stage-label">Health</span>
-        <div style={{ marginTop: 8 }}>
-          <HPDisplay hp={state.hp} />
+        <span className="stage-label">{HEALTH_LABEL[theme]}</span>
+        <div style={{ marginTop: 10 }}>
+          <HealthMeter hp={state.hp} max={maxHp} theme={theme} size={30} />
         </div>
       </div>
 

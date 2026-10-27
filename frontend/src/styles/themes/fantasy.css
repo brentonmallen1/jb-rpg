@@ -1,75 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+@import '@fontsource/cinzel/latin-500.css';
+@import '@fontsource/cinzel/latin-700.css';
+@import '@fontsource/crimson-text/latin-400.css';
+@import '@fontsource/crimson-text/latin-400-italic.css';
+@import '@fontsource/crimson-text/latin-600.css';
 
-/* Fantasy theme - scoped to .fantasy class on html element */
+/* Fantasy: candlelight on old paper. Scoped to .fantasy (on <html> or a story cover). */
 .fantasy {
-    --bg-primary: #1a1410;
-    --bg-secondary: #2a2018;
-    --text-primary: #f4e8d8;
-    --text-secondary: #a89080;
-    --accent: #d4a574;
-    --accent-hover: #e8b888;
-    --danger: #8b3a3a;
-    --success: #4a7c4a;
-    --warning: #b8860b;
+    --bg-primary: #17110c;
+    --bg-secondary: #241a12;
+    --text-primary: #f2e6cf;
+    --text-secondary: #b3a185;
+    --accent: #d9a557;
+    --accent-hover: #ecbd74;
+    --danger: #e0703a;
+    --success: #8db36a;
+    --warning: #e0b04a;
 
-    --font-body: 'Crimson Text', 'Georgia', serif;
-    --font-display: 'Cinzel', 'Trajan Pro', 'Palatino Linotype', serif;
-    --font-reading: var(--font-body);
+    --font-body: 'Crimson Text', Georgia, serif;
+    --font-display: 'Cinzel', 'Trajan Pro', serif;
+    --font-reading: 'Crimson Text', Georgia, serif;
 }
 
-.fantasy .card {
-    border: 2px solid var(--accent);
-    border-image: linear-gradient(135deg, var(--accent), transparent, var(--accent)) 1;
-}
-
-/* Lantern HP indicators */
-.fantasy .hp-indicator::before {
-    content: '\1F4A1';
-    font-size: 1.25rem;
-}
-
-.fantasy .hp-indicator--empty {
-    filter: grayscale(1) opacity(0.3);
-}
-
-.fantasy .hp-indicator--empty::before {
-    content: '\1F4A1';
-}
-
-.fantasy h1, .fantasy h2, .fantasy .nav__title, .fantasy .character-name {
-    font-family: var(--font-display);
-    letter-spacing: 0.05em;
-}
-
-.fantasy .scene-text {
-    font-family: var(--font-body);
-    font-size: 1.2rem;
-}
-
-/* Drop cap */
-.fantasy .scene-text::first-letter {
-    font-size: 2em;
-    float: left;
-    line-height: 1;
-    margin-right: 0.1em;
-    color: var(--accent);
-    font-family: var(--font-display);
-}
-
-/* Double border for choices */
-.fantasy .choice-btn {
-    border-style: double;
-    border-width: 4px;
-}
-
-.fantasy .nav {
-    border-bottom: 2px solid var(--accent);
-}
-
-/* Light mode overrides */
 .fantasy[data-mode="light"] {
-    --bg-primary: #f8f4e8;
-    --bg-secondary: #fff;
-    --text-primary: #2a1810;
-    --text-secondary: #6a5040;
+    --bg-primary: #f4ecdc;
+    --bg-secondary: #fbf6ec;
+    --text-primary: #2a1d12;
+    --text-secondary: #6b5640;
+    --accent: #8a5a1c;
+    --accent-hover: #6f4714;
+    --danger: #a63d1c;
+    --success: #4e6e2e;
+}
+
+.fantasy .stage-title,
+.fantasy .phone-title {
+    letter-spacing: 0.03em;
+}
+
+/* Illuminated drop cap on the scene text */
+.fantasy .scene-text::first-letter {
+    float: left;
+    margin: 0.06em 0.12em 0 0;
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    line-height: 0.9;
+    color: var(--accent);
 }

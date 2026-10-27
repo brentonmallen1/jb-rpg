@@ -6,7 +6,8 @@ import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
 import { useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
 import type { GameState, ResolvedContent } from '../types'
-import { Modal, RulesModal, HPDisplay, MomentLayer, CriticalPulse } from '../components'
+import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
+import { HEALTH_LABEL, moodFor } from '../lib/themes'
 import { BookIcon, D20Icon, MoonIcon, SparkIcon, SunIcon } from '../components/Icons'
 import '../styles/phone.css'
 
@@ -88,7 +89,12 @@ export default function Player() {
         ? screen(<Message title="The session has ended" text="Thanks for playing. Ask the storyteller for a new link to join the next one." />, { center: true })
         : screen(<Message title="Waiting for the storyteller" text="The story will begin shortly." />, { center: true })
     }
-    return screen(<GameScreen state={state} resolved={resolved} onShowHero={() => setShowHero(true)} />, {
+    // Insanity: text starts to misbehave as sanity drains (gentler at "subtle", never at "off")
+    const madness = 1 - state.hp / Math.max(resolved.max_hp, 1)
+    const corruption = resolved.theme === 'insanity' && effects.level !== 'off'
+      ? { madness: effects.level === 'full' ? madness : madness / 2, enabled: true }
+      : { madness: 0, enabled: false }
+    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} onShowHero={() => setShowHero(true)} />, {
       center: ['madlib_in_progress', 'character_reveal'].includes(state.status) || (state.status === 'game_over' && !!state.outcome_revealed),
     })
   }
@@ -96,6 +102,14 @@ export default function Player() {
   const lastLife = !!state && state.hp === 1 && state.status !== 'game_over'
   return (
     <>
+      {resolved && (
+        <Atmosphere
+          theme={resolved.theme}
+          mood={moodFor(resolved.theme, resolved.mood, resolved.mood_seed)}
+          level={effects.level}
+          madness={state ? 1 - state.hp / Math.max(resolved.max_hp, 1) : 0}
+        />
+      )}
       {renderContent()}
       <CriticalPulse active={lastLife} level={effects.level} />
       <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={effects.level} onDone={momentDone} />
@@ -118,7 +132,16 @@ function Message({ title, text }: { title: string; text: string }) {
   )
 }
 
-function GameScreen({ state, resolved, onShowHero }: { state: GameState; resolved: ResolvedContent; onShowHero: () => void }) {
+interface GameScreenProps {
+  state: GameState
+  resolved: ResolvedContent
+  corruption: { madness: number; enabled: boolean }
+  onShowHero: () => void
+}
+
+function GameScreen({ state, resolved, corruption, onShowHero }: GameScreenProps) {
+  const warp = (text: string) => <CorruptText text={text} madness={corruption.madness} enabled={corruption.enabled} />
+
   if (state.status === 'madlib_in_progress') {
     return (
       <div aria-live="polite">
@@ -166,12 +189,15 @@ function GameScreen({ state, resolved, onShowHero }: { state: GameState; resolve
           {resolved.finale ? 'The end has come' : choosingDoor ? 'The way forward' : state.status === 'opening_scene_active' ? 'Prologue' : resolved.scene_subtitle || 'Now'}
         </div>
         <h1 className="phone-title" key={resolved.finale ? 'finale' : resolved.scene_title}>
-          {resolved.finale ? 'The final roll' : choosingDoor ? 'Choosing the next door…' : resolved.scene_title}
+          {resolved.finale ? 'The final roll' : choosingDoor ? 'Choosing the next door…' : warp(resolved.scene_title ?? '')}
         </h1>
       </div>
 
       <div className="party-strip">
-        <HPDisplay hp={state.hp} indicatorSize={36} />
+        <div>
+          <div className="phone-label">{HEALTH_LABEL[resolved.theme]}</div>
+          <div style={{ marginTop: 8 }}><HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={26} /></div>
+        </div>
         <div className="party-strip__stats">
           <div><div className="phone-label">Level</div><div className="party-strip__value">{state.level}</div></div>
           <div><div className="phone-label">Items</div><div className="party-strip__value">{state.items.length}</div></div>
@@ -200,7 +226,7 @@ function GameScreen({ state, resolved, onShowHero }: { state: GameState; resolve
           {!choosingDoor && resolved.scene_text && (
             <details className="follow">
               <summary>Follow along</summary>
-              <p className="phone-text">{resolved.scene_text}</p>
+              <p className="phone-text">{warp(resolved.scene_text)}</p>
             </details>
           )}
           {resolved.visible_choices.length > 0 && (
@@ -209,7 +235,7 @@ function GameScreen({ state, resolved, onShowHero }: { state: GameState; resolve
               {resolved.visible_choices.map((text, i) => (
                 <div key={`${resolved.scene_title}-${i}`} className="dealt__card" style={{ '--i': i } as React.CSSProperties}>
                   <span className="dealt__numeral">{ROMAN[i] ?? i + 1}</span>
-                  <span>{text}</span>
+                  <span>{warp(text)}</span>
                 </div>
               ))}
               <p className="phone__status" style={{ paddingTop: 6 }}>Decide together. The storyteller is listening.</p>

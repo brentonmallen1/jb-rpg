@@ -161,3 +161,13 @@ def test_players_get_the_scene_title(client):
     resolved = client.get("/api/state").json()["resolved"]
     assert resolved["scene_title"] == "A"
     assert resolved["scene_subtitle"] == "The door with vines"
+
+
+def test_scene_mood_and_seed_reach_clients(client):
+    scenes = [dict(TWO_SCENES[0], mood="forest"), TWO_SCENES[1]]
+    start(client, make_story(client, scenes))
+    resolved = client.get("/api/state").json()["resolved"]
+    assert resolved["mood"] == "forest"
+    assert resolved["max_hp"] == 3
+    seed = resolved["mood_seed"]
+    assert seed == client.get("/api/state").json()["resolved"]["mood_seed"]  # stable

@@ -5,6 +5,8 @@
    ========================================================================== */
 
 .stage {
+  position: relative;
+  isolation: isolate;
   --line: color-mix(in srgb, var(--text-primary) 14%, transparent);
   --surface: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
   --level: color-mix(in srgb, #8fb3d9 75%, var(--text-primary));

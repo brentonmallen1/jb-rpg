@@ -1,70 +1,42 @@
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600&family=Space+Mono&display=swap');
+@import '@fontsource/exo-2/latin-300.css';
+@import '@fontsource/exo-2/latin-400.css';
+@import '@fontsource/exo-2/latin-600.css';
 
-/* Deep Space theme - scoped to .deep_space class on html element */
+/* Deep Space: a distant sun on the rim of a dark planet. */
 .deep_space {
-    --bg-primary: #0a0a1a;
-    --bg-secondary: #141428;
-    --text-primary: #e8e8ff;
-    --text-secondary: #8888aa;
-    --accent: #9966ff;
-    --accent-hover: #aa88ff;
-    --danger: #ff4466;
-    --success: #44ff88;
-    --warning: #ffaa00;
+    --bg-primary: #070a12;
+    --bg-secondary: #0f1422;
+    --text-primary: #e9ecf5;
+    --text-secondary: #9aa3b8;
+    --accent: #ffb25b;
+    --accent-hover: #ffc888;
+    --danger: #ff5c6c;
+    --success: #5fd3a0;
+    --warning: #ffcf5b;
 
-    --font-body: 'Space Mono', monospace;
-    --font-display: 'Exo 2', sans-serif;
+    --font-body: 'Exo 2', 'Segoe UI', sans-serif;
+    --font-display: 'Exo 2', 'Segoe UI', sans-serif;
     --font-reading: 'Exo 2', 'Segoe UI', sans-serif;
 }
 
-/* Star HP indicators */
-.deep_space .hp-indicator::before {
-    content: '\2B50';
-    font-size: 1.25rem;
-}
-
-.deep_space .hp-indicator--empty {
-    filter: grayscale(1) opacity(0.3);
-}
-
-/* Star field background */
-.deep_space body,
-body.deep_space {
-    background-color: black;
-    background-image:
-    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.8) 50%, transparent 100%),
-    radial-gradient(1px 1px at 80% 70%, rgba(255,255,255,0.6) 50%, transparent 100%),
-    radial-gradient(2px 2px at 50% 50%, rgba(255,255,255,0.9) 50%, transparent 100%),
-    radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.7) 50%, transparent 100%),
-    radial-gradient(2px 2px at 90% 20%, rgba(255,255,255,0.8) 50%, transparent 100%);
-
-    background-size: 200px 200px;
-    background-repeat: repeat;
-}
-
-/* Constellation dividers */
-.deep_space .nav {
-    border-bottom: 1px solid var(--accent);
-    box-shadow: 0 0 10px rgba(153, 102, 255, 0.3);
-}
-
-/* Light mode overrides */
 .deep_space[data-mode="light"] {
-    --bg-primary: #f0f0ff;
-    --bg-secondary: #fff;
-    --text-primary: #1a1a3a;
-    --text-secondary: #6666aa;
+    --bg-primary: #eef1f7;
+    --bg-secondary: #ffffff;
+    --text-primary: #121826;
+    --text-secondary: #4e586d;
+    --accent: #a65d00;
+    --accent-hover: #8a4d00;
+    --danger: #c42a3c;
+    --success: #1d7a52;
 }
 
-/* Light mode: the starfield above hard-codes a black sky, which made
-   light-mode text (dark on dark) invisible. Use a pale sky with ink stars. */
-.deep_space[data-mode="light"] body,
-body.deep_space[data-mode="light"] {
-    background-color: var(--bg-primary);
-    background-image:
-    radial-gradient(1px 1px at 20% 30%, rgba(26,26,58,0.35) 50%, transparent 100%),
-    radial-gradient(1px 1px at 80% 70%, rgba(26,26,58,0.25) 50%, transparent 100%),
-    radial-gradient(2px 2px at 50% 50%, rgba(26,26,58,0.3) 50%, transparent 100%),
-    radial-gradient(1px 1px at 10% 80%, rgba(26,26,58,0.25) 50%, transparent 100%),
-    radial-gradient(2px 2px at 90% 20%, rgba(26,26,58,0.3) 50%, transparent 100%);
+.deep_space .stage-title,
+.deep_space .phone-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.deep_space .scene-text,
+.deep_space .phone-text {
+    font-weight: 300;
 }

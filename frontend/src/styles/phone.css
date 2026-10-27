@@ -4,6 +4,8 @@
    ========================================================================== */
 
 .phone {
+  position: relative;
+  isolation: isolate;
   --line: color-mix(in srgb, var(--text-primary) 14%, transparent);
   --surface: color-mix(in srgb, var(--bg-secondary) 85%, transparent);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -309,3 +311,11 @@
 
 .phone-outcome--victory { color: var(--accent); text-shadow: 0 0 36px color-mix(in srgb, var(--accent) 45%, transparent); }
 .phone-outcome--defeat { color: color-mix(in srgb, var(--danger) 80%, var(--text-primary)); }
+
+/* Sanity corruption: a flickering word glows sickly for a moment */
+.corrupt {
+  /* Theme faces lack combining marks (Zalgo renders as boxes); system serifs have them */
+  font-family: 'Times New Roman', Times, serif;
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-primary));
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent), 2px 0 0 color-mix(in srgb, var(--danger) 50%, transparent);
+}

@@ -8,6 +8,7 @@ The session's story is the snapshot in `state.story`, taken when the game starte
 import random
 import re
 import secrets
+import zlib
 from typing import Literal
 
 from .models import (
@@ -114,6 +115,7 @@ def build_resolved(state: GameState | None) -> dict | None:
         "story_title": story.title,
         "theme": story.theme.value,
         "visible_choices": [],
+        "max_hp": story.settings.starting_hp,
         # Players never see progress; this is how they learn the end has arrived
         "finale": state.status == SessionStatus.GAME_OVER and state.outcome is None,
     }
@@ -140,6 +142,9 @@ def build_resolved(state: GameState | None) -> dict | None:
         "scene_text": resolve_scene_text(scene, state),
         "scene_title": scene.title,
         "scene_subtitle": scene.display_name,
+        # Clients map these onto their theme's moods; the seed makes "auto" stable per scene
+        "mood": scene.mood,
+        "mood_seed": zlib.crc32(scene.id.encode()),
     }
     if scene.is_finale and state.status == SessionStatus.RUNNING:
         resolved["finale"] = True

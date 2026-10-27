@@ -1,46 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300&family=Creepster&family=Special+Elite&display=swap');
+@import '@fontsource/pirata-one/latin-400.css';
+@import '@fontsource/spectral/latin-300.css';
+@import '@fontsource/spectral/latin-300-italic.css';
+@import '@fontsource/spectral/latin-400.css';
 
-/* Horror theme - scoped to .horror class on html element */
+/* Horror: bone and dried blood in a cold cellar. */
 .horror {
-    --bg-primary: #0d0d0d;
-    --bg-secondary: #1a0a0a;
-    --text-primary: #e8e0e0;
-    --text-secondary: #886666;
-    --accent: #8b0000;
-    --accent-hover: #a00000;
-    --danger: #ff4444; /* Softened for better luminance balance */
-    --success: #228b22;
-    --warning: #ff6600;
+    --bg-primary: #0b0c0b;
+    --bg-secondary: #151714;
+    --text-primary: #e8e2d6;
+    --text-secondary: #9c958a;
+    --accent: #d9473b;
+    --accent-hover: #ee6559;
+    --danger: #e0574b;
+    --success: #86a97f;
+    --warning: #d9a441;
 
-    --font-body: 'Special Elite', cursive;
-    --font-display: 'Creepster', cursive;
+    --font-body: 'Spectral', Georgia, serif;
+    --font-display: 'Pirata One', Georgia, serif;
     --font-reading: 'Spectral', Georgia, serif;
 }
 
-/* Eldritch eye HP indicators */
-.horror .hp-indicator::before {
-    content: '\1F441';
-    font-size: 1.25rem;
-}
-
-.horror .hp-indicator--empty {
-    filter: grayscale(1) opacity(0.3);
-}
-
-/* Blood red glow on accent elements */
-.horror .btn:hover {
-    box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
-}
-
-/* Sharp rectangular borders */
-.horror .card {
-    border: 2px solid var(--danger);
-}
-
-/* Light mode overrides */
 .horror[data-mode="light"] {
-    --bg-primary: #f5f0f0;
-    --bg-secondary: #fff;
-    --text-primary: #1a0a0a;
-    --text-secondary: #664444;
+    --bg-primary: #ece6da;
+    --bg-secondary: #f7f3ea;
+    --text-primary: #1d1a17;
+    --text-secondary: #5b544b;
+    --accent: #9b2a20;
+    --accent-hover: #7f2018;
+    --danger: #a52a1f;
+    --success: #3f6b3a;
+}
+
+.horror .stage-title,
+.horror .phone-title,
+.horror .cover__title {
+    font-weight: 400;
+    text-shadow: 2px 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.horror .scene-text,
+.horror .phone-text {
+    font-weight: 300;
 }

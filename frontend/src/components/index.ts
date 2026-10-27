@@ -14,6 +14,8 @@ export { Modal, ConfirmDialog, InputDialog } from './Modal'
 export { RulesModal } from './RulesModal'
 
 // Game UI
-export { HPDisplay } from './HPDisplay'
+export { HealthMeter } from './HealthMeter'
+export { Atmosphere } from './Atmosphere'
+export { CorruptText } from './CorruptText'
 export { ModeToggle } from './ModeToggle'
 export { MomentLayer, CriticalPulse } from './MomentLayer'

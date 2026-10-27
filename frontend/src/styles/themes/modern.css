@@ -1,6 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap');
+@import '@fontsource/fraunces/latin-500.css';
+@import '@fontsource/fraunces/latin-700.css';
+@import '@fontsource/manrope/latin-400.css';
+@import '@fontsource/manrope/latin-500.css';
+@import '@fontsource/manrope/latin-700.css';
+@import '@fontsource/newsreader/latin-400.css';
+@import '@fontsource/newsreader/latin-400-italic.css';
 
-/* Modern theme: also the app's own chrome (library, editor). Warm ink with an ember accent. */
+/* Modern: also the app's own chrome (library, editor). Warm ink with an ember accent. */
 .modern {
     --bg-primary: #131315;
     --bg-secondary: #1d1d21;
@@ -24,30 +30,4 @@
     --text-secondary: #6e6a63;
     --accent: #c2452b;
     --accent-hover: #a83a23;
-}
-
-/* Circle HP indicators */
-.modern .hp-indicator::before {
-    content: '\25CF';
-    font-size: 1.25rem;
-    color: var(--accent);
-}
-
-.modern .hp-indicator--empty::before {
-    content: '\25CB';
-    color: var(--text-secondary);
-}
-
-.modern .hp-indicator--empty {
-    opacity: 1;
-    filter: none;
-}
-
-/* Card shadows */
-.modern .card {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.modern .btn {
-    border-radius: 20px;
 }

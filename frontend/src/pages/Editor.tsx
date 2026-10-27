@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
+import { MOODS } from '../lib/themes'
 import * as api from '../hooks/api'
 import { useAutoSave } from '../hooks/useAutoSave'
 import { THEMES, type Story, type Scene, type Choice, type ThemeName, type OpeningScene, type OpeningChoice, type MadLibField } from '../types'
@@ -918,6 +919,22 @@ export default function Editor() {
                   onChange={e => updateScene(selectedScene.id, { display_name: e.target.value || undefined })}
                   placeholder="e.g., The door with the cracked mirror symbol..."
                 />
+              </div>
+
+              {/* Backdrop mood: the atmosphere behind this scene on every screen */}
+              <div className="editor-field">
+                <label htmlFor="scene-mood" className="label">
+                  Backdrop <span className="text-secondary text-xs">(the atmosphere players see during this scene)</span>
+                </label>
+                <select
+                  id="scene-mood"
+                  className="input"
+                  value={selectedScene.mood ?? ''}
+                  onChange={e => updateScene(selectedScene.id, { mood: e.target.value || null })}
+                >
+                  <option value="">Automatic (varies by scene)</option>
+                  {MOODS[story.theme].map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
               </div>
 
               {/* Scene Text - shown for all scenes */}

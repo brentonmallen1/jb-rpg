@@ -57,6 +57,7 @@ export interface Scene {
   victory_text?: string  // Read on victory
   defeat_text?: string  // Read on defeat
   item_texts?: Record<string, { victory?: string; defeat?: string }>  // Item-conditional text blocks for finale
+  mood?: string | null  // backdrop mood within the theme; unset = automatic
 }
 
 export interface MadLibField {
@@ -125,6 +126,9 @@ export interface ResolvedContent {
   theme: ThemeName
   visible_choices: string[]  // Choice display text in shuffled order, once revealed to players
   finale: boolean  // The final d20 roll is underway
+  max_hp: number
+  mood?: string | null  // the scene's chosen backdrop mood (null = automatic)
+  mood_seed?: number  // stable per scene, picks the automatic mood
   scene_title?: string  // title of the current scene
   scene_subtitle?: string | null  // its display_name (the poetic door name), if any
   madlib_question?: string  // the question being asked during character creation

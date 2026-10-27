@@ -1,58 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500&family=Orbitron:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+@import '@fontsource/chakra-petch/latin-500.css';
+@import '@fontsource/chakra-petch/latin-700.css';
+@import '@fontsource/ibm-plex-sans-condensed/latin-400.css';
+@import '@fontsource/ibm-plex-sans-condensed/latin-500.css';
 
-/* Cyberpunk theme - scoped to .cyberpunk class on html element */
+/* Cyberpunk: hazard yellow and signal red on wet asphalt. */
 .cyberpunk {
-    --bg-primary: #0a0a12;
-    --bg-secondary: #12121f;
-    --text-primary: #0ff;
-    --text-secondary: #888;
-    --accent: #f0f;
-    --accent-hover: #f5f;
-    --danger: #f00;
-    --success: #0f0;
-    --warning: #ff0;
+    --bg-primary: #0b0b0e;
+    --bg-secondary: #16151b;
+    --text-primary: #f1efe6;
+    --text-secondary: #a8a49a;
+    --accent: #f2e64a;
+    --accent-hover: #fff27a;
+    --danger: #ff4d5e;
+    --success: #4de1a5;
+    --warning: #ffb347;
 
-    --font-body: 'Share Tech Mono', monospace;
-    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+    --font-display: 'Chakra Petch', 'Arial Narrow', sans-serif;
     --font-reading: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
 }
 
-/* Memory chip HP indicators */
-.cyberpunk .hp-indicator::before {
-    content: '\1F4BE';
-    font-size: 1.25rem;
-}
-
-.cyberpunk .hp-indicator--empty {
-    filter: grayscale(1) opacity(0.3);
-}
-
-/* Scanline effect */
-.cyberpunk body::before,
-body.cyberpunk::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0, 255, 255, 0.03) 2px,
-        rgba(0, 255, 255, 0.03) 4px
-    );
-    pointer-events: none;
-    z-index: 9999;
-}
-
-/* Clipped corners on cards */
-.cyberpunk .card {
-    clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
-}
-
-/* Light mode overrides */
 .cyberpunk[data-mode="light"] {
-    --bg-primary: #e8f8f8;
-    --bg-secondary: #fff;
-    --text-primary: #0a4a4a;
-    --text-secondary: #3a5566; /* Darkened for 4.5:1 contrast ratio */
+    --bg-primary: #efede4;
+    --bg-secondary: #fbfaf5;
+    --text-primary: #141318;
+    --text-secondary: #57544c;
+    --accent: #6f6500;
+    --accent-hover: #575000;
+    --danger: #c8243a;
+    --success: #127a52;
+}
+
+.cyberpunk .stage-title,
+.cyberpunk .phone-title,
+.cyberpunk .cover__title {
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Clipped corners */
+.cyberpunk .choice-card,
+.cyberpunk .dealt__card,
+.cyberpunk .door,
+.cyberpunk .reading-panel {
+    border-radius: 2px;
+    clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }

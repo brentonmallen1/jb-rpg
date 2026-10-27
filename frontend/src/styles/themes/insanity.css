@@ -1,47 +1,52 @@
-@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Sorts+Mill+Goudy&display=swap');
+@import '@fontsource/im-fell-english-sc/latin-400.css';
+@import '@fontsource/im-fell-english/latin-400.css';
+@import '@fontsource/im-fell-english/latin-400-italic.css';
 
-/* Insanity theme - scoped to .insanity class on html element */
+/* Insanity: bile-green light leaking into a bruised dark. */
 .insanity {
-    --bg-primary: #0a1a1a;
-    --bg-secondary: #0f2828;
-    --text-primary: #c4d9d4;
-    --text-secondary: #5a8a7f;
-    --accent: #2dd9b4;
-    --accent-hover: #3eecc7;
-    --danger: #9b4dca;
-    --success: #2dd36f;
-    --warning: #d4a017;
+    --bg-primary: #0f0c14;
+    --bg-secondary: #1b1622;
+    --text-primary: #dcdfce;
+    --text-secondary: #a3a693;
+    --accent: #a9dc7e;
+    --accent-hover: #c3ee9f;
+    --danger: #e07a9a;
+    --success: #a9dc7e;
+    --warning: #e3c76b;
 
-    --font-body: 'Sorts Mill Goudy', serif;
-    --font-display: 'IM Fell English SC', serif;
-    --font-reading: var(--font-body);
+    --font-body: 'IM Fell English', Georgia, serif;
+    --font-display: 'IM Fell English SC', Georgia, serif;
+    --font-reading: 'IM Fell English', Georgia, serif;
 }
 
-/* Brain HP indicators */
-.insanity .hp-indicator::before {
-    content: '\1F9E0';
-    font-size: 1.25rem;
-}
-
-.insanity .hp-indicator--empty {
-    filter: grayscale(1) opacity(0.3);
-}
-
-/* Eldritch glow on accent elements */
-.insanity .btn:hover {
-    box-shadow: 0 0 15px rgba(45, 217, 180, 0.4);
-}
-
-/* Wavy/tentacle-like borders */
-.insanity .card {
-    border: 2px solid var(--accent);
-    border-radius: 2px 12px 2px 12px;
-}
-
-/* Light mode overrides */
 .insanity[data-mode="light"] {
-    --bg-primary: #f4f1e8;
-    --bg-secondary: #fff;
-    --text-primary: #0f2828;
-    --text-secondary: #3a5a4f;
+    --bg-primary: #ece9dc;
+    --bg-secondary: #f8f6ee;
+    --text-primary: #23202a;
+    --text-secondary: #59556a;
+    --accent: #3f7a2a;
+    --accent-hover: #2f5f1f;
+    --danger: #a63d63;
+    --success: #3f7a2a;
+}
+
+/* IM Fell's old-style numerals read "1" as "I" and "0" as "o": numbers use a lining serif */
+.insanity .party__stat-value,
+.insanity .party-strip__value,
+.insanity .roll__value,
+.insanity .phone-roll__value,
+.insanity .keycap {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-variant-numeric: lining-nums;
+}
+
+/* Nothing here sits quite straight */
+.insanity .choice-card:nth-child(odd),
+.insanity .dealt__card:nth-child(odd) {
+    transform: rotate(-0.25deg);
+}
+
+.insanity .choice-card:nth-child(even),
+.insanity .dealt__card:nth-child(even) {
+    transform: rotate(0.3deg);
 }

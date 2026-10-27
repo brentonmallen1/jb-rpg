@@ -6,9 +6,10 @@ import { useAsyncAction } from '../hooks/useAsyncAction'
 import { useHotkeys } from '../hooks/useHotkeys'
 import { useMoments } from '../hooks/useMoments'
 import type { GameState, Story } from '../types'
-import { Modal, ConfirmDialog, RulesModal, PageMessage, MomentLayer } from '../components'
+import { Modal, ConfirmDialog, RulesModal, PageMessage, MomentLayer, Atmosphere } from '../components'
 import { BookIcon, CloseIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SunIcon } from '../components/Icons'
 import { storyProgress } from '../lib/story'
+import { moodFor } from '../lib/themes'
 import { MadlibStep } from './run/MadlibStep'
 import { CharacterReveal } from './run/CharacterReveal'
 import { OpeningScene } from './run/OpeningScene'
@@ -138,6 +139,14 @@ export default function Run() {
 
   return (
     <div className={`stage ${presentation ? 'stage--presentation' : ''}`}>
+      {story && (
+        <Atmosphere
+          theme={story.theme}
+          mood={moodFor(story.theme, resolved?.mood, resolved?.mood_seed)}
+          level={presentation ? 'full' : 'subtle'}
+          madness={1 - state.hp / Math.max(story.settings.starting_hp, 1)}
+        />
+      )}
       <header className="stage__bar">
         <div className="stage__story">
           <span className="stage__story-title">{story?.title ?? 'Loading…'}</span>
@@ -179,7 +188,9 @@ export default function Run() {
       </header>
 
       <div className={`stage__body ${showParty ? '' : 'stage__body--solo'}`}>
-        {showParty && <PartyRail state={state} characterDescription={resolved?.character_description} />}
+        {showParty && story && (
+          <PartyRail state={state} theme={story.theme} maxHp={story.settings.starting_hp} characterDescription={resolved?.character_description} />
+        )}
         <main className="stage__main">
           {error && (
             <div className="stage-error" role="alert">

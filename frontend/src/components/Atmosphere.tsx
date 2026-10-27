@@ -8,6 +8,8 @@ interface AtmosphereProps {
   level: EffectsLevel
   /** 0 (fine) to 1 (no health left): drives themes that react to danger */
   madness?: number
+  /** Fill the nearest positioned ancestor instead of the window (e.g. a preview) */
+  contained?: boolean
 }
 
 /**
@@ -15,11 +17,11 @@ interface AtmosphereProps {
  * (stars, scanlines, fog, grain…) and occasional effects (rain, lightning).
  * Keyed by mood so a scene change cross-fades into the new backdrop.
  */
-export function Atmosphere({ theme, mood, level, madness = 0 }: AtmosphereProps) {
+export function Atmosphere({ theme, mood, level, madness = 0, contained = false }: AtmosphereProps) {
   return (
     <div
       key={`${theme}-${mood}`}
-      className={`atmos atmos--${theme} mood--${mood} atmos--${level}`}
+      className={`atmos atmos--${theme} mood--${mood} atmos--${level} ${contained ? 'atmos--contained' : ''}`}
       style={{ '--madness': madness } as React.CSSProperties}
       aria-hidden="true"
     >

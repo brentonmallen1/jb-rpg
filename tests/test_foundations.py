@@ -143,7 +143,9 @@ def test_problems_are_reported_but_saving_still_works(client):
         ]},
     ])
     problems = client.get(f"/api/stories/{story['id']}/problems").json()["problems"]
-    text = " ".join(problems)
+    text = " ".join(p["message"] for p in problems)
+    item = next(p for p in problems if p["field"] == "item_name")
+    assert (item["area"], item["scene_id"], item["index"]) == ("scene", "b", 0)
     assert "'A' has no choices" in text
     assert "no item name" in text
     assert "doesn't exist ('ghost')" in text

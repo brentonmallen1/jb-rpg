@@ -66,6 +66,12 @@ export const SparkIcon = (p: IconProps) => (
 export const BackIcon = (p: IconProps) => (
   <Icon {...p}><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>
 )
+export const UndoIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></Icon>
+)
+export const RedoIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M15 14l5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></Icon>
+)
 export const KeyboardIcon = (p: IconProps) => (
   <Icon {...p}><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" /></Icon>
 )

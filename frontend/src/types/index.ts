@@ -159,3 +159,12 @@ export interface StorySummary {
   theme: ThemeName
   scene_count: number
 }
+
+// Something that would stop a story being played, and where it is
+export interface StoryProblem {
+  message: string
+  area: 'story' | 'characters' | 'opening' | 'scene'
+  scene_id: string | null
+  field: string | null  // e.g. 'item_name', 'conditional_text', 'choices', 'target_scene_id'
+  index: number | null  // which choice / condition
+}

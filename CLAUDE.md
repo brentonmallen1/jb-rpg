@@ -38,7 +38,7 @@ jb-rpg/
 ├── data/                      # DATA_DIR: stories/*.json + state.json (only demo-* tracked)
 ├── tests/                     # pytest; conftest.py has the client fixture + start() helper
 ├── frontend/src/
-│   ├── pages/                 # Library, Editor, Run (shell) + run/*, Player, DevMoments (dev only)
+│   ├── pages/                 # Library, Editor (shell) + editor/*, Run (shell) + run/*, Player, DevMoments (dev only)
 │   ├── components/            # Modal, MomentLayer, Atmosphere, HealthMeter, CorruptText, Icons…
 │   ├── hooks/                 # api.ts (request helper), useSSE, useMoments, useHotkeys, useTheme…
 │   ├── lib/                   # moments.ts, themes.ts (moods, health names), story.ts, outcomes.ts
@@ -161,6 +161,10 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 - **Moments** (`lib/moments.ts`): `diffMoments(prev, next)` turns SSE state changes into dramatic beats played by `MomentLayer` on every screen in sync; copy and victory/defeat endings are themed. Effects level (full/subtle/off) is per device; respect `prefers-reduced-motion`; never more than 3 flashes per second.
 - **Insanity** text corruption (`CorruptText`) scales with health lost; screen readers get clean text.
 - Tune visuals at `/dev/moments` (dev builds only).
+
+## Editor
+
+`pages/Editor.tsx` holds the story in `useUndoable` (⌘Z/⇧⌘Z, typing bursts merge into one step), autosaves, and lays out three columns: `EditorNav` (sections, drag-to-reorder scenes with ready/draft/problem dots), the selected panel (`StoryPanel`, `CharactersPanel`, `OpeningPanel`, `ScenePanel`), and `PreviewPane` (the selection rendered with the stage/phone styles in the story's theme, filled with per-device sample answers). Pure edit helpers live in `lib/storyEdit.ts`. Story problems come from `GET /api/stories/{id}/problems` as `{message, area, scene_id, field, index}` so panels can flag the exact field. Playtest saves, starts a game of the draft and opens the stage.
 
 ---
 

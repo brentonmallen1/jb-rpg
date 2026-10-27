@@ -1,4 +1,5 @@
-"""End-to-end check: a storyteller and a player play through the risky paths in real browsers.
+"""End-to-end check: a storyteller and a player play through the risky paths in real browsers,
+then the Editor is exercised (preview, autosave, problems, Playtest).
 
 Starts its own backend and Vite dev server on spare ports with a throwaway data
 directory, so it never touches your stories or a running game. Run: `just e2e`.
@@ -202,7 +203,39 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         except PlaywrightError:
             check("The player is told the session ended", False)
 
+        editor_checks(browser)
         browser.close()
+
+
+def editor_checks(browser) -> None:
+    """The Editor: live preview, autosave, inline problems, Playtest."""
+    page = browser.new_context(viewport={"width": 1440, "height": 900}).new_page()
+    page.goto(f"{B}/editor/{STORY}")
+    page.wait_for_selector(".ed-panel", timeout=15000)
+
+    scene_text = page.locator("#scene-text")
+    scene_text.click()
+    page.keyboard.press("End")
+    page.keyboard.type(" ZEBRA")
+    page.wait_for_timeout(300)
+    check("Editor preview updates as you type", "ZEBRA" in page.locator(".ed-preview").inner_text())
+    page.wait_for_timeout(2500)
+    saved = call(f"/api/stories/{STORY}", method="GET")
+    check("Editor autosaves", "ZEBRA" in saved["scenes"][0]["base_text"])
+
+    item = page.locator(".ed-choice--item input[id$='-item']").first
+    name = item.input_value()
+    item.fill("")
+    page.wait_for_selector(".ed-choice--item .ed-error", timeout=8000)
+    check("A missing item name is flagged on its field", True)
+    item.fill(name)
+    page.wait_for_selector(".editor__problems", state="detached", timeout=8000)
+    check("The problem clears once fixed", True)
+
+    page.click("text=Playtest")
+    page.wait_for_url(B + "/run", timeout=10000)
+    page.wait_for_selector("#madlib-input", timeout=10000)
+    check("Playtest starts a game of the draft", True)
 
 
 if __name__ == "__main__":

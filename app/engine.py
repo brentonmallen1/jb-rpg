@@ -172,53 +172,58 @@ def get_scene(story: Story, scene_id: str) -> Scene | None:
     return next((s for s in story.scenes if s.id == scene_id), None)
 
 
-def story_problems(story: Story) -> list[str]:
+def story_problems(story: Story) -> list[dict]:
     """Everything that would break a game of this story. Empty means ready to play.
 
+    Each problem says where it is, so the editor can point at it:
+    {"message", "area": story|characters|opening|scene, "scene_id", "field", "index"}.
     Saving never enforces these (the editor autosaves half-finished work); starting a game does.
     """
-    problems = []
-    if not story.scenes:
-        problems.append("The story has no scenes.")
+    problems: list[dict] = []
 
-    scene_ids = [s.id for s in story.scenes]
+    def add(message: str, area: str, scene_id: str | None = None, field: str | None = None, index: int | None = None):
+        problems.append({"message": message, "area": area, "scene_id": scene_id, "field": field, "index": index})
+
+    if not story.scenes:
+        add("The story has no scenes.", "story")
+
     seen = set()
-    for sid in scene_ids:
-        if sid in seen:
-            problems.append(f"Scene id '{sid}' is used more than once.")
-        seen.add(sid)
+    for scene in story.scenes:
+        if scene.id in seen:
+            add(f"Scene id '{scene.id}' is used more than once.", "scene", scene.id)
+        seen.add(scene.id)
 
     keys = [f.key for f in story.madlib_template.fields]
     if any(not k.strip() for k in keys):
-        problems.append("A character creation question has no key.")
+        add("A character creation question has no key.", "characters")
     if len(set(keys)) != len(keys):
-        problems.append("Two character creation questions share the same key.")
+        add("Two character creation questions share the same key.", "characters")
 
-    def check_conditions(where: str, conditional_text):
-        for ct in conditional_text:
+    def check_conditions(where: str, area: str, scene_id: str | None, conditional_text):
+        for i, ct in enumerate(conditional_text):
             c = ct.condition
             if c.type == ConditionType.SCENE_OUTCOME:
                 if not c.scene_id or not c.outcome:
-                    problems.append(f"{where}: a scene-outcome condition needs a scene and an outcome.")
+                    add(f"{where}: a scene-outcome condition needs a scene and an outcome.", area, scene_id, "conditional_text", i)
                 elif c.scene_id not in seen:
-                    problems.append(f"{where}: a condition refers to a scene that doesn't exist ('{c.scene_id}').")
+                    add(f"{where}: a condition refers to a scene that doesn't exist ('{c.scene_id}').", area, scene_id, "conditional_text", i)
             elif not c.op or c.value is None:
-                problems.append(f"{where}: a {c.type.value} condition needs a comparison and a number.")
+                add(f"{where}: a {c.type.value} condition needs a comparison and a number.", area, scene_id, "conditional_text", i)
 
     for scene in story.scenes:
         where = f"Scene '{scene.title or scene.id}'"
         if not scene.is_finale and not scene.choices:
-            problems.append(f"{where} has no choices. Add some, or mark it as the finale.")
-        for choice in scene.choices:
+            add(f"{where} has no choices. Add some, or mark it as the finale.", "scene", scene.id, "choices")
+        for i, choice in enumerate(scene.choices):
             if choice.kind == ChoiceKind.ITEM and not (choice.item_name or "").strip():
-                problems.append(f"{where}: an item choice has no item name.")
-        check_conditions(where, scene.conditional_text)
+                add(f"{where}: an item choice has no item name.", "scene", scene.id, "item_name", i)
+        check_conditions(where, "scene", scene.id, scene.conditional_text)
 
     if story.opening_scene:
-        for choice in story.opening_scene.choices:
+        for i, choice in enumerate(story.opening_scene.choices):
             if choice.target_scene_id and choice.target_scene_id not in seen:
-                problems.append(f"Opening scene: a choice leads to a scene that doesn't exist ('{choice.target_scene_id}').")
-        check_conditions("Opening scene", story.opening_scene.conditional_text)
+                add(f"Opening scene: a choice leads to a scene that doesn't exist ('{choice.target_scene_id}').", "opening", None, "target_scene_id", i)
+        check_conditions("Opening scene", "opening", None, story.opening_scene.conditional_text)
 
     return problems
 
@@ -237,7 +242,7 @@ def require_status(state: GameState, *allowed: SessionStatus) -> None:
 def new_session(story: Story) -> GameState:
     problems = story_problems(story)
     if problems:
-        raise GameError(422, "This story isn't ready to play: " + " ".join(problems))
+        raise GameError(422, "This story isn't ready to play: " + " ".join(p["message"] for p in problems))
 
     if story.madlib_template.fields:
         status = SessionStatus.MADLIB_IN_PROGRESS

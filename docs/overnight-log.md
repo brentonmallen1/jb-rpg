@@ -128,8 +128,18 @@ To see it, run `just backend` and `just frontend-dev`, then open:
 - **Corruption is Insanity-only.** Horror doesn't get it.
 - **Fonts:** fantasy keeps Cinzel / Crimson; the others changed (see Phase 4).
 
+## Editor redesign (done the following day, branch `editor-redesign`)
+- **Layout:** the new design with three columns: sections, the panel, and a live preview of the stage or phone in the story's theme and mood.
+- **Navigation:** drag-to-reorder scenes, with a dot per scene for ready, still being written, or needs fixing.
+- **Choices:** one card per outcome (costs a life / finds an item / grows stronger), with the item name inline.
+- **Conditional text:** a new editor, written as sentences ("If the party's health is at most 1, add: …"). This feature existed in the engine but had no UI.
+- **Problems where they are:** flagged on the exact field, the scene in the list, and a "to fix" button in the top bar.
+- **Playtest:** saves the draft and starts a game of it.
+- **Editing:** undo/redo, ⌘S, a visual theme picker, a health stepper, and a story-shape toggle.
+- **Characters:** sample answers that fill every preview.
+- **Bug fixed:** un-ticking "finale" left a scene with no choices.
+
 ## Not done / next candidates
-- **Editor redesign:** splitting `Editor.tsx` (1,200 lines) into panels, and a live player-view preview. Only targeted improvements so far.
 - **Ambient audio and stings** per theme. This needs sound assets, so it's your call.
 
 ## For the morning: per-player decision makers (your idea, not built)

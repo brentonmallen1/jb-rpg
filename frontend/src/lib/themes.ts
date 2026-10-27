@@ -51,3 +51,13 @@ export function moodFor(theme: ThemeName, mood?: string | null, seed?: number): 
   if (mood && moods.some(m => m.id === mood)) return mood
   return moods[(seed ?? 0) % moods.length].id
 }
+
+/** The server's mood seed for a scene (zlib CRC-32 of its id), so previews pick the same mood. */
+export function moodSeed(sceneId: string): number {
+  let crc = 0xffffffff
+  for (const byte of new TextEncoder().encode(sceneId)) {
+    crc ^= byte
+    for (let k = 0; k < 8; k++) crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}

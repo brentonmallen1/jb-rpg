@@ -18,6 +18,10 @@
   animation: atmos-in 1.6s ease both;
 }
 
+.atmos--contained {
+  position: absolute;
+}
+
 @keyframes atmos-in {
   from { opacity: 0; }
   to { opacity: 1; }

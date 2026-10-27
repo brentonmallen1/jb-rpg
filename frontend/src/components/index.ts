@@ -7,7 +7,6 @@
 // Layout
 export { PageMessage } from './PageMessage'
 export { ErrorBoundary } from './ErrorBoundary'
-export { Collapsible } from './Collapsible'
 
 // Dialogs
 export { Modal, ConfirmDialog, InputDialog } from './Modal'
@@ -17,5 +16,4 @@ export { RulesModal } from './RulesModal'
 export { HealthMeter } from './HealthMeter'
 export { Atmosphere } from './Atmosphere'
 export { CorruptText } from './CorruptText'
-export { ModeToggle } from './ModeToggle'
 export { MomentLayer, CriticalPulse } from './MomentLayer'

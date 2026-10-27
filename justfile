@@ -47,13 +47,13 @@ test:
 test-v:
     uv run pytest -v
 
-# Clean session state (removes state.json)
+# Clean session state (removes the active session)
 clean-state:
-    rm -f state.json
+    rm -f data/state.json
 
 # Clean all generated files
 clean:
-    rm -f state.json
+    rm -f data/state.json
     find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
     find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
     rm -rf frontend/dist 2>/dev/null || true

@@ -1,7 +1,7 @@
 [project]
 name = "jb-rpg"
 version = "0.1.0"
-description = "Add your description here"
+description = "TTRPG companion app: build story-driven adventures and run them with players on their phones"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.109.0",

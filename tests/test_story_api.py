@@ -1,17 +1,4 @@
-import pytest
-from fastapi.testclient import TestClient
-from pathlib import Path
-import json
-
-
-@pytest.fixture
-def client(tmp_path, monkeypatch):
-    """Create test client with isolated stories directory."""
-    import main
-    monkeypatch.setattr(main, "STORIES_DIR", tmp_path / "stories")
-    monkeypatch.setattr(main, "STATE_FILE", tmp_path / "state.json")
-    main.STORIES_DIR.mkdir(exist_ok=True)
-    return TestClient(main.app)
+from .conftest import start
 
 
 # Task 2.1: List Stories
@@ -85,20 +72,20 @@ def test_delete_story(client):
     assert get_resp.status_code == 404
 
 
-def test_delete_story_clears_active_session(client, tmp_path):
-    import main
-    create_resp = client.post("/api/stories", json={"title": "Active"})
-    story_id = create_resp.json()["id"]
+def test_delete_story_clears_active_session(client):
+    from app import storage
+    story = client.post("/api/stories", json={"title": "Active"}).json()
+    story["scenes"] = [{
+        "id": "s1", "title": "S1", "base_text": "Hi.",
+        "choices": [{"kind": "level", "display_text": "Go", "result_text": "Gone"}],
+    }]
+    client.put(f"/api/stories/{story['id']}", json=story)
+    start(client, story["id"])
+    assert storage.load_state() is not None
 
-    # Create a state file for this story
-    state = {"story_id": story_id, "status": "running"}
-    with open(main.STATE_FILE, "w") as f:
-        json.dump(state, f)
-
-    client.delete(f"/api/stories/{story_id}")
-
-    # State file should be cleared
-    assert not main.STATE_FILE.exists() or main.STATE_FILE.read_text() == "{}"
+    assert client.delete(f"/api/stories/{story['id']}").status_code == 200
+    assert storage.load_state() is None
+    assert client.get("/api/session/check").json()["active"] is False
 
 
 def test_create_story_empty_title_422(client):

@@ -8,7 +8,7 @@ RUN npm run build
 
 # Stage 2: Python app
 FROM python:3.13-slim
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /usr/local/bin/uv
 WORKDIR /app
 
 ENV BACKEND_PORT=8000
@@ -24,6 +24,7 @@ ENV BASE_URL=""
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-editable
 COPY main.py ./
+COPY app/ ./app/
 
 # Copy built frontend to static directory
 COPY --from=frontend-builder /app/frontend/dist ./static

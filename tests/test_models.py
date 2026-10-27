@@ -2,7 +2,7 @@ import pytest
 
 
 def test_theme_name_values():
-    from main import ThemeName
+    from app.models import ThemeName
     assert ThemeName.CYBERPUNK.value == "cyberpunk"
     assert ThemeName.FANTASY.value == "fantasy"
     assert ThemeName.DEEP_SPACE.value == "deep_space"
@@ -11,21 +11,21 @@ def test_theme_name_values():
 
 
 def test_session_status_values():
-    from main import SessionStatus
+    from app.models import SessionStatus
     assert SessionStatus.MADLIB_IN_PROGRESS.value == "madlib_in_progress"
     assert SessionStatus.RUNNING.value == "running"
     assert SessionStatus.GAME_OVER.value == "game_over"
 
 
 def test_choice_kind_values():
-    from main import ChoiceKind
+    from app.models import ChoiceKind
     assert ChoiceKind.DAMAGE.value == "damage"
     assert ChoiceKind.ITEM.value == "item"
     assert ChoiceKind.LEVEL.value == "level"
 
 
 def test_condition_type_values():
-    from main import ConditionType
+    from app.models import ConditionType
     assert ConditionType.HP.value == "hp"
     assert ConditionType.ITEMS.value == "items"
     assert ConditionType.LEVEL.value == "level"
@@ -33,7 +33,7 @@ def test_condition_type_values():
 
 
 def test_condition_hp():
-    from main import Condition, ConditionType
+    from app.models import Condition, ConditionType
     c = Condition(type=ConditionType.HP, op="lte", value=1)
     assert c.type == ConditionType.HP
     assert c.op == "lte"
@@ -41,14 +41,14 @@ def test_condition_hp():
 
 
 def test_condition_scene_outcome():
-    from main import Condition, ConditionType
+    from app.models import Condition, ConditionType
     c = Condition(type=ConditionType.SCENE_OUTCOME, scene_id="scene_1", outcome="damage")
     assert c.scene_id == "scene_1"
     assert c.outcome == "damage"
 
 
 def test_choice_damage():
-    from main import Choice, ChoiceKind
+    from app.models import Choice, ChoiceKind
     c = Choice(kind=ChoiceKind.DAMAGE, display_text="Take the risk", result_text="Take the risk happens", amount=1)
     assert c.kind == ChoiceKind.DAMAGE
     assert c.amount == 1
@@ -56,13 +56,13 @@ def test_choice_damage():
 
 
 def test_choice_item():
-    from main import Choice, ChoiceKind
+    from app.models import Choice, ChoiceKind
     c = Choice(kind=ChoiceKind.ITEM, display_text="Search", result_text="Search happens", item_name="Compass", amount=1)
     assert c.item_name == "Compass"
 
 
 def test_scene():
-    from main import Scene, Choice, ChoiceKind
+    from app.models import Scene, Choice, ChoiceKind
     s = Scene(
         id="scene_1",
         title="The Start",
@@ -79,7 +79,7 @@ def test_scene():
 
 
 def test_madlib_template():
-    from main import MadLibTemplate, MadLibField
+    from app.models import MadLibTemplate, MadLibField
     t = MadLibTemplate(
         prompt="{name} is a {job}",
         fields=[
@@ -92,7 +92,7 @@ def test_madlib_template():
 
 
 def test_history_entry():
-    from main import HistoryEntry, ChoiceKind
+    from app.models import HistoryEntry, ChoiceKind
     h = HistoryEntry(
         scene_id="scene_1",
         outcome=ChoiceKind.DAMAGE,
@@ -105,7 +105,7 @@ def test_history_entry():
 
 
 def test_character():
-    from main import Character
+    from app.models import Character
     c = Character(
         name="Bob",
         description="Bob is a wizard.",
@@ -116,7 +116,7 @@ def test_character():
 
 
 def test_game_state_defaults():
-    from main import GameState, SessionStatus
+    from app.models import GameState, SessionStatus
     g = GameState(
         story_id="test",
         current_scene_id="scene_1",

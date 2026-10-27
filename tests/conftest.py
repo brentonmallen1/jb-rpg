@@ -5,25 +5,23 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     """Test client with isolated data and fresh in-memory server state."""
-    import main
-    monkeypatch.setattr(main, "STORIES_DIR", tmp_path / "stories")
-    monkeypatch.setattr(main, "STATE_FILE", tmp_path / "state.json")
-    monkeypatch.setattr(main, "_session_token", None)
+    from app import config, sse, storage
+    from app.main import app
+
+    monkeypatch.setattr(storage, "STORIES_DIR", tmp_path / "stories")
+    monkeypatch.setattr(storage, "STATE_FILE", tmp_path / "state.json")
     # Exercise the real access rules regardless of the developer's .env
-    monkeypatch.setattr(main, "AUTH_DISABLED", False)
-    monkeypatch.setattr(main, "ADMIN_USER", "")
-    monkeypatch.setattr(main, "ADMIN_PASSWORD", "")
-    main._rate_limit_store.clear()
-    main.sse_connections.clear()
-    main.storyteller_connections.clear()
-    main.player_connections.clear()
-    main.STORIES_DIR.mkdir(exist_ok=True)
-    return TestClient(main.app)
+    monkeypatch.setattr(config, "AUTH_DISABLED", False)
+    monkeypatch.setattr(config, "ADMIN_USER", "")
+    monkeypatch.setattr(config, "ADMIN_PASSWORD", "")
+    sse.connections.clear()
+    storage.STORIES_DIR.mkdir(exist_ok=True)
+    return TestClient(app)
 
 
-def start(client, story_id):
+def start(client, story_id, force=False):
     """Start a session and act as the storyteller for the rest of the test."""
-    resp = client.post("/api/state/start", json={"story_id": story_id})
+    resp = client.post("/api/state/start", json={"story_id": story_id, "force": force})
     if resp.status_code == 200:
         client.headers["X-Session-Token"] = resp.json()["token"]
     return resp

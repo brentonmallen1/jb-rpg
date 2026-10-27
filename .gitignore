@@ -31,3 +31,9 @@ data/stories/*.json
 data/state.json
 !data/.gitkeep
 !data/stories/.gitkeep
+
+# Built frontend (Docker copies frontend/dist here)
+static/
+
+# Legacy story location (DATA_DIR defaults to ./data; stories live in data/stories)
+/stories/

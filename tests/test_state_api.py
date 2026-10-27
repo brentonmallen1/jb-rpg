@@ -369,8 +369,8 @@ def test_restart(client):
     assert state_resp.json()["state"] is None
 
 
-def test_choice_item_without_name_422(client):
-    """Item choice with empty item_name should return 422."""
+def test_choice_item_without_name_rejected_at_start(client):
+    """A story with a nameless item choice can't be started."""
     scenes = [
         {
             "id": "s1",
@@ -381,15 +381,15 @@ def test_choice_item_without_name_422(client):
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    start(client, story_id)
 
-    resp = client.post("/api/state/choice", json={"choice_index": 0})
+    # Caught when the game starts, not mid-game
+    resp = client.post("/api/state/start", json={"story_id": story_id})
     assert resp.status_code == 422
-    assert "item_name" in resp.json()["detail"].lower()
+    assert "item name" in resp.json()["detail"].lower()
 
 
-def test_choice_item_null_name_422(client):
-    """Item choice with null item_name should return 422."""
+def test_choice_item_null_name_rejected_at_start(client):
+    """A story with a null item name can't be started."""
     scenes = [
         {
             "id": "s1",
@@ -400,10 +400,11 @@ def test_choice_item_null_name_422(client):
         }
     ]
     story_id = make_story(client, with_madlibs=False, scenes=scenes)
-    start(client, story_id)
 
-    resp = client.post("/api/state/choice", json={"choice_index": 0})
+    # Caught when the game starts, not mid-game
+    resp = client.post("/api/state/start", json={"story_id": story_id})
     assert resp.status_code == 422
+    assert "item name" in resp.json()["detail"].lower()
 
 
 def test_choice_index_out_of_bounds(client):

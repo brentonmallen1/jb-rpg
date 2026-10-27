@@ -1,0 +1,234 @@
+"""Session endpoints. State transitions follow one shape:
+verify caller -> engine transition (validates status) -> save -> broadcast -> return state.
+"""
+
+from typing import Literal, Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBasicCredentials
+from pydantic import BaseModel, Field
+
+from .. import auth, config, engine, sse, storage
+from ..models import GameState, Story, public_state
+
+router = APIRouter(prefix="/api")
+
+
+async def commit(state: GameState) -> dict:
+    storage.save_state(state)
+    await sse.broadcast()
+    return public_state(state)
+
+
+def can_observe(credentials: Optional[HTTPBasicCredentials]) -> bool:
+    """Admins (when admin auth is configured) may watch a session without joining it."""
+    return config.AUTH_DISABLED or (auth.admin_required() and auth.is_admin(credentials))
+
+
+# ---------------------------------------------------------------------------
+# Reading state
+# ---------------------------------------------------------------------------
+
+
+@router.get("/events")
+async def events(
+    token: Optional[str] = None,
+    s: Optional[str] = None,
+    credentials: Optional[HTTPBasicCredentials] = Depends(auth.basic),
+):
+    """SSE stream. Storytellers pass ?token=, players pass ?s=<session_id>."""
+    state = storage.load_state()
+    if auth.is_storyteller(state, token):
+        role = "storyteller"
+    elif auth.is_player(state, s):
+        role = "player"
+    elif state is None or can_observe(credentials):
+        role = "observer"
+    else:
+        raise HTTPException(status_code=403, detail="Invalid session")
+
+    return StreamingResponse(
+        sse.stream(role),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/state")
+async def get_state(
+    s: Optional[str] = None,
+    x_session_token: Optional[str] = Header(None),
+    credentials: Optional[HTTPBasicCredentials] = Depends(auth.basic),
+):
+    state = storage.load_state()
+    allowed = (
+        state is None
+        or auth.is_storyteller(state, x_session_token)
+        or auth.is_player(state, s)
+        or can_observe(credentials)
+    )
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Authentication required")
+    payload = await sse.build_payload()
+    return {
+        "state": payload["state"],
+        "resolved": payload["resolved"],
+        "storyteller_connected": payload["storyteller_connected"],
+    }
+
+
+@router.get("/session/check")
+async def check_session(s: Optional[str] = None):
+    """Public: is a session active, and does `s` match it? Never reveals the id."""
+    state = storage.load_state()
+    return {"active": state is not None, "valid": auth.is_player(state, s)}
+
+
+@router.get("/state/validate-token")
+async def validate_token(x_session_token: Optional[str] = Header(None)):
+    state = storage.load_state()
+    if state is None:
+        return {"valid": False, "reason": "no_session", "is_storyteller": False}
+    if auth.is_storyteller(state, x_session_token):
+        return {"valid": True, "is_storyteller": True}
+    return {"valid": False, "reason": "invalid_token", "is_storyteller": False}
+
+
+@router.get("/state/story")
+async def session_story(state: GameState = Depends(auth.verify_storyteller)) -> Story:
+    """The story as it was when this session started (edits made since don't affect the game)."""
+    return state.story
+
+
+# ---------------------------------------------------------------------------
+# Starting, resuming, ending
+# ---------------------------------------------------------------------------
+
+
+class StartRequest(BaseModel):
+    story_id: str
+    force: bool = False  # end any running session first
+
+
+@router.post("/state/start")
+async def start_session(request: StartRequest, _: bool = Depends(auth.verify_admin)):
+    story = storage.load_story(request.story_id)
+    if story is None:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    current = storage.load_state()
+    if current is not None:
+        if not request.force:
+            title = current.story.title if current.story else current.story_id
+            raise HTTPException(status_code=409, detail=f"A session of “{title}” is already running.")
+        await sse.end_session()
+
+    state = engine.new_session(story)
+    token = auth.issue_token(state)
+    return {"state": await commit(state), "token": token}
+
+
+@router.post("/state/resume")
+async def resume_session(_: bool = Depends(auth.verify_admin)):
+    """Take over the running session as storyteller (e.g. after closing the tab).
+    Issues a new token; the previous storyteller's token stops working."""
+    state = storage.load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+    token = auth.issue_token(state)
+    return {"state": await commit(state), "token": token}
+
+
+@router.post("/state/restart")
+async def restart_session(_: GameState = Depends(auth.verify_storyteller)):
+    """End the session for everyone."""
+    await sse.end_session()
+    storage.save_state(None)
+    return {"status": "restarted"}
+
+
+# ---------------------------------------------------------------------------
+# Transitions
+# ---------------------------------------------------------------------------
+
+
+class MadlibRequest(BaseModel):
+    answer: str = Field(..., min_length=1, max_length=500)
+
+
+class ChoiceRequest(BaseModel):
+    choice_index: int
+
+
+class OpeningChoiceRequest(BaseModel):
+    choice_index: Optional[int] = None  # None = "proceed" button
+
+
+class SelectSceneRequest(BaseModel):
+    scene_id: str
+    revisit: bool = False  # replaying an already-played scene
+
+
+class FinishRequest(BaseModel):
+    outcome: Literal["victory", "defeat"]
+
+
+@router.post("/state/madlib")
+async def submit_madlib(request: MadlibRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.submit_madlib(state, request.answer)
+    return await commit(state)
+
+
+@router.post("/state/madlib-back")
+async def madlib_back(state: GameState = Depends(auth.verify_storyteller)):
+    engine.madlib_back(state)
+    return await commit(state)
+
+
+@router.post("/state/proceed-from-character")
+async def proceed_from_character(state: GameState = Depends(auth.verify_storyteller)):
+    engine.proceed_from_character(state)
+    return await commit(state)
+
+
+@router.post("/state/opening-choice")
+async def opening_choice(request: OpeningChoiceRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.opening_choice(state, request.choice_index)
+    return await commit(state)
+
+
+@router.post("/state/reveal-choices")
+async def reveal_choices(show_to_players: bool = True, state: GameState = Depends(auth.verify_storyteller)):
+    engine.reveal_choices(state, show_to_players)
+    return await commit(state)
+
+
+@router.post("/state/choice")
+async def make_choice(request: ChoiceRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.make_choice(state, request.choice_index)
+    return await commit(state)
+
+
+@router.post("/state/back")
+async def go_back(state: GameState = Depends(auth.verify_storyteller)):
+    engine.go_back(state)
+    return await commit(state)
+
+
+@router.post("/state/select-scene")
+async def select_scene(request: SelectSceneRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.select_scene(state, request.scene_id, request.revisit)
+    return await commit(state)
+
+
+@router.post("/state/finish")
+async def finish(request: FinishRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.finish(state, request.outcome)
+    return await commit(state)
+
+
+@router.post("/state/reveal-outcome")
+async def reveal_outcome(state: GameState = Depends(auth.verify_storyteller)):
+    engine.reveal_outcome(state)
+    return await commit(state)

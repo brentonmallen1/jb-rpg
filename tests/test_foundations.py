@@ -212,3 +212,27 @@ def test_sse_counts_players_and_sends_heartbeats(client, monkeypatch):
 
     asyncio.run(scenario())
     assert sse.connections == {}
+
+
+def test_admin_login_is_generated_when_none_is_configured(client):
+    from app import auth, config, storage
+
+    auth.ensure_admin_credentials()
+    saved = json.loads((storage.STATE_FILE.parent / "admin.json").read_text())
+    assert (config.ADMIN_USER, config.ADMIN_PASSWORD) == (saved["user"], saved["password"])
+    assert client.get("/api/stories").status_code == 401
+    assert client.get("/api/stories", headers=basic(saved["user"], saved["password"])).status_code == 200
+
+    # Stable across restarts
+    config.ADMIN_USER = config.ADMIN_PASSWORD = ""
+    auth.ensure_admin_credentials()
+    assert config.ADMIN_PASSWORD == saved["password"]
+
+
+def test_no_login_is_generated_when_auth_is_disabled(client, monkeypatch):
+    from app import auth, config, storage
+
+    monkeypatch.setattr(config, "AUTH_DISABLED", True)
+    auth.ensure_admin_credentials()
+    assert config.ADMIN_USER == ""
+    assert not (storage.STATE_FILE.parent / "admin.json").exists()

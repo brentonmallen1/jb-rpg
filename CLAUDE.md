@@ -101,7 +101,7 @@ Tests: `just test` (pytest) and `just e2e` (storyteller + player in real browser
 ## Access Model
 
 Three layers, all lightweight (no user accounts):
-1. **Admin (HTTP Basic)** — `verify_admin` + `AdminAuthMiddleware` protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Disabled when credentials are empty or `AUTH_DISABLED=true`.
+1. **Admin (HTTP Basic)** — `verify_admin` + `AdminPagesMiddleware` protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Only `AUTH_DISABLED=true` turns it off; with no `ADMIN_USER`/`ADMIN_PASSWORD`, a login is generated on first run, saved in `DATA_DIR/admin.json`, and logged at startup.
 2. **Storyteller token** — `/api/state/start` returns a token (kept in memory server-side, `sessionStorage` client-side). Every other `POST /api/state/*` requires it in `X-Session-Token`; SSE takes it as `?token=`.
 3. **Player session id** — players join via `/player/{session_id}`; SSE and `GET /api/state` take it as `?s=`. `GET /api/session/check?s=` validates it without revealing the id. Never expose `session_id` from a public endpoint.
 

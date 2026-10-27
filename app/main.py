@@ -19,11 +19,9 @@ log = logging.getLogger("jb_rpg")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     storage.STORIES_DIR.mkdir(parents=True, exist_ok=True)
-    if not auth.admin_required() and not config.AUTH_DISABLED:
-        log.warning(
-            "ADMIN_USER/ADMIN_PASSWORD are not set: anyone who can reach this server can "
-            "edit stories and run sessions. Set them before exposing it to a network."
-        )
+    auth.ensure_admin_credentials()
+    if config.AUTH_DISABLED:
+        log.warning("AUTH_DISABLED is set: anyone who can reach this server can edit stories and run games.")
     # The session in state.json (if any) carries on: its storyteller token is persisted as a hash.
     yield
 

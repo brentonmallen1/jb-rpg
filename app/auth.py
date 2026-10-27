@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import json
 import logging
 import secrets
 from typing import Optional
@@ -23,6 +24,27 @@ BASIC_CHALLENGE = {"WWW-Authenticate": "Basic realm='Admin'"}
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
+
+
+def ensure_admin_credentials() -> None:
+    """Secure by default: with no admin login configured (and auth not explicitly
+    disabled), generate one on first run, keep it in the data folder, and log it."""
+    if config.AUTH_DISABLED or (config.ADMIN_USER and config.ADMIN_PASSWORD):
+        return
+    path = storage.STATE_FILE.parent / "admin.json"
+    try:
+        saved = json.loads(path.read_text())
+        user, password = saved["user"], saved["password"]
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        user, password = "admin", secrets.token_urlsafe(12)
+        storage.write_json(path, {"user": user, "password": password})
+        path.chmod(0o600)
+    config.ADMIN_USER, config.ADMIN_PASSWORD = user, password
+    log.warning(
+        "No ADMIN_USER/ADMIN_PASSWORD set. Storyteller login: %s / %s (saved in %s). "
+        "Set ADMIN_USER and ADMIN_PASSWORD to choose your own, or AUTH_DISABLED=true for local play.",
+        user, password, path,
+    )
 
 
 def admin_required() -> bool:

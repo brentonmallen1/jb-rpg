@@ -29,6 +29,7 @@ state.json
 data/stories/*.json
 !data/stories/demo-*.json
 data/state.json
+data/admin.json
 !data/.gitkeep
 !data/stories/.gitkeep
 

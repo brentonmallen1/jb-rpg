@@ -6,6 +6,7 @@ directory, so it never touches your stories or a running game. Run: `just e2e`.
 Needs Google Chrome installed (or run `uv run --with playwright playwright install chromium`).
 """
 
+import base64
 import json
 import os
 import shutil
@@ -23,6 +24,8 @@ ROOT = Path(__file__).resolve().parent.parent
 BACKEND_PORT, FRONTEND_PORT = 8871, 5271
 B, A = f"http://localhost:{FRONTEND_PORT}", f"http://localhost:{BACKEND_PORT}"
 STORY = "demo-crystal-caverns"
+ADMIN = {"username": "e2e", "password": "e2e-password"}
+ADMIN_HEADER = "Basic " + base64.b64encode(f"{ADMIN['username']}:{ADMIN['password']}".encode()).decode()
 
 results: list[tuple[str, bool]] = []
 
@@ -33,7 +36,7 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 
 
 def call(path: str, body=None, token: str | None = None, method: str = "POST"):
-    headers = {"Content-Type": "application/json", **({"X-Session-Token": token} if token else {})}
+    headers = {"Content-Type": "application/json", "Authorization": ADMIN_HEADER, **({"X-Session-Token": token} if token else {})}
     data = None if method == "GET" else json.dumps(body or {}).encode()
     req = urllib.request.Request(A + path, data=data, method=method, headers=headers)
     return json.load(urllib.request.urlopen(req))
@@ -51,7 +54,7 @@ def wait_for(url: str, timeout: float = 30) -> None:
 
 
 def start_backend(data_dir: Path) -> subprocess.Popen:
-    env = {**os.environ, "DATA_DIR": str(data_dir), "AUTH_DISABLED": "false", "ADMIN_USER": "", "ADMIN_PASSWORD": ""}
+    env = {**os.environ, "DATA_DIR": str(data_dir), "AUTH_DISABLED": "false", "ADMIN_USER": ADMIN["username"], "ADMIN_PASSWORD": ADMIN["password"]}
     proc = subprocess.Popen(
         ["uv", "run", "uvicorn", "main:app", "--port", str(BACKEND_PORT), "--timeout-graceful-shutdown", "2"],
         cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
@@ -107,7 +110,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
     with sync_playwright() as p:
         browser = launch(p)
 
-        teller_ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+        teller_ctx = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN)
         teller_ctx.add_init_script(f"sessionStorage.setItem('jb_rpg_session_token','{token}'); localStorage.setItem('jb_rpg_presentation','off')")
         teller = teller_ctx.new_page()
         page_errors: list[str] = []
@@ -156,7 +159,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.wait_for_selector("text=Deal choices to the table")
         teller.keyboard.press("b")
         teller.wait_for_function("t => document.querySelector('.stage-title')?.innerText === t", arg=first_title)
-        state = json.load(urllib.request.urlopen(urllib.request.Request(A + "/api/state", headers={"X-Session-Token": token})))["state"]
+        state = call("/api/state", token=token, method="GET")["state"]
         check("Undo clears the next scene's shuffle", state["shuffled_indices"] == [] and not state["choices_revealed"])
 
         teller.keyboard.press("r")
@@ -181,7 +184,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         check("Run page resumes after the restart", True)
 
         # Another tab takes over
-        other = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+        other = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
         other.goto(B + "/run")
         other.wait_for_selector("text=Session running elsewhere", timeout=15000)
         other.click("button:has-text('Take over')")
@@ -209,7 +212,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
 
 def editor_checks(browser) -> None:
     """The Editor: live preview, autosave, inline problems, Playtest."""
-    page = browser.new_context(viewport={"width": 1440, "height": 900}).new_page()
+    page = browser.new_context(viewport={"width": 1440, "height": 900}, http_credentials=ADMIN).new_page()
     page.goto(f"{B}/editor/{STORY}")
     page.wait_for_selector(".ed-panel", timeout=15000)
 

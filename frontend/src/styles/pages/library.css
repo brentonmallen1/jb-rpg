@@ -1,6 +1,9 @@
 /* Library: the storyteller's shelf. Each story is a cover in its own theme. */
 
 .library__wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--font-display);
   font-size: 1.05rem;
   font-weight: 700;

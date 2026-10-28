@@ -47,6 +47,10 @@ test:
 e2e:
     uv run --with playwright python e2e/run.py
 
+# Regenerate the README screenshots (docs/images/screenshots)
+screenshots:
+    uv run --with playwright python e2e/screenshots.py
+
 # Run tests with verbose output
 test-v:
     uv run pytest -v

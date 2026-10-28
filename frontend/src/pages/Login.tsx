@@ -53,7 +53,7 @@ export default function Login() {
   return (
     <div className="stage library">
       <header className="stage__bar">
-        <span className="library__wordmark">J&amp;B’s RPG</span>
+        <span className="library__wordmark"><img src="/favicon.svg" alt="" width="26" height="26" />J&amp;B’s RPG</span>
         <div className="stage__tools">
           <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
             {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}

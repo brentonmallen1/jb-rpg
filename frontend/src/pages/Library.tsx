@@ -158,7 +158,7 @@ export default function Library() {
       <a href="#main-content" className="visually-hidden">Skip to content</a>
 
       <header className="stage__bar">
-        <span className="library__wordmark">J&amp;B’s RPG</span>
+        <span className="library__wordmark"><img src="/favicon.svg" alt="" width="26" height="26" />J&amp;B’s RPG</span>
         <div className="stage__tools">
           <button className="icon-btn" onClick={() => setShowRules(true)} aria-label="Rules" title="Rules">
             <BookIcon />

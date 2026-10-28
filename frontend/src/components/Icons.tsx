@@ -31,7 +31,7 @@ export const LinkIcon = (p: IconProps) => (
   <Icon {...p}><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" /><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></Icon>
 )
 export const BookIcon = (p: IconProps) => (
-  <Icon {...p}><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 19V5" /></Icon>
+  <Icon {...p}><path d="M12 7c-2-1.6-5-2.2-9-1.8v13c4-.4 7 .2 9 1.8 2-1.6 5-2.2 9-1.8v-13c-4-.4-7 .2-9 1.8z" /><path d="M12 7v13" /></Icon>
 )
 export const CloseIcon = (p: IconProps) => (
   <Icon {...p}><path d="M6 6l12 12M18 6L6 18" /></Icon>
@@ -68,6 +68,9 @@ export const FlashIcon = (p: IconProps) => (
 )
 export const FlashOffIcon = (p: IconProps) => (
   <Icon {...p}><path d="M13 2l-3.6 4.8M7.2 9.8L4 14h7l-1 8 4-5.3M16.6 12.6L19 10h-7l.4-3" /><path d="M3 3l18 18" /></Icon>
+)
+export const GearIcon = (p: IconProps) => (
+  <Icon {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></Icon>
 )
 export const BackIcon = (p: IconProps) => (
   <Icon {...p}><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>

@@ -468,83 +468,134 @@ button.dealt__card {
 
 .effects-off .vote__clock.is-urgent { animation: none; }
 
-/* --- Effects on this phone --------------------------------------------------- */
+/* --- Settings (the gear): effects and light/dark ------------------------------ */
 
-.phone__tool.effects__button {
-  width: auto;
-  gap: 6px;
-  grid-auto-flow: column;
-  padding: 0 10px;
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-
-.effects__panel {
+.settings {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
   z-index: 50;
   width: min(300px, calc(100vw - 32px));
-  margin: 0;
-  padding: 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--bg-secondary);
   box-shadow: 0 18px 40px rgb(0 0 0 / 0.35);
-  animation: effects-in 180ms var(--ease-out-expo) both;
+  animation: settings-in 180ms var(--ease-out-expo) both;
 }
 
-.effects__panel legend {
+.settings__row {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text-primary);
+}
+
+.settings__row legend {
   float: left;
   width: 100%;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
 
-.effects__option {
+.settings__row--inline {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  color: var(--text-primary);
-  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
 
-.effects__option.is-selected {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.effects__option.is-locked {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.effects__option input {
-  margin-top: 3px;
-  accent-color: var(--accent);
-}
-
-.effects__desc {
-  display: block;
-  margin-top: 2px;
+.settings__hint {
+  clear: both;
+  margin: 8px 0 0;
   font-size: 0.85rem;
   line-height: 1.4;
   color: var(--text-secondary);
 }
 
-@keyframes effects-in {
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.segmented__option {
+  display: grid;
+  place-items: center;
+  min-height: 40px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.segmented__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented__option.is-selected {
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+
+.segmented__option.is-locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmented__option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.switch {
+  position: relative;
+  width: 46px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  cursor: pointer;
+  transition: background 0.2s ease-out;
+}
+
+.switch[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  transition: transform 0.2s var(--ease-out-expo);
+}
+
+.switch[aria-checked="true"] .switch__thumb {
+  transform: translateX(18px);
+  background: var(--bg-primary);
+}
+
+@keyframes settings-in {
   from { opacity: 0; transform: translateY(-4px); }
 }
 
-.effects-off .effects__panel { animation: none; }
+.effects-off .settings,
+.effects-off .switch,
+.effects-off .switch__thumb { animation: none; transition: none; }

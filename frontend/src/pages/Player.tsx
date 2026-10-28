@@ -11,8 +11,8 @@ import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
 import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
-import { BookIcon, D20Icon, MoonIcon, SunIcon } from '../components/Icons'
-import { EffectsMenu } from './player/EffectsMenu'
+import { BookIcon, D20Icon } from '../components/Icons'
+import { PhoneSettings } from './player/PhoneSettings'
 import '../styles/phone.css'
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX']
@@ -58,13 +58,16 @@ export default function Player() {
     <header className="phone__bar">
       <span className="phone__story">{resolved?.story_title ?? "J&B's RPG"}</span>
       <div className="phone__tools">
-        <EffectsMenu chosen={effects.level} tableCalm={!!state?.no_flashing} onChange={effects.setLevel} />
         <button className="phone__tool" onClick={() => setShowRules(true)} aria-label="Rules">
           <BookIcon />
         </button>
-        <button className="phone__tool" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
-          {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
-        </button>
+        <PhoneSettings
+          effects={effects.level}
+          tableCalm={!!state?.no_flashing}
+          onEffectsChange={effects.setLevel}
+          dark={colorMode === 'dark'}
+          onToggleDark={toggleColorMode}
+        />
       </div>
     </header>
   )

@@ -109,7 +109,7 @@ export function ScenePanel({ story, scene, problems, update, textTarget, audio, 
         </Section>
       )}
 
-      <Section title="Conditional text">
+      <Section title="Text that changes">
         <ConditionsEditor
           conditions={scene.conditional_text}
           scenes={story.scenes}

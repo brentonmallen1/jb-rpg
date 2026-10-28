@@ -148,8 +148,8 @@ def test_problems_are_reported_but_saving_still_works(client):
     assert (item["area"], item["scene_id"], item["index"]) == ("scene", "b", 0)
     assert "'A' has no choices" in text
     assert "no item name" in text
-    assert "doesn't exist ('ghost')" in text
-    assert "hp condition needs a comparison" in text
+    assert "no longer exists ('ghost')" in text
+    assert "hero's health needs a comparison" in text
 
     resp = client.post("/api/state/start", json={"story_id": story["id"]})
     assert resp.status_code == 422

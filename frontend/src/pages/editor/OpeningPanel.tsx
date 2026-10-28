@@ -78,7 +78,7 @@ export function OpeningPanel({ story, opening, problems, update, textTarget }: O
         })}
       </Section>
 
-      <Section title="Conditional text">
+      <Section title="Text that changes">
         <ConditionsEditor
           conditions={opening.conditional_text}
           scenes={story.scenes}

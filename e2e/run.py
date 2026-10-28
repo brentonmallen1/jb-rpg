@@ -285,6 +285,19 @@ def editor_checks(browser) -> None:
     page.wait_for_selector(".editor__problems", state="detached", timeout=8000)
     check("The problem clears once fixed", True)
 
+    def chasm_lines():
+        saved = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]["conditional_text"]
+        return [c for c in saved if c["condition"].get("scene_id") == "scene_chasm_bridge" and c["condition"].get("outcome") == "item"]
+
+    page.select_option("select[aria-label='Add text for after a scene']", label="The Chasm Bridge")
+    slot = page.locator("textarea[aria-label='If the hero found an item in The Chasm Bridge']")
+    slot.fill("You still have the rope.")
+    page.wait_for_timeout(2500)
+    check("Text for after a scene saves as that scene's outcome", [c["text"] for c in chasm_lines()] == ["You still have the rope."])
+    slot.fill("")
+    page.wait_for_timeout(2500)
+    check("Emptying an outcome's text removes the line", chasm_lines() == [])
+
     page.click("text=Playtest")
     page.wait_for_url(B + "/run", timeout=10000)
     page.wait_for_selector("#madlib-input", timeout=10000)

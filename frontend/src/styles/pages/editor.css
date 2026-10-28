@@ -491,37 +491,145 @@
 
 .ed-inline-select option { background: var(--bg-secondary); color: var(--text-primary); }
 
-/* --- Conditions ------------------------------------------------------------------ */
+/* --- Text that changes (conditions) -------------------------------------------- */
 
-.ed-conditions {
+.cx {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
+  gap: 22px;
 }
 
-.ed-condition {
+.cx__intro { margin: 0; }
+
+.cx__block {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  padding: 14px 16px;
+  gap: 8px;
+}
+
+.cx__heading {
+  margin: 0 0 2px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.cx-group {
   border: 1px solid var(--line);
   border-radius: 12px;
+  background: var(--surface);
 }
 
-.ed-condition--error { border-color: color-mix(in srgb, var(--warning) 60%, transparent); }
+.cx-group.has-problem { border-color: color-mix(in srgb, var(--warning) 60%, transparent); }
 
-.ed-sentence {
+.cx-group__head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 4px;
+}
+
+.cx-group__toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cx-group__toggle:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+.cx-group__toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.cx-group__chevron {
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cx-group.is-open .cx-group__chevron { transform: rotate(90deg); }
+
+.cx-group__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.cx-group__pips {
+  display: flex;
+  gap: 6px;
+}
+
+.cx-pip--empty { color: var(--text-secondary); opacity: 0.35; }
+
+.cx-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 16px 16px;
+}
+
+.cx-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cx-slot__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cx-slot .ed-textarea:placeholder-shown {
+  border-style: dashed;
+}
+
+.cx__note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.cx-sentence {
+  flex-wrap: wrap;
   gap: 8px;
+  padding: 12px 12px 4px 16px;
   font-family: var(--font-reading);
   font-size: 1.05rem;
 }
 
-.ed-condition__remove { margin-left: auto; }
+.cx-sentence__tail { margin-left: -6px; }
+
+.cx-sentence__remove { margin-left: auto; }
+
+.cx__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cx__add-scene {
+  min-height: 40px;
+  cursor: pointer;
+}
 
 /* --- Prologue paths, item endings -------------------------------------------------- */
 

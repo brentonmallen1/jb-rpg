@@ -210,11 +210,12 @@ def story_problems(story: Story) -> list[dict]:
             c = ct.condition
             if c.type == ConditionType.SCENE_OUTCOME:
                 if not c.scene_id or not c.outcome:
-                    add(f"{where}: a scene-outcome condition needs a scene and an outcome.", area, scene_id, "conditional_text", i)
+                    add(f"{where}: a line that depends on an earlier scene needs the scene and how it went.", area, scene_id, "conditional_text", i)
                 elif c.scene_id not in seen:
-                    add(f"{where}: a condition refers to a scene that doesn't exist ('{c.scene_id}').", area, scene_id, "conditional_text", i)
+                    add(f"{where}: a line depends on a scene that no longer exists ('{c.scene_id}').", area, scene_id, "conditional_text", i)
             elif not c.op or c.value is None:
-                add(f"{where}: a {c.type.value} condition needs a comparison and a number.", area, scene_id, "conditional_text", i)
+                stat = {"hp": "health", "items": "number of items", "level": "level"}[c.type.value]
+                add(f"{where}: a line that depends on the hero's {stat} needs a comparison and a number.", area, scene_id, "conditional_text", i)
 
     for scene in story.scenes:
         where = f"Scene '{scene.title or scene.id}'"

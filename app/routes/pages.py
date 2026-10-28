@@ -46,6 +46,11 @@ async def index():
     return spa()
 
 
+@router.get("/login")
+async def login():
+    return spa()
+
+
 @router.get("/editor/{story_id:path}")
 async def editor(story_id: str):
     return spa()

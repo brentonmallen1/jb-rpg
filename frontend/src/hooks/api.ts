@@ -40,10 +40,16 @@ async function request<T>(path: string, { body, method }: { body?: unknown; meth
   if (!res.ok) {
     const data = await res.json().catch(() => null)
     const detail = typeof data?.detail === 'string' ? data.detail : `Request failed (${res.status})`
+    // Signed out (or the login changed): back to the sign-in page, then here again
+    if (res.status === 401 && detail === SIGN_IN_REQUIRED && window.location.pathname !== '/login') {
+      window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+    }
     throw new ApiError(res.status, detail)
   }
   return res.json()
 }
+
+const SIGN_IN_REQUIRED = 'Sign in required'  // the server's detail for admin APIs called while signed out
 
 const post = <T>(path: string, body: unknown = {}) => request<T>(path, { body })
 
@@ -58,6 +64,12 @@ export const checkSession = (sessionId?: string | null) =>
 
 export const validateToken = () =>
   request<{ valid: boolean; is_storyteller: boolean }>('/api/state/validate-token')
+
+// Storyteller sign-in (a cookie; players never need it)
+export const adminSession = () => request<{ signed_in: boolean; required: boolean }>('/api/admin/session')
+export const login = (username: string, password: string) =>
+  post<{ signed_in: boolean }>('/api/admin/login', { username, password })
+export const logout = () => post<{ signed_in: boolean }>('/api/admin/logout')
 
 // Stories
 export const getStories = () => request<StorySummary[]>('/api/stories')

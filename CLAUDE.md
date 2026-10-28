@@ -100,8 +100,8 @@ Tests: `just test` (pytest) and `just e2e` (storyteller + player in real browser
 
 ## Access Model
 
-Three layers, all lightweight (no user accounts):
-1. **Admin (HTTP Basic)** — `verify_admin` + `AdminPagesMiddleware` protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Only `AUTH_DISABLED=true` turns it off; with no `ADMIN_USER`/`ADMIN_PASSWORD`, a login is generated on first run, saved in `DATA_DIR/admin.json`, and logged at startup.
+Four layers, all lightweight (no user accounts):
+1. **Admin (sign-in page)** — `/login` posts to `/api/admin/login`, which sets a signed HttpOnly cookie (`jb_admin`, 30 days; key in `DATA_DIR/session.key` mixed with the login, so changing the password signs everyone out). HTTP Basic still works for scripts, but never send `WWW-Authenticate` (it triggers the browser's own prompt). `verify_admin` + `AdminPagesMiddleware` (redirects to `/login`) + `RequireSignIn` (frontend) protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Only `AUTH_DISABLED=true` turns it off; with no `ADMIN_USER`/`ADMIN_PASSWORD`, a login is generated on first run, saved in `DATA_DIR/admin.json`, and logged at startup.
 2. **Storyteller token** — `/api/state/start` returns a token (kept in memory server-side, `sessionStorage` client-side). Every other `POST /api/state/*` requires it in `X-Session-Token`; SSE takes it as `?token=`.
 3. **Player session id** — players join via `/player/{session_id}`; SSE and `GET /api/state` take it as `?s=`. `GET /api/session/check?s=` validates it without revealing the id. Never expose `session_id` from a public endpoint.
 4. **Player token** — only in turn-taking games: a phone joins by name (`POST /api/session/join`) and gets a token (hash stored on the `Player`; `X-Player-Token` header, SSE `?p=`). It lets that player propose a choice when it's their turn. Token hashes never leave the server (`public_state` excludes them).

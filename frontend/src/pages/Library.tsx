@@ -50,6 +50,7 @@ export default function Library() {
   const [turnMode, setTurnMode] = useState<TurnMode>('storyteller')
   const [noFlashing, setNoFlashing] = useState(readNoFlashing)
   const [showTakeOver, setShowTakeOver] = useState(false)
+  const [canSignOut, setCanSignOut] = useState(false)
   const importInput = useRef<HTMLInputElement>(null)
 
   // The library chrome uses the neutral theme; each cover wears its own story's theme
@@ -60,7 +61,13 @@ export default function Library() {
 
   useEffect(() => {
     loadStories()
+    api.adminSession().then(s => setCanSignOut(s.required && s.signed_in)).catch(() => {})
   }, [])
+
+  async function signOut() {
+    await api.logout().catch(() => {})
+    navigate('/login', { replace: true })
+  }
 
   async function loadStories() {
     setError(null)
@@ -159,6 +166,7 @@ export default function Library() {
           <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
             {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
+          {canSignOut && <button className="s-btn s-btn--ghost" onClick={signOut}>Sign out</button>}
         </div>
       </header>
 

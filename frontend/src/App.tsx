@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { GameProvider } from './context/GameContext'
 import { ErrorBoundary } from './components'
+import { RequireSignIn } from './components/RequireSignIn'
 
 // Import base CSS
 import './styles/base.css'
@@ -12,6 +13,7 @@ const Library = lazy(() => import('./pages/Library'))
 const Editor = lazy(() => import('./pages/Editor'))
 const Run = lazy(() => import('./pages/Run'))
 const Player = lazy(() => import('./pages/Player'))
+const Login = lazy(() => import('./pages/Login'))
 // Dev-only effect tuning page; compiled out of production builds
 const DevMoments = import.meta.env.DEV ? lazy(() => import('./pages/DevMoments')) : null
 
@@ -72,9 +74,10 @@ function App() {
         <GameProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<Library />} />
-              <Route path="/editor/:storyId" element={<Editor />} />
-              <Route path="/run" element={<Run />} />
+              <Route path="/" element={<RequireSignIn><Library /></RequireSignIn>} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/editor/:storyId" element={<RequireSignIn><Editor /></RequireSignIn>} />
+              <Route path="/run" element={<RequireSignIn><Run /></RequireSignIn>} />
               <Route path="/player/:sessionId" element={<Player />} />
               <Route path="/player" element={<Player />} />
               {DevMoments && <Route path="/dev/moments" element={<DevMoments />} />}

@@ -38,3 +38,4 @@ static/
 
 # Legacy story location (DATA_DIR defaults to ./data; stories live in data/stories)
 /stories/
+data/session.key

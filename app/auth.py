@@ -1,24 +1,25 @@
-"""The three access layers: admin (HTTP Basic), storyteller token, player session id."""
+"""The access layers: admin (sign-in cookie, or HTTP Basic for scripts), storyteller token, player session id."""
 
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import secrets
+import time
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, Request
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Header, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import RedirectResponse, Response
 
 from . import config, storage
 from .models import GameState
 
 log = logging.getLogger("jb_rpg.security")
 
-basic = HTTPBasic(auto_error=False)
-BASIC_CHALLENGE = {"WWW-Authenticate": "Basic realm='Admin'"}
+ADMIN_COOKIE = "jb_admin"
+ADMIN_COOKIE_DAYS = 30
 
 
 # ---------------------------------------------------------------------------
@@ -57,40 +58,74 @@ def admin_credentials_ok(username: str, password: str) -> bool:
     )
 
 
-def is_admin(credentials: Optional[HTTPBasicCredentials]) -> bool:
+def _signing_key() -> bytes:
+    """A random secret kept in the data folder, mixed with the login so changing it signs everyone out."""
+    path = storage.STATE_FILE.parent / "session.key"
+    try:
+        secret = path.read_text().strip()
+    except FileNotFoundError:
+        secret = ""
+    if not secret:
+        secret = secrets.token_urlsafe(32)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(secret)
+        path.chmod(0o600)
+    login = f"{config.ADMIN_USER}:{config.ADMIN_PASSWORD}".encode()
+    return hmac.new(secret.encode(), login, hashlib.sha256).digest()
+
+
+def admin_cookie_value(now: float | None = None) -> str:
+    """`<expiry>.<signature>`: nothing secret inside, and it can't be forged without the key."""
+    expires = int((time.time() if now is None else now) + ADMIN_COOKIE_DAYS * 86400)
+    signature = hmac.new(_signing_key(), str(expires).encode(), hashlib.sha256).hexdigest()
+    return f"{expires}.{signature}"
+
+
+def admin_cookie_ok(value: Optional[str]) -> bool:
+    try:
+        expires, signature = (value or "").split(".", 1)
+        if int(expires) < time.time():
+            return False
+    except ValueError:
+        return False
+    expected = hmac.new(_signing_key(), expires.encode(), hashlib.sha256).hexdigest()
+    return secrets.compare_digest(signature, expected)
+
+
+def _basic_ok(header: str) -> bool:
+    try:
+        scheme, encoded = header.split(" ", 1)
+        username, password = base64.b64decode(encoded).decode("utf-8").split(":", 1)
+    except (ValueError, UnicodeDecodeError):
+        return False
+    return scheme == "Basic" and admin_credentials_ok(username, password)
+
+
+def is_admin(request: Request) -> bool:
+    """Signed in through the app (cookie), or a script sending HTTP Basic."""
     if not admin_required():
         return True
-    return credentials is not None and admin_credentials_ok(credentials.username, credentials.password)
+    return admin_cookie_ok(request.cookies.get(ADMIN_COOKIE)) or _basic_ok(request.headers.get("Authorization", ""))
 
 
-def verify_admin(credentials: Optional[HTTPBasicCredentials] = Depends(basic)) -> bool:
-    if is_admin(credentials):
+def verify_admin(request: Request) -> bool:
+    if is_admin(request):
         return True
-    if credentials:
-        log.warning("Admin auth failed for user %r", credentials.username)
-    raise HTTPException(status_code=401, detail="Authentication required", headers=BASIC_CHALLENGE)
+    # No WWW-Authenticate header: the app shows its own sign-in page instead of the browser's prompt
+    raise HTTPException(status_code=401, detail="Sign in required")
 
 
 class AdminPagesMiddleware(BaseHTTPMiddleware):
-    """Basic auth for the storyteller's pages (the APIs use verify_admin)."""
+    """The storyteller's pages send visitors who aren't signed in to /login (the APIs use verify_admin)."""
 
     PROTECTED_PREFIXES = ("/editor", "/run")
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         protected = path == "/" or path.startswith(self.PROTECTED_PREFIXES)
-        if not protected or not admin_required():
+        if not protected or is_admin(request):
             return await call_next(request)
-
-        header = request.headers.get("Authorization", "")
-        try:
-            scheme, encoded = header.split(" ", 1)
-            username, password = base64.b64decode(encoded).decode("utf-8").split(":", 1)
-            if scheme == "Basic" and admin_credentials_ok(username, password):
-                return await call_next(request)
-        except ValueError:
-            pass
-        return Response("Authentication required", status_code=401, headers=BASIC_CHALLENGE)
+        return RedirectResponse("/login" + ("" if path == "/" else f"?next={path}"), status_code=303)
 
 
 # ---------------------------------------------------------------------------

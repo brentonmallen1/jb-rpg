@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import auth, config, storage
 from .engine import GameError
-from .routes import pages, session, stories
+from .routes import admin, pages, session, stories
 from .storage import InvalidStoryId
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -63,6 +63,7 @@ async def get_config():
     return {"base_url": config.BASE_URL or None}
 
 
+app.include_router(admin.router)
 app.include_router(stories.router)
 app.include_router(session.router)
 app.include_router(pages.router)

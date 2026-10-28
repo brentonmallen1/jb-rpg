@@ -6,9 +6,8 @@ import secrets
 import time
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 from .. import auth, config, engine, sse, storage
@@ -23,9 +22,9 @@ async def commit(state: GameState) -> dict:
     return public_state(state)
 
 
-def can_observe(credentials: Optional[HTTPBasicCredentials]) -> bool:
+def can_observe(request: Request) -> bool:
     """Admins (when admin auth is configured) may watch a session without joining it."""
-    return config.AUTH_DISABLED or (auth.admin_required() and auth.is_admin(credentials))
+    return config.AUTH_DISABLED or (auth.admin_required() and auth.is_admin(request))
 
 
 # ---------------------------------------------------------------------------
@@ -35,10 +34,10 @@ def can_observe(credentials: Optional[HTTPBasicCredentials]) -> bool:
 
 @router.get("/events")
 async def events(
+    request: Request,
     token: Optional[str] = None,
     s: Optional[str] = None,
     p: Optional[str] = None,
-    credentials: Optional[HTTPBasicCredentials] = Depends(auth.basic),
 ):
     """SSE stream. Storytellers pass ?token=, players pass ?s=<session_id> (and ?p=<player token> once named)."""
     state = storage.load_state()
@@ -46,7 +45,7 @@ async def events(
         role = "storyteller"
     elif auth.is_player(state, s):
         role = "player"
-    elif state is None or can_observe(credentials):
+    elif state is None or can_observe(request):
         role = "observer"
     else:
         raise HTTPException(status_code=403, detail="Invalid session")
@@ -61,16 +60,16 @@ async def events(
 
 @router.get("/state")
 async def get_state(
+    request: Request,
     s: Optional[str] = None,
     x_session_token: Optional[str] = Header(None),
-    credentials: Optional[HTTPBasicCredentials] = Depends(auth.basic),
 ):
     state = storage.load_state()
     allowed = (
         state is None
         or auth.is_storyteller(state, x_session_token)
         or auth.is_player(state, s)
-        or can_observe(credentials)
+        or can_observe(request)
     )
     if not allowed:
         raise HTTPException(status_code=403, detail="Authentication required")

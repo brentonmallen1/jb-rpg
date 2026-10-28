@@ -79,6 +79,39 @@ def port_in_use(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
+def signed_in_context(browser, **options):
+    """A browser context that has signed in as the storyteller (the cookie the sign-in page sets)."""
+    ctx = browser.new_context(**options)
+    resp = ctx.request.post(B + "/api/admin/login", data={"username": ADMIN["username"], "password": ADMIN["password"]})
+    assert resp.ok, resp.status
+    return ctx
+
+
+def login_checks(browser) -> None:
+    """Strangers get the app's own sign-in page (no browser prompt), then land where they were going."""
+    page = browser.new_context(viewport={"width": 1280, "height": 900}).new_page()
+    page.goto(B + "/run")
+    page.wait_for_selector("text=Sign in to run the table", timeout=10000)
+    check("Storyteller pages go to the sign-in page", page.url.startswith(B + "/login"), page.url)
+    page.fill("input[autocomplete='username']", ADMIN["username"])
+    page.fill("input[type='password']", "wrong")
+    page.click("button:text-is('Sign in')")
+    page.wait_for_selector("text=That isn't the storyteller login.", timeout=10000)
+    check("A wrong password is refused politely", True)
+    if os.environ.get("E2E_SHOTS"):
+        page.screenshot(path=os.environ["E2E_SHOTS"] + "/login.png")
+    page.goto(B + "/login")
+    page.fill("input[autocomplete='username']", ADMIN["username"])
+    page.fill("input[type='password']", ADMIN["password"])
+    page.click("button:text-is('Sign in')")
+    page.wait_for_selector("text=Your stories", timeout=10000)
+    check("Signing in opens the library", True)
+    page.click("button:text-is('Sign out')")
+    page.wait_for_url(B + "/login", timeout=10000)
+    check("Signing out returns to the sign-in page", True)
+    page.context.close()
+
+
 def launch(p):
     try:
         return p.chromium.launch(channel="chrome")
@@ -123,7 +156,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
     with sync_playwright() as p:
         browser = launch(p)
 
-        teller_ctx = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN)
+        teller_ctx = signed_in_context(browser, viewport={"width": 1280, "height": 900})
         teller_ctx.add_init_script(f"sessionStorage.setItem('jb_rpg_session_token','{token}'); localStorage.setItem('jb_rpg_presentation','off')")
         teller = teller_ctx.new_page()
         page_errors: list[str] = []
@@ -197,7 +230,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         check("Run page resumes after the restart", True)
 
         # Another tab takes over
-        other = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
+        other = signed_in_context(browser, viewport={"width": 1280, "height": 900}).new_page()
         other.goto(B + "/run")
         other.wait_for_selector("text=Session running elsewhere", timeout=15000)
         other.click("button:has-text('Take over')")
@@ -223,12 +256,13 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         turn_checks(browser)
         vote_checks(browser)
         flashing_checks(browser)
+        login_checks(browser)
         browser.close()
 
 
 def editor_checks(browser) -> None:
     """The Editor: live preview, autosave, inline problems, Playtest."""
-    page = browser.new_context(viewport={"width": 1440, "height": 900}, http_credentials=ADMIN).new_page()
+    page = signed_in_context(browser, viewport={"width": 1440, "height": 900}).new_page()
     page.goto(f"{B}/editor/{STORY}")
     page.wait_for_selector(".ed-panel", timeout=15000)
 
@@ -259,7 +293,7 @@ def editor_checks(browser) -> None:
 
 def turn_checks(browser) -> None:
     """Players take turns: start from the Library, two phones join by name, picks reach the stage."""
-    teller = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
+    teller = signed_in_context(browser, viewport={"width": 1280, "height": 900}).new_page()
     teller.goto(B + "/")
     teller.wait_for_selector(".cover")
     teller.click(".cover button:text-is('Play')")
@@ -305,7 +339,7 @@ def turn_checks(browser) -> None:
 
 def vote_checks(browser) -> None:
     """The table votes: players vote on their phones, the storyteller sees the tally (ties flagged) and decides."""
-    teller = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
+    teller = signed_in_context(browser, viewport={"width": 1280, "height": 900}).new_page()
     teller.goto(B + "/")
     teller.wait_for_selector(".cover")
     teller.click(".cover button:text-is('Play')")
@@ -347,7 +381,7 @@ def vote_checks(browser) -> None:
 
 def flashing_checks(browser) -> None:
     """No flashing: chosen at Play, caps every phone, and the storyteller can switch it mid-game."""
-    teller = browser.new_context(viewport={"width": 1280, "height": 900}, http_credentials=ADMIN).new_page()
+    teller = signed_in_context(browser, viewport={"width": 1280, "height": 900}).new_page()
     teller.goto(B + "/")
     teller.wait_for_selector(".cover")
     teller.click(".cover button:text-is('Play')")

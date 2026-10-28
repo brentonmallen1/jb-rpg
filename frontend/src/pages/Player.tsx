@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import { useSSE } from '../hooks/useSSE'
@@ -6,12 +6,13 @@ import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
 import { capLevel, useEffectsLevel } from '../hooks/useEffectsLevel'
 import { useWakeLock } from '../hooks/useWakeLock'
+import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
 import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
-import { BookIcon, D20Icon } from '../components/Icons'
+import { BookIcon, ChevronRightIcon, D20Icon } from '../components/Icons'
 import { PhoneSettings } from './player/PhoneSettings'
 import '../styles/phone.css'
 
@@ -28,6 +29,7 @@ export default function Player() {
   const effects = useEffectsLevel()
   // This phone's own choice, capped when the table asked for no flashing
   const level = capLevel(effects.level, state?.no_flashing)
+  const textSize = useTextSize()
   useWakeLock(!!state)
 
   const [showRules, setShowRules] = useState(false)
@@ -65,6 +67,8 @@ export default function Player() {
           effects={effects.level}
           tableCalm={!!state?.no_flashing}
           onEffectsChange={effects.setLevel}
+          textSize={textSize.size}
+          onTextSizeChange={textSize.setSize}
           dark={colorMode === 'dark'}
           onToggleDark={toggleColorMode}
         />
@@ -259,23 +263,9 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
         </h1>
       </div>
 
-      <div className="party-strip">
-        <div>
-          <div className="phone-label">{HEALTH_LABEL[resolved.theme]}</div>
-          <div style={{ marginTop: 8 }}><HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={26} /></div>
-        </div>
-        <div className="party-strip__stats">
-          <div><div className="phone-label">Level</div><div className="party-strip__value">{state.level}</div></div>
-          <div><div className="phone-label">Items</div><div className="party-strip__value">{state.items.length}</div></div>
-        </div>
-      </div>
+      {!resolved.finale && !choosingDoor && resolved.scene_text && <SceneText text={warp(resolved.scene_text)} sceneKey={resolved.scene_title ?? ''} />}
 
-      {state.character && (
-        <button type="button" className="hero-chip" onClick={onShowHero} aria-label={`About ${state.character.name}`}>
-          <span className="hero-chip__name">{state.character.name}</span>
-          <span className="hero-chip__desc">{state.character.description}</span>
-        </button>
-      )}
+      <HeroCard state={state} resolved={resolved} onShowHero={onShowHero} />
 
       {resolved.finale ? (
         <div className="phone-roll">
@@ -289,12 +279,6 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
         </div>
       ) : (
         <>
-          {!choosingDoor && resolved.scene_text && (
-            <details className="follow">
-              <summary>Follow along</summary>
-              <p className="phone-text">{warp(resolved.scene_text)}</p>
-            </details>
-          )}
           {['rotate', 'pick'].includes(state.turn_mode) && state.status === 'running' && (
             <TurnBanner decider={resolved.decider} mine={myTurn} mode={state.turn_mode} />
           )}
@@ -334,6 +318,72 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
         </>
       )}
     </>
+  )
+}
+
+/**
+ * The scene's text, for reading along while the storyteller reads it aloud: the opening lines,
+ * fading out, until the player opens the rest. Stays open from scene to scene once opened.
+ */
+function SceneText({ text, sceneKey }: { text: ReactNode; sceneKey: string }) {
+  const [open, setOpen] = useState(false)
+  // Short scenes are shown whole, with nothing to open
+  const [long, setLong] = useState(true)
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      el.classList.remove('is-clamped')
+      const lines = el.scrollHeight / parseFloat(getComputedStyle(el).lineHeight)
+      setLong(lines > 3.5)
+      el.classList.add('is-clamped')
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el.parentElement ?? el)
+    return () => observer.disconnect()
+  }, [sceneKey])
+
+  return (
+    <section className={`read-along ${open || !long ? 'is-open' : ''}`} aria-label="The scene">
+      <div ref={ref} className="read-along__text phone-text is-clamped" id="scene-text">{text}</div>
+      {long && (
+        <button type="button" className="read-along__toggle" aria-expanded={open} aria-controls="scene-text" onClick={() => setOpen(!open)}>
+          <BookIcon size={16} />
+          {open ? 'Show less' : 'Read along'}
+        </button>
+      )}
+    </section>
+  )
+}
+
+/** Who the table is playing, and how they're faring: name, a glimpse of their story, health, level, items. */
+function HeroCard({ state, resolved, onShowHero }: { state: GameState; resolved: ResolvedContent; onShowHero: () => void }) {
+  const hero = state.character
+  return (
+    <section className="hero-card" aria-label="Your hero">
+      {hero && (
+        <button type="button" className="hero-card__who" onClick={onShowHero} aria-label={`Your hero, ${hero.name}: read their story`}>
+          <span className="phone-label">Your hero</span>
+          <span className="hero-card__name">
+            {hero.name}
+            <ChevronRightIcon size={18} />
+          </span>
+          {hero.description && <span className="hero-card__desc">{hero.description}</span>}
+        </button>
+      )}
+      <div className="hero-card__stats">
+        <div>
+          <div className="phone-label">{HEALTH_LABEL[resolved.theme]}</div>
+          <div className="hero-card__health"><HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={24} /></div>
+        </div>
+        <div className="hero-card__numbers">
+          <div><div className="phone-label">Level</div><div className="hero-card__value">{state.level}</div></div>
+          <div><div className="phone-label">Items</div><div className="hero-card__value">{state.items.length}</div></div>
+        </div>
+      </div>
+    </section>
   )
 }
 

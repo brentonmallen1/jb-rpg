@@ -124,95 +124,130 @@
   to { opacity: 1; filter: blur(0); transform: none; }
 }
 
-/* --- Party strip: health is the ambient state ------------------------------ */
+/* --- Read along: the scene's opening lines, the rest a tap away --------------- */
 
-.party-strip {
-  display: flex;
+.read-along {
+  margin-top: 16px;
+}
+
+.read-along__text {
+  margin-top: 0;
+}
+
+.read-along:not(.is-open) .read-along__text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 45%, transparent);
+}
+
+.read-along__toggle {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 24px;
-  padding: 14px 16px;
+  gap: 8px;
+  min-height: 40px;
+  margin-top: 8px;
+  padding: 0 16px 0 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 999px;
   background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
-.party-strip__stats {
-  display: flex;
-  gap: 20px;
-  text-align: right;
+.read-along__toggle svg { color: var(--accent); }
+
+.read-along__toggle:hover,
+.read-along__toggle:focus-visible {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  outline: none;
 }
 
-.party-strip__value {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  line-height: 1.1;
+/* --- The hero: who the table is playing, and how they're faring ---------------- */
+
+.hero-card {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
 }
 
-.hero-chip {
+.hero-card__who {
   display: flex;
   flex-direction: column;
   gap: 2px;
   width: 100%;
-  margin-top: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: transparent;
+  padding: 14px 16px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.hero-chip__name {
-  font-family: var(--font-display);
-  font-size: 1.15rem;
+.hero-card__who:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
-.hero-chip__desc {
+.hero-card__name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  line-height: 1.15;
+}
+
+.hero-card__name svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.hero-card__desc {
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 0.9rem;
+  margin-top: 4px;
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 0.98rem;
+  line-height: 1.4;
   color: var(--text-secondary);
 }
 
-/* --- Follow along (scene text, collapsed by default) ------------------------ */
-
-.follow {
-  margin-top: 18px;
-}
-
-.follow summary {
-  display: inline-flex;
+.hero-card__stats {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  cursor: pointer;
-  list-style: none;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px 14px;
 }
 
-.follow summary::-webkit-details-marker {
-  display: none;
+.hero-card__health {
+  margin-top: 8px;
 }
 
-.follow summary::before {
-  content: '';
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 0.2s;
+.hero-card__numbers {
+  display: flex;
+  gap: 20px;
+  text-align: right;
 }
 
-.follow[open] summary::before {
-  transform: rotate(45deg);
+.hero-card__value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.1;
 }
 
 /* --- Choices dealt to the table ---------------------------------------------- */
@@ -504,6 +539,11 @@ button.dealt__card {
   color: var(--text-secondary);
 }
 
+.settings__row--effects {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
 .settings__row--inline {
   display: flex;
   align-items: center;
@@ -542,6 +582,15 @@ button.dealt__card {
   position: absolute;
   opacity: 0;
   pointer-events: none;
+}
+
+.segmented--sizes {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.segmented__glyph {
+  font-family: var(--font-reading);
+  line-height: 1;
 }
 
 .segmented__option.is-selected {

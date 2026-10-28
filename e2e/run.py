@@ -192,6 +192,21 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.keyboard.press("s")
         player.wait_for_selector(".dealt__card", timeout=5000)
         check("Player sees three dealt choices", player.locator(".dealt__card").count() == 3)
+        check("The hero card names the hero and their health", player.locator(".hero-card .phone-label:text-is('Your hero')").count() == 1
+              and player.locator(".hero-card__stats").count() == 1)
+        player.click(".hero-card__who")
+        check("Tapping the hero shows their story", player.locator("[role='dialog'] .phone-text").count() == 1)
+        player.keyboard.press("Escape")
+        toggle = player.locator(".read-along__toggle")
+        if toggle.count():
+            clamped = player.locator(".read-along__text").bounding_box()["height"]
+            toggle.click()
+            check("Read along opens the rest of the scene", player.locator(".read-along__text").bounding_box()["height"] > clamped)
+        player.click("button[aria-label='Settings']")
+        player.click("label[title='Largest']")
+        check("Text size scales the phone", player.evaluate("document.documentElement.style.fontSize") == "132%")
+        player.click("label[title='Standard']")
+        player.keyboard.press("Escape")
         check("Player never loads the story or config",
               not any("/api/stories" in u or "/api/config" in u for u in player_requests))
 
@@ -409,7 +424,7 @@ def flashing_checks(browser) -> None:
     phone.goto(f"{B}/player/{session_id}")
     phone.wait_for_selector("text=Creating your hero", timeout=10000)
     phone.click("button[aria-label='Settings']")
-    selected = phone.locator(".segmented__option.is-selected")
+    selected = phone.locator(".settings__row--effects .segmented__option.is-selected")
     check("No flashing caps a phone set to full effects", selected.inner_text().strip() == "Gentle", selected.inner_text())
     check("Full is locked while the table asks for no flashing", phone.locator("input[value='full']").is_disabled())
     if os.environ.get("E2E_SHOTS"):
@@ -417,10 +432,10 @@ def flashing_checks(browser) -> None:
         phone.screenshot(path=os.environ["E2E_SHOTS"] + "/settings.png")
 
     teller.click("button[aria-pressed='true'][title='No flashing (all screens)']")
-    phone.wait_for_selector(".segmented__option.is-selected:has-text('Full')", timeout=10000)
+    phone.wait_for_selector(".settings__row--effects .segmented__option.is-selected:has-text('Full')", timeout=10000)
     check("The storyteller can turn flashing back on mid-game", True)
 
-    phone.click(".segmented__option:has-text('Gentle')")
+    phone.click(".settings__row--effects .segmented__option:has-text('Gentle')")
     check("A phone can choose its own level", selected.inner_text().strip() == "Gentle")
     phone.click("button[role='switch']")
     check("Dark mode is a switch in the same panel", phone.evaluate("document.documentElement.dataset.mode") == "light")

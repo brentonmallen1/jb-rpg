@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { EffectsLevel } from '../../hooks/useEffectsLevel'
+import type { TextSize } from '../../hooks/useTextSize'
 import { GearIcon } from '../../components/Icons'
 
 const LEVELS: { level: EffectsLevel; name: string; description: string }[] = [
@@ -8,18 +9,27 @@ const LEVELS: { level: EffectsLevel; name: string; description: string }[] = [
   { level: 'off', name: 'Off', description: 'Just the words. No backgrounds or effects.' },
 ]
 
+const SIZES: { size: TextSize; name: string }[] = [
+  { size: 'small', name: 'Small' },
+  { size: 'default', name: 'Standard' },
+  { size: 'large', name: 'Large' },
+  { size: 'largest', name: 'Largest' },
+]
+
 interface PhoneSettingsProps {
   /** This phone's own effects choice */
   effects: EffectsLevel
   /** The table asked for no flashing: Full is unavailable */
   tableCalm: boolean
   onEffectsChange: (level: EffectsLevel) => void
+  textSize: TextSize
+  onTextSizeChange: (size: TextSize) => void
   dark: boolean
   onToggleDark: () => void
 }
 
-/** The phone's settings: a gear that pulls down the effects switch and light/dark. */
-export function PhoneSettings({ effects, tableCalm, onEffectsChange, dark, onToggleDark }: PhoneSettingsProps) {
+/** The phone's settings: a gear that pulls down text size, the effects switch and light/dark. */
+export function PhoneSettings({ effects, tableCalm, onEffectsChange, textSize, onTextSizeChange, dark, onToggleDark }: PhoneSettingsProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const shown = tableCalm && effects === 'full' ? 'subtle' : effects
@@ -49,7 +59,26 @@ export function PhoneSettings({ effects, tableCalm, onEffectsChange, dark, onTog
 
       {open && (
         <div className="settings" role="group" aria-label="Settings">
-          <fieldset className="settings__row">
+          <fieldset className="settings__row settings__row--size">
+            <legend>Text size</legend>
+            <div className="segmented segmented--sizes">
+              {SIZES.map((s, i) => (
+                <label key={s.size} className={`segmented__option ${textSize === s.size ? 'is-selected' : ''}`} title={s.name}>
+                  <input
+                    type="radio"
+                    name="text-size"
+                    value={s.size}
+                    aria-label={s.name}
+                    checked={textSize === s.size}
+                    onChange={() => onTextSizeChange(s.size)}
+                  />
+                  <span className="segmented__glyph" style={{ fontSize: `${0.8 + i * 0.22}em` }} aria-hidden="true">A</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="settings__row settings__row--effects">
             <legend>Effects</legend>
             <div className="segmented">
               {LEVELS.map(l => {

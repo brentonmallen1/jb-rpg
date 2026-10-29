@@ -6,7 +6,7 @@ import { useAutoSave } from '../hooks/useAutoSave'
 import { useUndoable } from '../hooks/useUndoable'
 import { loadAllThemes } from '../hooks/useTheme'
 import type { AudioFile, Story, StoryProblem } from '../types'
-import { ConfirmDialog, Modal, PageMessage } from '../components'
+import { ConfirmDialog, Modal, NowPlaying, PageMessage } from '../components'
 import { BackIcon, EyeIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
 import { moveSceneTo, newScene } from '../lib/storyEdit'
 import { EditorNav, type EditorSelection } from './editor/EditorNav'
@@ -220,6 +220,7 @@ export default function Editor() {
           <span className={`editor__save editor__save--${saveStatus}`} role="status">{SAVE_LABEL[saveStatus]}</span>
         </div>
         <div className="stage__tools">
+          <NowPlaying />
           <button className="icon-btn" onClick={undo} disabled={!canUndo} aria-label="Undo" title={`Undo (${isMac ? '⌘' : 'Ctrl+'}Z)`}><UndoIcon /></button>
           <button className="icon-btn" onClick={redo} disabled={!canRedo} aria-label="Redo" title={`Redo (${isMac ? '⇧⌘' : 'Ctrl+'}${isMac ? 'Z' : 'Y'})`}><RedoIcon /></button>
           <button className="icon-btn editor__preview-toggle" onClick={() => setPreviewOpen(!previewOpen)} aria-pressed={previewOpen} aria-label="Preview">

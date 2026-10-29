@@ -4,7 +4,7 @@ import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { loadAllThemes } from '../hooks/useTheme'
 import type { GameOptions, StorySummary, TurnMode } from '../types'
-import { Modal, RulesModal, ConfirmDialog, InputDialog } from '../components'
+import { Modal, RulesModal, ConfirmDialog, InputDialog, NowPlaying } from '../components'
 import { BookIcon, MoonIcon, SunIcon } from '../components/Icons'
 import '../styles/stage.css'
 import '../styles/pages/library.css'
@@ -34,8 +34,8 @@ const THEME_LABEL: Record<string, string> = {
 export default function Library() {
   const navigate = useNavigate()
   const {
-    state, toggleColorMode, colorMode, startSession, resumeSession, endSession, isStoryteller,
-    sessionElsewhere, setCurrentStory, isInitializing, isValidatingToken,
+    state, toggleColorMode, colorMode, startSession, resumeSession, isStoryteller,
+    setCurrentStory, isInitializing, isValidatingToken,
   } = useGame()
   const [stories, setStories] = useState<StorySummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,12 +44,10 @@ export default function Library() {
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StorySummary | null>(null)
-  const [stopTarget, setStopTarget] = useState(false)
   const [replaceTarget, setReplaceTarget] = useState<{ story: StorySummary; message: string; options: GameOptions } | null>(null)
   const [playTarget, setPlayTarget] = useState<StorySummary | null>(null)
   const [turnMode, setTurnMode] = useState<TurnMode>('storyteller')
   const [noFlashing, setNoFlashing] = useState(readNoFlashing)
-  const [showTakeOver, setShowTakeOver] = useState(false)
   const [canSignOut, setCanSignOut] = useState(false)
   const importInput = useRef<HTMLInputElement>(null)
 
@@ -143,14 +141,12 @@ export default function Library() {
   }
 
   async function handleTakeOver() {
-    setShowTakeOver(false)
     await attempt(async () => {
       await resumeSession()
       navigate('/run')
     }, 'Failed to take over the session.')
   }
 
-  const activeStory = state ? stories.find(s => s.id === state.story_id) : undefined
   const sessionLoading = isInitializing || isValidatingToken
 
   return (
@@ -160,6 +156,7 @@ export default function Library() {
       <header className="stage__bar">
         <span className="library__wordmark"><img src="/favicon.svg" alt="" width="26" height="26" />J&amp;B’s RPG</span>
         <div className="stage__tools">
+          <NowPlaying />
           <button className="icon-btn" onClick={() => setShowRules(true)} aria-label="Rules" title="Rules">
             <BookIcon />
           </button>
@@ -182,29 +179,6 @@ export default function Library() {
             <input ref={importInput} type="file" accept="application/json,.json" hidden onChange={handleImport} aria-label="Import a story file" />
           </div>
         </div>
-
-        {state && isStoryteller && !sessionLoading && (
-          <div className="now-playing" role="status">
-            <div>
-              <span className="stage-label">Now playing</span>
-              <div className="now-playing__title">{activeStory?.title ?? 'A session is running'}</div>
-            </div>
-            <div className="action-row" style={{ marginTop: 0 }}>
-              <button className="s-btn" onClick={() => navigate('/run')}>Return to the table</button>
-              <button className="s-btn s-btn--ghost" onClick={() => setStopTarget(true)}>End session</button>
-            </div>
-          </div>
-        )}
-
-        {sessionElsewhere && (
-          <div className="now-playing" role="status">
-            <div>
-              <span className="stage-label">Running elsewhere</span>
-              <div className="now-playing__title">A session is being run from another tab or device.</div>
-            </div>
-            <button className="s-btn" onClick={() => setShowTakeOver(true)}>Take over</button>
-          </div>
-        )}
 
         {error && (
           <div className="stage-error" role="alert">
@@ -329,25 +303,6 @@ export default function Library() {
         </div>
       </Modal>
 
-      <ConfirmDialog
-        isOpen={showTakeOver}
-        onConfirm={handleTakeOver}
-        onCancel={() => setShowTakeOver(false)}
-        title="Take over this session?"
-        message="You'll become the storyteller here. The game continues where it is, and the other tab loses control."
-        confirmText="Take over"
-        variant="default"
-      />
-
-      <ConfirmDialog
-        isOpen={stopTarget}
-        onConfirm={() => { setStopTarget(false); attempt(endSession, 'Failed to end the session.') }}
-        onCancel={() => setStopTarget(false)}
-        title="End the session?"
-        message="This disconnects all players and ends the current game."
-        confirmText="End session"
-        variant="danger"
-      />
     </div>
   )
 }

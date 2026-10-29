@@ -367,3 +367,60 @@
 @media (prefers-reduced-motion: reduce) {
   .login__form { animation: none; }
 }
+
+/* --- Header: a game in progress ------------------------------------------------ */
+
+.now-playing-chip { margin-left: 0; }
+
+.now-playing-chip__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(42vw, 340px);
+  min-height: 36px;
+  padding: 6px 14px 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  font-size: 0.9rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.now-playing-chip__summary::-webkit-details-marker { display: none; }
+.now-playing-chip__summary:hover { border-color: var(--accent); }
+
+.now-playing-chip__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: now-playing-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes now-playing-pulse { from { opacity: 0.45; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .now-playing-chip__dot { animation: none; } }
+
+.now-playing-chip__label { color: var(--text-secondary); white-space: nowrap; }
+
+.now-playing-chip__title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The header's menu opens downwards */
+.now-playing-chip .menu__panel { top: calc(100% + 6px); bottom: auto; min-width: 220px; }
+
+.now-playing-chip__error {
+  max-width: 220px;
+  margin: 4px 12px 8px;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 560px) {
+  .now-playing-chip__title { display: none; }
+}

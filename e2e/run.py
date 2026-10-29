@@ -289,6 +289,15 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.wait_for_selector(".stage-title", timeout=15000)
         check("Run page resumes after the restart", True)
 
+        # The library's header says a game is in progress and leads back to it
+        teller.goto(B + "/")
+        teller.wait_for_selector(".now-playing-chip__summary:has-text('Now playing')", timeout=10000)
+        check("The library's header shows the game in progress", True)
+        teller.click(".now-playing-chip__summary")
+        teller.click("button:has-text('Return to the table')")
+        teller.wait_for_selector(".stage-title", timeout=15000)
+        check("The header leads back to the table", teller.url.endswith("/run"))
+
         # Another tab takes over
         other = signed_in_context(browser, viewport={"width": 1280, "height": 900}).new_page()
         other.goto(B + "/run")
@@ -299,6 +308,9 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.keyboard.press("r")
         teller.wait_for_timeout(800)
         check("The old tab loses control", teller.locator(".stage-error").count() == 1)
+        teller.goto(B + "/")
+        teller.wait_for_selector(".now-playing-chip__summary:has-text('Playing elsewhere')", timeout=10000)
+        check("The old tab's library says the game is playing elsewhere", True)
 
         # End the session from the new tab
         other.click("[aria-label='End session']")

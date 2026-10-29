@@ -167,7 +167,8 @@ export interface GameState {
 
 // Resolved content sent from backend
 export interface ResolvedContent {
-  scene_text: string
+  scene_text: string | null  // null on phones until the choices are dealt
+  scene_text_pending?: boolean  // phones: the storyteller is telling this scene; its words come with the choices
   character_description?: string
   story_title: string
   theme: ThemeName

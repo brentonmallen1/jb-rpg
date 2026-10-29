@@ -92,6 +92,7 @@ Tests: `just test` (pytest) and `just e2e` (storyteller + player in real browser
 - **Variable injection (`{field_key}`)** happens server-side before broadcasting, using `state.character.fields`
 - **Back button replays from history** using stored `damage_amount`/`item_name` — never re-reads from the story file
 - **Players never receive the story.** Everything a player sees comes from `resolved` in the SSE payload (`scene_text`, `theme`, `visible_choices`). Choice outcomes, `result_text`, and story structure stay server-side/storyteller-only
+- **A scene's words reach phones once it's told.** Until the storyteller reveals the choices (on the stage, `shuffled_indices`, or dealt, `choices_revealed`), the players' payload has `scene_text: null` and `scene_text_pending` (`engine.for_players`, applied in `sse.build_payload` for non-storyteller roles); phones show `StoryBeingTold`: blurred lines and the theme's pen (quill, satellite, glitching cursor, wisp, watching eye, ink nib). The stage and the TV always have the text
 - **Players don't know where they are in the story** — no scene counts or progress on any player-facing screen (phones or presentation mode); only the storyteller's private view shows progress (design rule, see `.impeccable.md`). `resolved.finale` is how players learn the end has come
 - **Sessions use a snapshot of the story** (`state.story`, taken at `/start`, never sent to clients). Edits to a story apply to the next game
 - **Presentation mode** (storyteller, `P`) is player-facing: anything with `.storyteller-only` is hidden there

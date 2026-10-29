@@ -128,7 +128,10 @@
 
 .read-along {
   margin-top: 16px;
+  animation: phone-ink 1s var(--ease-out-expo) both;  /* the words arrive with the choices */
 }
+
+.effects-off .read-along { animation: none; }
 
 .read-along__text {
   margin-top: 0;

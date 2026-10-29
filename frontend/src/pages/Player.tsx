@@ -4,13 +4,13 @@ import { useGame } from '../context/useGame'
 import { useSSE } from '../hooks/useSSE'
 import * as api from '../hooks/api'
 import { useMoments } from '../hooks/useMoments'
-import { capLevel, useEffectsLevel } from '../hooks/useEffectsLevel'
+import { capLevel, useEffectsLevel, type EffectsLevel } from '../hooks/useEffectsLevel'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
-import { RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
+import { StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
 import { ArrowDownIcon, BookIcon, ChevronUpIcon, D20Icon } from '../components/Icons'
 import { PhoneSettings } from './player/PhoneSettings'
@@ -118,7 +118,7 @@ export default function Player() {
     const corruption = resolved.theme === 'insanity' && level === 'full'
       ? { madness, enabled: true }
       : { madness: 0, enabled: false }
-    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} me={player.identity} onShowHero={() => setShowHero(true)} />, {
+    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} level={level} me={player.identity} onShowHero={() => setShowHero(true)} />, {
       center: ['madlib_in_progress', 'character_reveal'].includes(state.status) || (state.status === 'game_over' && !!state.outcome_revealed),
     })
   }
@@ -197,11 +197,12 @@ interface GameScreenProps {
   state: GameState
   resolved: ResolvedContent
   corruption: { madness: number; enabled: boolean }
+  level: EffectsLevel
   me: PlayerIdentity | null
   onShowHero: () => void
 }
 
-function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenProps) {
+function GameScreen({ state, resolved, corruption, level, me, onShowHero }: GameScreenProps) {
   const myTurn = !!me && resolved.decider?.id === me.id
   const [pickError, setPickError] = useState<string | null>(null)
   async function pick(index: number) {
@@ -273,7 +274,9 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
         </h1>
       </div>
 
-      {!resolved.finale && !choosingDoor && resolved.scene_text && <SceneText text={warp(resolved.scene_text)} sceneKey={resolved.scene_title ?? ''} />}
+      {!resolved.finale && !choosingDoor && (resolved.scene_text_pending
+        ? <StoryBeingTold theme={resolved.theme} level={level} />
+        : resolved.scene_text && <SceneText text={warp(resolved.scene_text)} sceneKey={resolved.scene_title ?? ''} />)}
 
       {resolved.finale ? (
         <div className="phone-roll">

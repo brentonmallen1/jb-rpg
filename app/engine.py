@@ -169,6 +169,18 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
     return resolved
 
 
+def for_players(resolved: dict | None, state: GameState | None) -> dict | None:
+    """What phones get: a scene's words arrive with its choices (revealed on the stage or dealt),
+    once the storyteller has told it."""
+    told = state is not None and (state.choices_revealed or bool(state.shuffled_indices))
+    if not resolved or state is None or state.status != SessionStatus.RUNNING or told:
+        return resolved
+    scene = get_scene(state.story, state.current_scene_id) if state.story else None
+    if scene is None or not scene.choices or not resolved.get("scene_text"):
+        return resolved
+    return {**resolved, "scene_text": None, "scene_text_pending": True}
+
+
 # ---------------------------------------------------------------------------
 # Story checks
 # ---------------------------------------------------------------------------

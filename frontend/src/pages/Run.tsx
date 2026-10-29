@@ -157,7 +157,7 @@ export default function Run() {
         return state.character ? <CharacterReveal character={state.character} run={run} /> : null
       case 'opening_scene_active':
         return story.opening_scene && resolved
-          ? <OpeningScene scene={story.opening_scene} sceneText={resolved.scene_text} run={run} />
+          ? <OpeningScene scene={story.opening_scene} sceneText={resolved.scene_text ?? ''} run={run} />
           : null
       case 'awaiting_scene_selection':
         return <SceneSelect state={state} story={story} run={run} />

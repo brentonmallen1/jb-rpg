@@ -20,10 +20,12 @@ async def build_payload(for_storyteller: bool = False) -> dict:
     async with lock:
         roles = list(connections.values())
         online = sorted(set(player_ids.values()))
+    resolved = engine.build_resolved(state)
     payload = {
         "type": "state",
         "state": public_state(state),
-        "resolved": engine.build_resolved(state),
+        # Phones get the scene's words with its choices; the storyteller (and the TV) always has them
+        "resolved": resolved if for_storyteller else engine.for_players(resolved, state),
         "player_count": roles.count("player"),
         "storyteller_connected": "storyteller" in roles,
         "players_online": online,
@@ -35,10 +37,8 @@ async def build_payload(for_storyteller: bool = False) -> dict:
 
 
 async def broadcast() -> None:
-    payload = await build_payload(for_storyteller=True)
-    private = f"data: {json.dumps(payload)}\n\n"
-    payload.pop("vote_tally", None)
-    public = f"data: {json.dumps(payload)}\n\n"
+    private = f"data: {json.dumps(await build_payload(for_storyteller=True))}\n\n"
+    public = f"data: {json.dumps(await build_payload())}\n\n"
     async with lock:
         queues = list(connections.items())
     for queue, role in queues:

@@ -194,9 +194,12 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.click("text=Begin the story")
         teller.wait_for_selector("text=Reveal choices", timeout=5000)
 
+        player.wait_for_selector(".telling", timeout=5000)
+        check("While the scene is told the phone shows it being told, not its words", player.locator(".read-along").count() == 0)
         teller.keyboard.press("r")
         teller.wait_for_selector(".choice-card")
-        player.wait_for_timeout(500)
+        player.wait_for_selector(".read-along", timeout=5000)
+        check("Revealing the choices on the stage releases the words to phones", player.locator(".telling").count() == 0)
         check("Player sees no choices before they're dealt", player.locator(".dealt__card").count() == 0)
         teller.keyboard.press("s")
         player.wait_for_selector(".dealt__card", timeout=5000)

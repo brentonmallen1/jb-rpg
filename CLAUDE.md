@@ -96,7 +96,7 @@ Tests: `just test` (pytest) and `just e2e` (storyteller + player in real browser
 - **Players don't know where they are in the story** — no scene counts or progress on any player-facing screen (phones or presentation mode); only the storyteller's private view shows progress (design rule, see `.impeccable.md`). `resolved.finale` is how players learn the end has come
 - **Sessions use a snapshot of the story** (`state.story`, taken at `/start`, never sent to clients). Edits to a story apply to the next game
 - **Presentation mode** (storyteller, `P`) is player-facing: anything with `.storyteller-only` is hidden there
-- **Inviting players**: the stage shows `InviteCard` (QR code from `qrcode-generator`, bundled, plus the link from `usePlayerLink`, which prefers `BASE_URL`) until the first choice or until hidden; the toolbar's Invite button opens the same QR code in a dialog. The QR code also shows in presentation mode, so the TV can show it
+- **Inviting players**: the stage shows `InviteCard` (QR code from `qrcode-generator`, bundled, plus the link from `usePlayerLink`, which prefers `BASE_URL`) until the first choice or until hidden; the toolbar's Invite button opens the same QR code in a dialog. Both offer Copy link and Copy QR code (a PNG drawn by `lib/qr.ts`, where the browser can put images on the clipboard). The QR code also shows in presentation mode, so the TV can show it
 
 ---
 

@@ -315,7 +315,7 @@ export default function Run() {
 
 function ShareModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sessionId: string; onClose: () => void }) {
   const link = usePlayerLink(sessionId)
-  const { copied, copy, canShare, share } = useCopyLink(link)
+  const { copied, copy, canCopyQr, qrCopied, copyQr } = useCopyLink(link)
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Invite players">
@@ -331,7 +331,7 @@ function ShareModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sessionId
       />
       <div className="btn-group">
         <button className="btn" onClick={copy}>{copied ? 'Copied!' : 'Copy Link'}</button>
-        {canShare && <button className="btn btn--secondary" onClick={share}>Share…</button>}
+        {canCopyQr && <button className="btn btn--secondary" onClick={copyQr}>{qrCopied ? 'Copied!' : 'Copy QR code'}</button>}
         <button className="btn btn--secondary" onClick={onClose}>Close</button>
       </div>
       {copied && (

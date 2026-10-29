@@ -194,7 +194,8 @@
   box-shadow: 0 0 14px 4px rgb(var(--wisp) / 0.55);
 }
 
-/* The horror theme's glow is the wisp's own */
+/* The horror theme's glow is the wisp's own; the eye brings its own aura */
+.insanity .telling__glow { display: none; }
 .horror .telling__glow { display: none; }
 
 @keyframes pen-wisp {
@@ -216,11 +217,23 @@
   overflow: visible;
 }
 
+.pen--eye .pen__aura-in { stop-color: var(--accent); stop-opacity: 0.35; }
+.pen--eye .pen__aura-out { stop-color: var(--accent); stop-opacity: 0; }
+.pen--eye .pen__iris-in { stop-color: color-mix(in srgb, var(--accent) 60%, white); }
+.pen--eye .pen__iris-mid { stop-color: var(--accent); }
+.pen--eye .pen__iris-out { stop-color: color-mix(in srgb, var(--accent) 45%, black); }
+.pen--eye .pen__sclera { fill: color-mix(in srgb, color-mix(in srgb, var(--text-primary) 55%, var(--accent)) 70%, #6b5a1e); stroke: color-mix(in srgb, var(--accent) 40%, black); stroke-width: 0.8; }
+.pen--eye .pen__vein { fill: none; stroke: color-mix(in srgb, var(--danger) 80%, black); stroke-width: 0.6; opacity: 0.85; }
+.pen--eye .pen__socket { fill: var(--bg-primary); opacity: 0.85; filter: blur(2px); }
+.pen--eye .pen__pupil { fill: var(--bg-primary); transform-box: fill-box; transform-origin: center; animation: pen-dilate 7s ease-in-out infinite; }
+.pen--eye .pen__tendril { fill: color-mix(in srgb, var(--accent) 55%, var(--bg-secondary)); opacity: 0.85; transform-box: fill-box; transform-origin: 50% 0; animation: pen-curl 3.4s ease-in-out infinite; }
+.pen--eye .pen__tendril--2 { animation-duration: 4.1s; animation-delay: -1.3s; }
+.pen--eye .pen__tendril--3 { animation-duration: 3.7s; animation-delay: -2.4s; }
+.pen--eye .pen__tendril--4 { animation-duration: 4.6s; animation-delay: -0.6s; }
+.pen--eye .pen__tendril--5 { animation-duration: 5.2s; animation-delay: -3.1s; }
 .pen--eye .pen__lid { transform-box: fill-box; transform-origin: center; animation: pen-lid 7s ease-in-out infinite; }
 .pen--eye .pen__look { animation: pen-look 7s ease-in-out infinite; }
-.pen--eye .pen__tendril { transform-box: fill-box; transform-origin: 50% 0; animation: pen-curl 3.6s ease-in-out infinite; }
-.pen--eye .pen__tendril--2 { animation-delay: -1.3s; }
-.pen--eye .pen__tendril--3 { animation-delay: -2.4s; }
+.pen--eye .pen__aura { animation: pen-fade 3.5s ease-in-out infinite; }
 
 .insanity .telling--full .telling__line {
   animation: telling-breathe 3s ease-in-out infinite, telling-drift 4.2s ease-in-out infinite;
@@ -242,8 +255,15 @@
 }
 
 @keyframes pen-curl {
-  0%, 100% { transform: rotate(-10deg); }
-  50% { transform: rotate(12deg); }
+  0%, 100% { transform: rotate(-12deg) scaleY(1); }
+  50% { transform: rotate(14deg) scaleY(1.12); }
+}
+
+/* The pupil widens as the eye turns toward the words */
+@keyframes pen-dilate {
+  0%, 32% { transform: scaleX(1); }
+  42%, 52% { transform: scaleX(2.4); }
+  62%, 100% { transform: scaleX(1); }
 }
 
 @keyframes telling-drift {

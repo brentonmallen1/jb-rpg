@@ -73,17 +73,34 @@ function Pen({ theme }: { theme: ThemeName }) {
       )
     case 'insanity':
       return (
-        <svg className="pen pen--eye" width="40" height="40" viewBox="-20 -16 40 40">
-          <g fill="none" stroke="var(--accent)" strokeWidth="1.3" strokeLinecap="round" opacity=".75">
-            <path className="pen__tendril" d="M-4 4c-2 5-8 6-9 11 0 3 3 4 4 2" />
-            <path className="pen__tendril pen__tendril--2" d="M1 5c1 6-3 9-1 13 1 2 4 1 3-1" />
-            <path className="pen__tendril pen__tendril--3" d="M5 4c3 4 9 4 10 9 0 3-3 3-3 1" />
+        <svg className="pen pen--eye" width="44" height="46" viewBox="-22 -18 44 46">
+          <defs>
+            <radialGradient id="pen-eye-aura">
+              <stop offset="0" className="pen__aura-in" />
+              <stop offset="1" className="pen__aura-out" />
+            </radialGradient>
+            <radialGradient id="pen-eye-iris">
+              <stop offset="0" className="pen__iris-in" />
+              <stop offset=".7" className="pen__iris-mid" />
+              <stop offset="1" className="pen__iris-out" />
+            </radialGradient>
+          </defs>
+          <ellipse className="pen__aura" rx="20" ry="14" fill="url(#pen-eye-aura)" />
+          {/* Uneven tendrils reach out from behind the eye, each curling at its own pace */}
+          <g className="pen__tendrils">
+            <g transform="translate(-11 1) rotate(62) scale(.7 1.25)"><path className="pen__tendril" d="M0 0c-.6 3.6-3.4 5.8-3.6 9.4-.2 2.2 1.8 3.2 2.8 1.6-.8.1-1.3-.7-.9-1.7C-.6 6.6 1.4 3.6 1.2 0z" /></g>
+            <g transform="translate(-6 5) rotate(22) scale(.6 .9)"><path className="pen__tendril pen__tendril--2" d="M0 0c-.6 3.6-3.4 5.8-3.6 9.4-.2 2.2 1.8 3.2 2.8 1.6-.8.1-1.3-.7-.9-1.7C-.6 6.6 1.4 3.6 1.2 0z" /></g>
+            <g transform="translate(1 6) rotate(-6) scale(.75 1.4)"><path className="pen__tendril pen__tendril--3" d="M0 0c-.6 3.6-3.4 5.8-3.6 9.4-.2 2.2 1.8 3.2 2.8 1.6-.8.1-1.3-.7-.9-1.7C-.6 6.6 1.4 3.6 1.2 0z" /></g>
+            <g transform="translate(9 3) scale(-1 1) rotate(35) scale(.55 1.05)"><path className="pen__tendril pen__tendril--4" d="M0 0c-.6 3.6-3.4 5.8-3.6 9.4-.2 2.2 1.8 3.2 2.8 1.6-.8.1-1.3-.7-.9-1.7C-.6 6.6 1.4 3.6 1.2 0z" /></g>
+            <g transform="translate(12 -1) scale(-1 1) rotate(78) scale(.6 .8)"><path className="pen__tendril pen__tendril--5" d="M0 0c-.6 3.6-3.4 5.8-3.6 9.4-.2 2.2 1.8 3.2 2.8 1.6-.8.1-1.3-.7-.9-1.7C-.6 6.6 1.4 3.6 1.2 0z" /></g>
           </g>
+          <ellipse className="pen__socket" rx="16" ry="10" />
           <g className="pen__lid">
-            <path d="M-12 0C-6-8 6-8 12 0 6 8-6 8-12 0z" fill="var(--bg-secondary)" stroke="var(--accent)" strokeWidth="1.3" />
+            <path className="pen__sclera" d="M-13 0C-7-9 7-9 13 0 7 9-7 9-13 0z" />
+            <path className="pen__vein" d="M-12.5 0c2-.5 3 .8 4.5.2M-11-3.5c1.6 1 2.2 2.4 3.6 2.4M12.5.5c-2 .3-2.8-.9-4.2-.1" />
             <g className="pen__look">
-              <circle r="4.2" fill="var(--accent)" />
-              <ellipse rx="1" ry="3.4" fill="var(--bg-primary)" />
+              <circle r="5" fill="url(#pen-eye-iris)" />
+              <ellipse className="pen__pupil" rx="1.1" ry="4.2" />
             </g>
           </g>
         </svg>

@@ -859,3 +859,8 @@ button.dealt__card {
 .effects-off .switch__thumb { animation: none; transition: none; }
 
 [data-mode="light"] .dock__bar { box-shadow: 0 -8px 24px rgb(0 0 0 / 0.1); }
+
+.phone-keepsake {
+  width: 100%;
+  margin-top: 28px;
+}

@@ -47,3 +47,14 @@ def test_the_backpack_remembers_where_each_item_was_found(client):
     item_at = next(v for v, i in enumerate(state["shuffled_indices"]) if i == 1)  # SCENES: index 1 finds an item
     client.post("/api/state/choice", json={"choice_index": item_at})
     assert phone(client, sid)["items_found"] == [{"name": "i1-item", "scene_title": "S1"}]
+
+
+def test_the_journey_arrives_when_the_story_ends(client):
+    sid = begin(client, "storyteller")
+    assert "journey" not in phone(client, sid)
+    for _ in range(4):  # play every scene through
+        client.post("/api/state/reveal-choices?show_to_players=true")
+        client.post("/api/state/choice", json={"choice_index": 0})
+    journey = phone(client, sid)["journey"]
+    assert [step["scene_title"] for step in journey] == ["S1", "S2", "S3", "S4"]
+    assert {step["outcome"] for step in journey} <= {"level", "item", "damage"}

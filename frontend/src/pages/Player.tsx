@@ -10,7 +10,7 @@ import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
-import { Crest, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
+import { Crest, KeepsakeDialog, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
 import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, D20Icon, GemIcon } from '../components/Icons'
 import { PhoneSettings } from './player/PhoneSettings'
@@ -219,6 +219,7 @@ function GameScreen({ state, resolved, corruption, level, me, onShowHero, onShow
   }
   const warp = (text: string) => <CorruptText text={text} madness={corruption.madness} enabled={corruption.enabled} />
   const [choicesEl, setChoicesEl] = useState<HTMLDivElement | null>(null)
+  const [showKeepsake, setShowKeepsake] = useState(false)
 
   // A new scene starts at the top, wherever the last one was scrolled to
   const sceneKey = `${state.status}:${state.current_scene_id ?? ''}`
@@ -262,6 +263,8 @@ function GameScreen({ state, resolved, corruption, level, me, onShowHero, onShow
           Level {state.level} · {state.items.length === 1 ? '1 item' : `${state.items.length} items`}
           {state.items.length > 0 && `: ${state.items.join(', ')}`}
         </p>
+        <button type="button" className="join__button phone-keepsake" onClick={() => setShowKeepsake(true)}>Your keepsake</button>
+        <KeepsakeDialog open={showKeepsake} state={state} resolved={resolved} onClose={() => setShowKeepsake(false)} />
       </div>
     )
   }

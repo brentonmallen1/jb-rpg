@@ -187,6 +187,13 @@ export interface ResolvedContent {
   victory_text?: string
   defeat_text?: string
   items_found?: FoundItem[]  // the backpack, in the order found
+  journey?: JourneyStep[]  // once the story is over: the path the table took
+}
+
+export interface JourneyStep {
+  scene_title: string
+  outcome: ChoiceKind
+  item_name: string | null
 }
 
 export interface FoundItem {

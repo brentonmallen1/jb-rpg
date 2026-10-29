@@ -1,0 +1,259 @@
+/* ==========================================================================
+   Keepsake: a story-sized summary of the game, in the story's theme,
+   made into an image to share or save.
+   ========================================================================== */
+
+.keepsake {
+  box-sizing: border-box;
+  width: 540px;
+  height: 960px;
+  padding: 44px 40px 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--text-primary);
+  background:
+    radial-gradient(90% 55% at 50% 20%, color-mix(in srgb, var(--accent) 18%, var(--bg-secondary)) 0%, var(--bg-primary) 72%),
+    var(--bg-primary);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  outline-offset: -12px;
+  overflow: hidden;
+}
+
+.keepsake__story {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.keepsake__crest {
+  margin-top: 24px;
+}
+
+.keepsake__heading {
+  margin-top: 16px;
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+
+.keepsake__name {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.keepsake__outcome {
+  margin-top: 20px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.keepsake__outcome--defeat { color: color-mix(in srgb, var(--danger) 85%, var(--text-primary)); }
+
+.keepsake__outcome > span:nth-child(2) { flex-shrink: 0; max-width: 80%; }
+
+.keepsake__rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, currentColor);
+}
+
+.keepsake__rule:last-child { background: linear-gradient(270deg, transparent, currentColor); }
+
+.keepsake__stats {
+  margin-top: 24px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  border-top: 1px solid color-mix(in srgb, var(--text-primary) 15%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 15%, transparent);
+}
+
+.keepsake__stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+}
+
+.keepsake__stats > div + div { border-left: 1px solid color-mix(in srgb, var(--text-primary) 15%, transparent); }
+
+.keepsake__label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.keepsake__label--center { text-align: center; color: var(--accent); }
+
+.keepsake__value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.keepsake__log {
+  margin-top: 22px;
+  width: 100%;
+  text-align: left;
+}
+
+.keepsake__log ol {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.keepsake__log li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.keepsake__log li > svg { flex-shrink: 0; margin-top: 3px; }
+
+.keepsake__scene {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.keepsake__what {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--font-reading);
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.keepsake__gap {
+  justify-content: center;
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.keepsake__foot {
+  margin-top: auto;
+  padding-top: 16px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.keepsake__brand {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+/* --- The dialog around it ----------------------------------------------------------- */
+
+.keepsake-dialog {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.keepsake-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.keepsake-dialog::backdrop {
+  background: rgb(3 4 8 / 0.85);
+  backdrop-filter: blur(6px);
+}
+
+.keepsake-dialog__stage {
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
+}
+
+.keepsake-dialog__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.keepsake-dialog__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.keepsake-dialog__button {
+  min-width: 132px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 14px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.keepsake-dialog__button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: color-mix(in srgb, var(--bg-primary) 92%, black);
+}
+
+.keepsake-dialog__button:disabled { opacity: 0.6; cursor: progress; }
+
+.keepsake-dialog__message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.keepsake__log li > svg { color: var(--accent); }
+.keepsake__log li > svg.outcome--damage { color: color-mix(in srgb, var(--danger) 85%, var(--text-primary)); }

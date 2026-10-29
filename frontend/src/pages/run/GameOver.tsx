@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import * as api from '../../hooks/api'
+import { KeepsakeDialog } from '../../components'
 import { useHotkeys } from '../../hooks/useHotkeys'
 import type { RunAction } from '../../hooks/useAsyncAction'
 import type { GameState, ResolvedContent, Story } from '../../types'
@@ -17,7 +19,8 @@ interface GameOverProps {
 const OUTCOME_WORDS = { damage: 'lost a life', item: 'found', level: 'grew stronger' } as const
 
 export function GameOver({ state, resolved, story, run, onReturnToLibrary }: GameOverProps) {
-  useHotkeys({ enter: state.outcome && state.outcome_revealed ? onReturnToLibrary : undefined })
+  const [showKeepsake, setShowKeepsake] = useState(false)
+  useHotkeys({ enter: state.outcome && state.outcome_revealed && !showKeepsake ? onReturnToLibrary : undefined })
 
   if (!state.outcome) {
     // Last linear scene played: waiting on the physical d20 roll
@@ -64,6 +67,9 @@ export function GameOver({ state, resolved, story, run, onReturnToLibrary }: Gam
       )}
 
       <div className="action-row">
+        {state.outcome_revealed && resolved && (
+          <button className="s-btn s-btn--ghost" onClick={() => setShowKeepsake(true)}>The keepsake</button>
+        )}
         {state.outcome_revealed ? (
           <button className="s-btn" onClick={onReturnToLibrary}>
             End session and return to library <span className="kbd">⏎</span>
@@ -74,6 +80,7 @@ export function GameOver({ state, resolved, story, run, onReturnToLibrary }: Gam
           </button>
         )}
       </div>
+      {resolved && <KeepsakeDialog open={showKeepsake} state={state} resolved={resolved} onClose={() => setShowKeepsake(false)} />}
     </article>
   )
 }

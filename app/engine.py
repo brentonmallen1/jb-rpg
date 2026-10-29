@@ -132,6 +132,13 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
         ],
     }
 
+    if state.status == SessionStatus.GAME_OVER:
+        # The keepsake: the path the table took, once the story is over
+        base["journey"] = [
+            {"scene_title": _scene_title(story, entry.scene_id), "outcome": entry.outcome.value, "item_name": entry.item_name}
+            for entry in state.history
+        ]
+
     if state.status == SessionStatus.MADLIB_IN_PROGRESS:
         # Players see the question being asked, never the template it fills
         questions = story.madlib_template.fields

@@ -10,7 +10,6 @@ import '../styles/phone.css'
 
 const SAMPLES: Record<MomentType, Moment> = {
   character_revealed: { type: 'character_revealed', name: 'Bartholomew' },
-  suspense: { type: 'suspense' },
   hp_lost: { type: 'hp_lost', hp: 1 },
   item_gained: { type: 'item_gained', item: "Elder's Map" },
   level_up: { type: 'level_up', level: 2 },
@@ -69,7 +68,7 @@ export default function DevMoments() {
           <button key={t} className="btn btn--secondary" onClick={() => fire(t)}>{t}</button>
         ))}
         <button className="btn" onClick={() => fire('hp_lost', 'scene_changed')}>damage → next scene</button>
-        <button className="btn" onClick={() => fire('suspense', 'item_gained', 'scene_changed')}>a choice: pause → item → next scene</button>
+        <button className="btn" onClick={() => fire('item_gained', 'scene_changed')}>a choice: item → next scene</button>
         <button className="btn" onClick={() => fire('item_gained', 'finale')}>item → finale</button>
       </div>
 

@@ -87,6 +87,8 @@ export function MomentLayer({ moment, theme, level, onDone, viewerId }: MomentLa
 function ItemCard({ label, item, where, icon, theme }: { label: string; item: string; where?: string; icon?: string | null; theme: ThemeName }) {
   return (
     <div className="item-card" role="status" aria-live="polite">
+      {/* What the choice won, above the card */}
+      <span className="item-card__heading">{label}</span>
       <div className="item-card__inner">
         <div className="item-card__back" aria-hidden="true">
           <svg width="64" height="64" viewBox="0 0 100 100">
@@ -96,7 +98,6 @@ function ItemCard({ label, item, where, icon, theme }: { label: string; item: st
         </div>
         <div className="item-card__face">
           <span className="item-card__icon" aria-hidden="true"><ItemIcon name={item} icon={icon} theme={theme} size={72} framed /></span>
-          <span className="item-card__label">{label}</span>
           <span className="item-card__name">{item}</span>
           {where && <span className="item-card__where">Found in {where}</span>}
         </div>

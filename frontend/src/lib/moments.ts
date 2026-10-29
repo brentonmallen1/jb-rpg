@@ -6,7 +6,6 @@ import type { GameState, ResolvedContent, ThemeName } from '../types'
  */
 export type Moment =
   | { type: 'character_revealed'; name: string }
-  | { type: 'suspense' }
   | { type: 'hp_lost'; hp: number }
   | { type: 'item_gained'; item: string; where?: string; icon?: string | null }
   | { type: 'level_up'; level: number }
@@ -39,8 +38,6 @@ export function diffMoments(
   }
 
   if (!undo) {
-    // A choice was made: hold the table for a beat before its consequence lands
-    if (next.history.length > prev.history.length) moments.push({ type: 'suspense' })
     if (next.hp < prev.hp) moments.push({ type: 'hp_lost', hp: next.hp })
     next.items.slice(prev.items.length).forEach((item, i) => {
       const found = nextResolved?.items_found?.[prev.items.length + i]
@@ -84,7 +81,6 @@ export function diffMoments(
 /** How long each moment holds the stage (ms). Played one after another. */
 export const MOMENT_DURATION: Record<MomentType, number> = {
   character_revealed: 2400,
-  suspense: 1700,
   hp_lost: 1400,
   item_gained: 3400,
   level_up: 1800,
@@ -101,10 +97,9 @@ type MomentCopy = Partial<Record<MomentType, string>>
 
 const DEFAULT_COPY: Record<MomentType, string> = {
   character_revealed: 'A hero is born',
-  suspense: 'And then…',
-  hp_lost: 'You’ve been hurt',
-  item_gained: 'Item found',
-  level_up: 'Level up',
+  hp_lost: 'You took a hit',
+  item_gained: 'You found something',
+  level_up: 'You grow stronger',
   scene_changed: '',
   choices_revealed: '',
   decider: 'Your call',
@@ -116,12 +111,12 @@ const DEFAULT_COPY: Record<MomentType, string> = {
 
 // Each theme names its own beats
 const THEME_COPY: Record<ThemeName, MomentCopy> = {
-  fantasy: { suspense: 'The candles lean…', hp_lost: 'A candle gutters out', finale: 'The final trial', item_gained: 'Added to your satchel' },
-  cyberpunk: { dice_rolled: '// Roll resolved', suspense: '// Resolving…', hp_lost: 'Integrity breach', finale: '// Final sequence', item_gained: 'Asset acquired', level_up: 'Clearance raised' },
-  deep_space: { dice_rolled: 'Probability resolved', suspense: 'Brace…', hp_lost: 'Hull breach', finale: 'Final approach', item_gained: 'Salvage recovered', level_up: 'Rank up' },
-  horror: { dice_rolled: 'Fate answers', suspense: 'Something stirs…', hp_lost: 'Something takes hold', finale: 'The last door', defeat: 'Taken', victory: 'You survived' },
-  insanity: { dice_rolled: 'The bones fall', suspense: 'Wait. Listen.', hp_lost: 'Your grip slips', finale: 'It sees you now', defeat: 'Lost to the dark', victory: 'You remember who you are' },
-  modern: { suspense: 'And then…' },
+  fantasy: { hp_lost: 'A candle gutters out', item_gained: 'Added to your satchel', level_up: 'Your legend grows', finale: 'The final trial' },
+  cyberpunk: { hp_lost: 'Integrity breach', item_gained: 'Asset acquired', level_up: 'Clearance raised', finale: '// Final sequence', dice_rolled: '// Roll resolved' },
+  deep_space: { hp_lost: 'Hull breach', item_gained: 'Salvage recovered', level_up: 'Promoted', finale: 'Final approach', dice_rolled: 'Probability resolved' },
+  horror: { hp_lost: 'Something takes hold', item_gained: 'Something to hold on to', level_up: 'You steel yourself', finale: 'The last door', dice_rolled: 'Fate answers', defeat: 'Taken', victory: 'You survived' },
+  insanity: { hp_lost: 'Your grip slips', item_gained: 'You keep it close', level_up: 'Your mind sharpens', finale: 'It sees you now', dice_rolled: 'The bones fall', defeat: 'Lost to the dark', victory: 'You remember who you are' },
+  modern: { item_gained: 'Added to your bag', level_up: 'Level up' },
 }
 
 export function momentCopy(theme: ThemeName, type: MomentType): string {

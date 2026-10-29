@@ -164,6 +164,9 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.goto(B + "/run")
         teller.wait_for_selector("#madlib-input", timeout=15000)
         check("Storyteller /run loads directly", not page_errors, "; ".join(page_errors)[:200])
+        invite = teller.locator(".invite")
+        check("A new game shows the invite with a QR code", invite.count() == 1 and invite.locator("svg.qr").count() == 1)
+        check("The invite's link is the player link", session_id in invite.locator(".invite__link").inner_text())
 
         player = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
         player_requests: list[str] = []
@@ -175,6 +178,12 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.wait_for_timeout(800)
         count = teller.locator(".stage__players").inner_text().strip()
         check("Storyteller counts exactly one player", count == "1 player", count)
+        check("The invite counts the phone that joined", "1 phone connected" in teller.locator(".invite__count").inner_text())
+        teller.click("button[aria-label='Hide the invite']")
+        check("The invite can be hidden", teller.locator(".invite").count() == 0)
+        teller.click("button.stage__invite")
+        check("The toolbar's Invite brings the QR code back", teller.locator("[role='dialog'] svg.qr").count() == 1)
+        teller.keyboard.press("Escape")
         streams = [u for u in player_requests if "/api/events" in u]
         check("Player opens one live-update stream", len(streams) == 1, str(streams))
 
@@ -192,16 +201,27 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.keyboard.press("s")
         player.wait_for_selector(".dealt__card", timeout=5000)
         check("Player sees three dealt choices", player.locator(".dealt__card").count() == 3)
-        check("The hero card names the hero and their health", player.locator(".hero-card .phone-label:text-is('Your hero')").count() == 1
-              and player.locator(".hero-card__stats").count() == 1)
-        player.click(".hero-card__who")
-        check("Tapping the hero shows their story", player.locator("[role='dialog'] .phone-text").count() == 1)
+        check("The hero is docked at the bottom with their health", player.locator(".dock .phone-label:text-is('Your hero')").count() == 1
+              and player.locator(".dock .dock__health").count() == 1)
+        player.click(".dock__bar")
+        check("Tapping the hero shows their story", player.locator("dialog.sheet[open] .phone-text").count() == 1)
         player.keyboard.press("Escape")
         toggle = player.locator(".read-along__toggle")
         if toggle.count():
             clamped = player.locator(".read-along__text").bounding_box()["height"]
+            dock_top = player.locator(".dock__bar").bounding_box()["y"]
             toggle.click()
             check("Read along opens the rest of the scene", player.locator(".read-along__text").bounding_box()["height"] > clamped)
+            check("Opening the text doesn't move the hero", player.locator(".dock__bar").bounding_box()["y"] == dock_top)
+            below = player.evaluate("document.querySelector('.phone-choices').getBoundingClientRect().top > innerHeight - 120")
+            if below:  # the scene is long enough to push the choices off-screen
+                player.wait_for_selector(".dock__chip", timeout=3000)
+                player.click(".dock__chip")
+                player.wait_for_selector(".dock__chip", state="detached", timeout=3000)
+                check("The choices chip scrolls to the choices", player.evaluate("window.scrollY") > 0)
+            else:
+                check("No choices chip while the choices are on screen", player.locator(".dock__chip").count() == 0)
+            player.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
         player.click("button[aria-label='Settings']")
         player.click("label[title='Largest']")
         check("Text size scales the phone", player.evaluate("document.documentElement.style.fontSize") == "132%")
@@ -216,6 +236,8 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.wait_for_selector(".reading-panel")
         teller.keyboard.press("Enter")
         teller.wait_for_function("t => document.querySelector('.stage-title')?.innerText !== t", arg=first_title)
+        player.wait_for_function("window.scrollY === 0", timeout=5000)
+        check("A new scene starts the phone at the top", True)
         teller.keyboard.press("r")
         teller.wait_for_selector("text=Deal choices to the table")
         teller.keyboard.press("b")
@@ -401,6 +423,12 @@ def vote_checks(browser) -> None:
         phone.locator("button.dealt__card").nth(index).click()
         phone.click("button.join__button")
         phone.wait_for_selector("text=Your vote is in", timeout=10000)
+        if phone is phones[0]:
+            phone.click("text=Change my vote")
+            phone.locator("button.dealt__card").nth(1).click()
+            phone.click("button.join__button")
+            phone.wait_for_selector("text=Your vote is in", timeout=10000)
+            check("A player can change their vote while it's open", phone.locator(".dealt__card.is-picked").inner_text().startswith("II"))
     check("Phones show votes left, never the tally", phones[1].locator(".choice-card__votes").count() == 0)
     teller.wait_for_selector(".vote-tie", timeout=10000)
     check("A tie highlights both choices for the storyteller", teller.locator(".choice-card.is-favourite").count() == 2)

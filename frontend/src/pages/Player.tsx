@@ -10,9 +10,9 @@ import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
-import { Modal, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
+import { RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
-import { BookIcon, ChevronRightIcon, D20Icon } from '../components/Icons'
+import { ArrowDownIcon, BookIcon, ChevronUpIcon, D20Icon } from '../components/Icons'
 import { PhoneSettings } from './player/PhoneSettings'
 import '../styles/phone.css'
 
@@ -131,10 +131,7 @@ export default function Player() {
       <CriticalPulse active={lastLife} level={level} />
       <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={level} onDone={momentDone} viewerId={player.identity?.id} />
 
-      <Modal isOpen={showHero && !!state?.character} onClose={() => setShowHero(false)} title={state?.character?.name || 'Your hero'}>
-        <p className="phone-text" style={{ marginTop: 0 }}>{state?.character?.description}</p>
-        <button className="btn btn--secondary mt-md" onClick={() => setShowHero(false)}>Close</button>
-      </Modal>
+      {state?.character && <HeroSheet open={showHero} state={state} onClose={() => setShowHero(false)} />}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </>
   )
@@ -211,6 +208,13 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
     }
   }
   const warp = (text: string) => <CorruptText text={text} madness={corruption.madness} enabled={corruption.enabled} />
+  const [choicesEl, setChoicesEl] = useState<HTMLDivElement | null>(null)
+
+  // A new scene starts at the top, wherever the last one was scrolled to
+  const sceneKey = `${state.status}:${state.current_scene_id ?? ''}`
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [sceneKey])
 
   if (state.status === 'madlib_in_progress') {
     return (
@@ -265,8 +269,6 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
 
       {!resolved.finale && !choosingDoor && resolved.scene_text && <SceneText text={warp(resolved.scene_text)} sceneKey={resolved.scene_title ?? ''} />}
 
-      <HeroCard state={state} resolved={resolved} onShowHero={onShowHero} />
-
       {resolved.finale ? (
         <div className="phone-roll">
           <D20Icon size={140} className="d20" />
@@ -282,6 +284,7 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
           {['rotate', 'pick'].includes(state.turn_mode) && state.status === 'running' && (
             <TurnBanner decider={resolved.decider} mine={myTurn} mode={state.turn_mode} />
           )}
+          <div className="phone-choices" ref={setChoicesEl}>
           {state.turn_mode === 'vote' && resolved.vote && resolved.visible_choices.length > 0 ? (
             <VotePanel
               key={resolved.scene_title}
@@ -315,8 +318,11 @@ function GameScreen({ state, resolved, corruption, me, onShowHero }: GameScreenP
               </p>
             </div>
           )}
+          </div>
         </>
       )}
+
+      <HeroDock state={state} resolved={resolved} choicesEl={resolved.visible_choices.length > 0 ? choicesEl : null} onShowHero={onShowHero} />
     </>
   )
 }
@@ -358,32 +364,99 @@ function SceneText({ text, sceneKey }: { text: ReactNode; sceneKey: string }) {
   )
 }
 
-/** Who the table is playing, and how they're faring: name, a glimpse of their story, health, level, items. */
-function HeroCard({ state, resolved, onShowHero }: { state: GameState; resolved: ResolvedContent; onShowHero: () => void }) {
+/**
+ * The hero, docked at the bottom of the screen so it never moves: name, health, level, items.
+ * Tapping it opens their story. When the choices are dealt but off-screen, a chip points to them.
+ */
+function HeroDock({ state, resolved, choicesEl, onShowHero }: { state: GameState; resolved: ResolvedContent; choicesEl: HTMLElement | null; onShowHero: () => void }) {
   const hero = state.character
+  const [choicesHidden, setChoicesHidden] = useState(false)
+
+  useEffect(() => {
+    if (!choicesEl) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setChoicesHidden(!entry.isIntersecting && entry.boundingClientRect.top > 0),
+      { rootMargin: '0px 0px -120px 0px' },  // the dock covers the bottom of the screen
+    )
+    observer.observe(choicesEl)
+    return () => observer.disconnect()
+  }, [choicesEl])
+
+  const stats = (
+    <>
+      <span className="dock__health" aria-label={`${HEALTH_LABEL[resolved.theme]}: ${state.hp} of ${resolved.max_hp}`}>
+        <HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={20} />
+      </span>
+      <span className="dock__stat"><span className="phone-label">Lvl</span><span className="dock__value">{state.level}</span></span>
+      <span className="dock__stat"><span className="phone-label">Items</span><span className="dock__value">{state.items.length}</span></span>
+    </>
+  )
+
   return (
-    <section className="hero-card" aria-label="Your hero">
-      {hero && (
-        <button type="button" className="hero-card__who" onClick={onShowHero} aria-label={`Your hero, ${hero.name}: read their story`}>
-          <span className="phone-label">Your hero</span>
-          <span className="hero-card__name">
-            {hero.name}
-            <ChevronRightIcon size={18} />
-          </span>
-          {hero.description && <span className="hero-card__desc">{hero.description}</span>}
+    <div className="dock">
+      {choicesEl && choicesHidden && (
+        <button
+          type="button"
+          className="dock__chip"
+          onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
+        >
+          The choices are in <ArrowDownIcon size={16} />
         </button>
       )}
-      <div className="hero-card__stats">
-        <div>
-          <div className="phone-label">{HEALTH_LABEL[resolved.theme]}</div>
-          <div className="hero-card__health"><HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={24} /></div>
+      {hero ? (
+        <button type="button" className="dock__bar" onClick={onShowHero} aria-label={`Your hero, ${hero.name}: read their story`}>
+          <span className="dock__who">
+            <span className="phone-label">Your hero</span>
+            <span className="dock__name">{hero.name} <ChevronUpIcon size={14} /></span>
+          </span>
+          {stats}
+        </button>
+      ) : (
+        <div className="dock__bar">
+          <span className="dock__who"><span className="phone-label">{HEALTH_LABEL[resolved.theme]}</span></span>
+          {stats}
         </div>
-        <div className="hero-card__numbers">
-          <div><div className="phone-label">Level</div><div className="hero-card__value">{state.level}</div></div>
-          <div><div className="phone-label">Items</div><div className="hero-card__value">{state.items.length}</div></div>
+      )}
+    </div>
+  )
+}
+
+/** The hero's story and what they carry, sliding up from the dock. */
+function HeroSheet({ open, state, onClose }: { open: boolean; state: GameState; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = ref.current
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+  }, [open])
+  const hero = state.character
+  if (!hero) return null
+
+  return (
+    <dialog
+      ref={ref}
+      className="sheet"
+      aria-label={`Your hero, ${hero.name}`}
+      onClose={onClose}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}  // a tap on the backdrop
+    >
+      <div className="sheet__body">
+        <span className="sheet__grip" aria-hidden="true" />
+        <div className="phone-label">Your hero</div>
+        <h2 className="sheet__title">{hero.name}</h2>
+        {hero.description && <p className="phone-text">{hero.description}</p>}
+        <div className="sheet__section">
+          <div className="phone-label">Carrying</div>
+          {state.items.length > 0 ? (
+            <ul className="sheet__items">{state.items.map((item, i) => <li key={`${item}-${i}`}>{item}</li>)}</ul>
+          ) : (
+            <p className="sheet__empty">Nothing yet.</p>
+          )}
         </div>
+        <button type="button" className="sheet__close" onClick={onClose}>Close</button>
       </div>
-    </section>
+    </dialog>
   )
 }
 
@@ -408,10 +481,12 @@ function VotePanel({ vote, choices, me, renderText }: VotePanelProps) {
   const [cast, setCast] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  // Reopened after voting: the server keeps one vote per player and takes the latest
+  const [changing, setChanging] = useState(false)
 
   const eligible = !!me && vote.eligible.includes(me.id)
-  const voted = !!me && vote.voted.includes(me.id)
   const open = vote.open && secondsLeft !== 0
+  const voted = !!me && vote.voted.includes(me.id) && !(changing && open)
   const canVote = eligible && !voted && open
   const remaining = vote.eligible.length - vote.voted.length
 
@@ -422,6 +497,7 @@ function VotePanel({ vote, choices, me, renderText }: VotePanelProps) {
     try {
       await api.castVote(me.token, selected)
       setCast(selected)
+      setChanging(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Your vote didn’t go through')
     } finally {
@@ -460,6 +536,9 @@ function VotePanel({ vote, choices, me, renderText }: VotePanelProps) {
         <button type="button" className="join__button" disabled={selected === null || sending} onClick={submit}>
           {selected === null ? 'Pick a choice' : `Cast my vote for ${ROMAN[selected] ?? selected + 1}`}
         </button>
+      )}
+      {voted && open && cast !== null && (
+        <button type="button" className="join__watch" onClick={() => { setSelected(cast); setChanging(true) }}>Change my vote</button>
       )}
       {error && <p className="join__error" role="alert">{error}</p>}
       <p className="phone__status" style={{ paddingTop: 6 }}>The storyteller sees how the table voted and makes the call.</p>

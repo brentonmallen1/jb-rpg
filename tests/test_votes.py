@@ -36,7 +36,10 @@ def test_dealing_opens_the_vote_for_everyone_at_the_table(client):
     late = join(client, sid, "Cal")
     assert vote(client, late, 0).status_code == 403  # joined after the vote began
     assert vote(client, a, 0).status_code == 200
-    assert vote(client, a, 1).status_code == 409  # one vote each
+    assert vote(client, a, 1).status_code == 200  # changed their mind: still one vote
+    assert client.get("/api/state").json()["vote_tally"]["counts"] == {"1": 1}
+    assert vote(client, b, 2).status_code == 200
+    assert vote(client, a, 0).status_code == 409  # every vote is in: the vote has closed
 
 
 def test_only_the_storyteller_sees_the_tally_and_ties_have_several_leaders(client):

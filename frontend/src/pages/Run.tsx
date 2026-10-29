@@ -19,9 +19,12 @@ import { SceneSelect } from './run/SceneSelect'
 import { SceneView } from './run/SceneView'
 import { GameOver } from './run/GameOver'
 import { PartyRail } from './run/PartyRail'
+import { InviteCard, QrCode } from './run/InviteCard'
+import { useCopyLink, usePlayerLink } from '../hooks/usePlayerLink'
 import '../styles/stage.css'
 
 const PRESENTATION_KEY = 'jb_rpg_presentation'
+const INVITE_HIDDEN_KEY = 'jb_rpg_invite_hidden'
 
 /** The audio that should loop right now: the scene's own ambience, else the story's. */
 function ambienceFor(story: Story | null, state: GameState | null): string | null {
@@ -44,6 +47,15 @@ function readPresentation(): boolean {
   }
 }
 
+/** The session whose invite card the storyteller hid (the card comes back for the next game). */
+function readInviteHidden(): string | null {
+  try {
+    return sessionStorage.getItem(INVITE_HIDDEN_KEY)
+  } catch {
+    return null
+  }
+}
+
 export default function Run() {
   const navigate = useNavigate()
   const {
@@ -57,6 +69,7 @@ export default function Run() {
   const [presentation, setPresentation] = useState(readPresentation)
   const [showRules, setShowRules] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [inviteHiddenFor, setInviteHiddenFor] = useState(readInviteHidden)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<PlayerRef | null>(null)
   const sound = useSoundEnabled()
@@ -165,6 +178,16 @@ export default function Run() {
   const sceneNumber = steps.filter(s => s.status !== 'upcoming').length
   const showProgress = story && ['running', 'awaiting_scene_selection', 'game_over'].includes(state.status)
   const showParty = !['madlib_in_progress', 'character_reveal'].includes(state.status)
+  // The invite sits on the stage until the first choice is made, unless hidden
+  const showInvite = state.history.length === 0 && state.status !== 'game_over' && inviteHiddenFor !== state.session_id
+  function hideInvite() {
+    setInviteHiddenFor(state!.session_id)
+    try {
+      sessionStorage.setItem(INVITE_HIDDEN_KEY, state!.session_id)
+    } catch {
+      // per-tab convenience only
+    }
+  }
 
   return (
     <div className={`stage ${presentation ? 'stage--presentation' : ''}`}>
@@ -215,8 +238,8 @@ export default function Run() {
           <button className="icon-btn" onClick={togglePresentation} aria-pressed={presentation} aria-label="Presentation mode (P)" title="Presentation mode (P)">
             <PresentIcon />
           </button>
-          <button className="icon-btn storyteller-only" onClick={() => setShowShare(true)} aria-label="Invite players" title="Invite players">
-            <LinkIcon />
+          <button className="s-btn s-btn--ghost stage__invite storyteller-only" onClick={() => setShowShare(true)} title="Invite players">
+            <LinkIcon size={16} /> Invite
           </button>
           <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
             {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
@@ -249,6 +272,9 @@ export default function Run() {
               <span>{error}</span>
               <button className="s-btn s-btn--ghost" onClick={clearError}>Dismiss</button>
             </div>
+          )}
+          {showInvite && (
+            <InviteCard sessionId={state.session_id} playerCount={playerCount} onDismiss={hideInvite} />
           )}
           {story && renderStatus(state, story)}
         </main>
@@ -288,26 +314,13 @@ export default function Run() {
 }
 
 function ShareModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sessionId: string; onClose: () => void }) {
-  const [baseUrl, setBaseUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  // BASE_URL (behind a reverse proxy) wins over the address the storyteller happens to use
-  useEffect(() => {
-    if (!isOpen) return
-    api.getConfig().then(c => setBaseUrl(c.base_url)).catch(() => setBaseUrl(null))
-  }, [isOpen])
-
-  const link = `${(baseUrl || window.location.origin).replace(/\/$/, '')}/player/${sessionId}`
-
-  function copy() {
-    navigator.clipboard.writeText(link)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const link = usePlayerLink(sessionId)
+  const { copied, copy, canShare, share } = useCopyLink(link)
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Invite players">
-      <p className="text-secondary mb-md">Players join on their phones with this link:</p>
+      <p className="text-secondary mb-md">Players scan this with their phone camera, or open the link:</p>
+      <div className="share-qr"><QrCode text={link} size={200} /></div>
       <input
         type="text"
         readOnly
@@ -318,6 +331,7 @@ function ShareModal({ isOpen, sessionId, onClose }: { isOpen: boolean; sessionId
       />
       <div className="btn-group">
         <button className="btn" onClick={copy}>{copied ? 'Copied!' : 'Copy Link'}</button>
+        {canShare && <button className="btn btn--secondary" onClick={share}>Share…</button>}
         <button className="btn btn--secondary" onClick={onClose}>Close</button>
       </div>
       {copied && (

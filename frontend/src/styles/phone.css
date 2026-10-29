@@ -167,87 +167,184 @@
   outline: none;
 }
 
-/* --- The hero: who the table is playing, and how they're faring ---------------- */
+/* --- The hero, docked at the bottom: it never moves ---------------------------------- */
 
-.hero-card {
-  margin-top: 22px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.hero-card__who {
+.phone-choices {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  margin-top: auto;
+}
+
+.dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin: 24px -20px -20px;
+}
+
+.dock__bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   width: 100%;
-  padding: 14px 16px 12px;
+  padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
   border: 0;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--bg-secondary);
+  box-shadow: 0 -12px 30px rgb(0 0 0 / 0.35);
   color: inherit;
   font: inherit;
   text-align: left;
-  cursor: pointer;
 }
 
-.hero-card__who:focus-visible {
+button.dock__bar { cursor: pointer; }
+
+button.dock__bar:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline-offset: -3px;
 }
 
-.hero-card__name {
+.dock__who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dock__who .phone-label { font-size: 0.62rem; }
+
+.dock__name {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 2px;
+  gap: 6px;
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  line-height: 1.15;
-}
-
-.hero-card__name svg {
-  flex-shrink: 0;
-  color: var(--accent);
-}
-
-.hero-card__desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-size: 1.1rem;
+  white-space: nowrap;
   overflow: hidden;
-  margin-top: 4px;
+  text-overflow: ellipsis;
+}
+
+.dock__name svg { flex-shrink: 0; color: var(--accent); }
+
+.dock__health { display: flex; }
+
+.dock__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dock__stat .phone-label { font-size: 0.6rem; letter-spacing: 0.12em; }
+
+.dock__value {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.dock__chip {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  translate: -50% 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: color-mix(in srgb, var(--bg-primary) 92%, black);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.45);
+  cursor: pointer;
+  animation: chip-in 0.4s var(--ease-out-expo) both;
+}
+
+@keyframes chip-in {
+  from { opacity: 0; translate: -50% 8px; }
+}
+
+.effects-off .dock__chip { animation: none; }
+
+/* --- The hero's story: a sheet from the bottom ---------------------------------------- */
+
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 85dvh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 22px 22px 0 0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.sheet::backdrop { background: rgb(3 5 10 / 0.6); }
+
+.sheet[open] { animation: sheet-in 0.35s var(--ease-out-expo, ease-out) both; }
+
+@keyframes sheet-in {
+  from { transform: translateY(40px); opacity: 0; }
+}
+
+.sheet__body {
+  padding: 10px 22px calc(24px + env(safe-area-inset-bottom));
+}
+
+.sheet__grip {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-primary) 25%, transparent);
+}
+
+.sheet__title {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: inherit;
+  line-height: 1.1;
+}
+
+.sheet__section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+}
+
+.sheet__items {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
   font-family: var(--font-reading);
-  font-style: italic;
-  font-size: 0.98rem;
-  line-height: 1.4;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.sheet__empty {
+  margin-top: 6px;
   color: var(--text-secondary);
 }
 
-.hero-card__stats {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px 14px;
-}
-
-.hero-card__health {
-  margin-top: 8px;
-}
-
-.hero-card__numbers {
-  display: flex;
-  gap: 20px;
-  text-align: right;
-}
-
-.hero-card__value {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  line-height: 1.1;
+.sheet__close {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 20px;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
 }
 
 /* --- Choices dealt to the table ---------------------------------------------- */
@@ -256,7 +353,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: auto;
   padding-top: 28px;
 }
 
@@ -648,3 +744,5 @@ button.dealt__card {
 .effects-off .settings,
 .effects-off .switch,
 .effects-off .switch__thumb { animation: none; transition: none; }
+
+[data-mode="light"] .dock__bar { box-shadow: 0 -8px 24px rgb(0 0 0 / 0.1); }

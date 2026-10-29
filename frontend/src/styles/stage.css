@@ -964,3 +964,104 @@
     margin-right: 2px;
   }
 }
+
+/* --- Invite: the join link as a game starts ------------------------------------------ */
+
+.stage__invite {
+  min-height: 36px;
+  padding: 0 14px 0 12px;
+  gap: 8px;
+}
+
+.invite {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 32px;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-secondary));
+}
+
+.qr {
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+.invite__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.invite__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: inherit;
+  line-height: 1.15;
+}
+
+.invite__link {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.invite__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.invite__count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.invite__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-primary) 25%, transparent);
+}
+
+.invite__dot.is-on { background: var(--success); }
+
+.invite__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.share-qr {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* On the TV it's simply the code, larger */
+.stage--presentation .invite {
+  justify-content: center;
+  padding: 28px;
+}
+
+.stage--presentation .invite .qr {
+  width: 220px;
+  height: 220px;
+}
+
+@media (max-width: 560px) {
+  .invite { flex-direction: column; align-items: flex-start; }
+}

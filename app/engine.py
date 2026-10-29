@@ -353,8 +353,7 @@ def cast_vote(state: GameState, player: Player, visual_index: int, now: float) -
         raise GameError(409, "This game doesn't vote")
     if player.id not in state.vote_eligible:
         raise GameError(403, "You joined after this vote began. You can vote in the next scene.")
-    if player.id in state.votes:
-        raise GameError(409, "You've already voted")
+    # A player can change their vote until the vote closes (time's up, or every vote is in)
     if not voting_open(state, now):
         raise GameError(409, "Voting has closed")
     if not 0 <= visual_index < len(state.shuffled_indices):

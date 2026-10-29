@@ -95,6 +95,7 @@ Tests: `just test` (pytest) and `just e2e` (storyteller + player in real browser
 - **Players don't know where they are in the story** — no scene counts or progress on any player-facing screen (phones or presentation mode); only the storyteller's private view shows progress (design rule, see `.impeccable.md`). `resolved.finale` is how players learn the end has come
 - **Sessions use a snapshot of the story** (`state.story`, taken at `/start`, never sent to clients). Edits to a story apply to the next game
 - **Presentation mode** (storyteller, `P`) is player-facing: anything with `.storyteller-only` is hidden there
+- **Inviting players**: the stage shows `InviteCard` (QR code from `qrcode-generator`, bundled, plus the link from `usePlayerLink`, which prefers `BASE_URL`) until the first choice or until hidden; the toolbar's Invite button opens the same QR code in a dialog. The QR code also shows in presentation mode, so the TV can show it
 
 ---
 
@@ -159,7 +160,7 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 - Layout CSS (`stage.css`, `phone.css`) only uses tokens, so themes restyle everything without layout changes.
 - `lib/themes.ts`: `HEALTH_LABEL` (Candles, Sight, Integrity, Hull, Sanity, Health) and `MOODS` per theme. `HealthMeter` draws health in each theme's iconography.
 - **Moods**: `Scene.mood` (set in the Editor, or unset = automatic). The server sends `resolved.mood` + `resolved.mood_seed`; `moodFor()` picks the theme's mood. `Atmosphere` renders the backdrop.
-- **Moments** (`lib/moments.ts`): `diffMoments(prev, next)` turns SSE state changes into dramatic beats played by `MomentLayer` on every screen in sync; copy and victory/defeat endings are themed. Effects level (full/subtle/off) is per device (phones pick it under the gear, `PhoneSettings`, where subtle is called "Gentle", next to text size: `useTextSize` scales the root font size, so phone styles stay in rem); respect `prefers-reduced-motion`; never more than 3 flashes per second.
+- **Moments** (`lib/moments.ts`): `diffMoments(prev, next)` turns SSE state changes into dramatic beats played by `MomentLayer` on every screen in sync; copy and victory/defeat endings are themed. Effects level (full/subtle/off) is per device (phones pick it under the gear, `PhoneSettings`, where subtle is called "Gentle", next to text size: `useTextSize` scales the root font size, so phone styles stay in rem). The phone docks the hero at the bottom (`HeroDock`: health, level, items; tap for `HeroSheet`), points to off-screen choices with a chip, and scrolls to the top on every scene change; respect `prefers-reduced-motion`; never more than 3 flashes per second.
 - **No flashing** (`state.no_flashing`, ticked in the Play dialog or toggled with the bolt on the stage) caps every screen, TV included, at `subtle` (`capLevel`). `subtle` must stay flash-free: slow fades only, no spikes, `steps()` glitches, glints, shake or text flicker. Anything new that flashes belongs to `full` only.
 - **Insanity** text corruption (`CorruptText`) scales with health lost; screen readers get clean text.
 - Tune visuals at `/dev/moments` (dev builds only).
@@ -168,7 +169,7 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 
 Chosen when a game starts (`turn_mode` on `/api/state/start`, picked in the Library's Play dialog): `storyteller` (default: the table talks, the storyteller chooses; no names), `rotate` (players take turns in join order; the turn is `players[len(history) % n]`, so Back rewinds it), or `pick` (the storyteller chooses a player each scene via `/api/state/decider`). `resolved.decider` exists only during a running scene. The decider's phone can propose a choice (`state.proposal`, a visual index); the storyteller still confirms. Scene changes clear the decider pick and proposal.
 
-`vote` mode: dealing the choices (`reveal-choices?show_to_players=true`) opens a vote for the players at the table at that moment (`vote_eligible`; late joiners wait for the next scene), with a deadline from `story.settings.vote_seconds` (0 = none). One vote per player (`/api/state/vote`). `state.votes` is private: everyone gets counts and time via `resolved.vote`; only storyteller connections get `vote_tally` (counts per visual index + leaders; several leaders = a tie). The vote never makes the choice: the storyteller confirms or overrides, and presentation mode hides the tally.
+`vote` mode: dealing the choices (`reveal-choices?show_to_players=true`) opens a vote for the players at the table at that moment (`vote_eligible`; late joiners wait for the next scene), with a deadline from `story.settings.vote_seconds` (0 = none). One vote per player (`/api/state/vote`); voting again replaces it, until the vote closes (deadline, or every vote in). `state.votes` is private: everyone gets counts and time via `resolved.vote`; only storyteller connections get `vote_tally` (counts per visual index + leaders; several leaders = a tie). The vote never makes the choice: the storyteller confirms or overrides, and presentation mode hides the tally.
 
 ## Sound
 

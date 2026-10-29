@@ -72,13 +72,16 @@ const RECIPES: Record<ThemeName, (spec: CrestSpec, id: string) => React.ReactNod
     const side = spec.division % 3
     return (
       <>
-        <defs><path id={`${id}r`} d="M50 55m-36 0a36 36 0 1 1 72 0a36 36 0 1 1-72 0" /></defs>
         <circle cx="50" cy="55" r="46" fill="var(--bg-secondary)" stroke="var(--accent)" strokeWidth="2.5" />
         <circle cx="50" cy="55" r="29" fill="color-mix(in srgb, var(--accent) 12%, var(--bg-primary))" stroke="var(--accent)" strokeWidth="1" />
-        {/* The name twice around the rim, fitted to the circle */}
-        <text fontFamily="var(--font-display)" fontSize="7.5" fill="var(--accent)">
-          <textPath href={`#${id}r`} textLength="222" lengthAdjust="spacingAndGlyphs">{`${spec.name.toUpperCase()} · ${spec.name.toUpperCase()} · `}</textPath>
-        </text>
+        {/* Stars around the rim, one bright one wherever the seed puts it */}
+        <g fill="var(--accent)">
+          {Array.from({ length: 12 }, (_, i) => {
+            const a = (i / 12) * Math.PI * 2 + spec.turn * Math.PI
+            const bright = i === spec.palette * 3
+            return <circle key={i} cx={50 + 37.5 * Math.cos(a)} cy={55 + 37.5 * Math.sin(a)} r={bright ? 2.6 : 1.3} opacity={bright ? 1 : 0.7} />
+          })}
+        </g>
         <clipPath id={`${id}c`}><circle cx="50" cy="55" r="29" /></clipPath>
         <g clipPath={`url(#${id}c)`}>
           <circle cx={side === 0 ? 50 : side === 1 ? 20 : 80} cy="96" r="26" fill="var(--accent)" opacity=".8" />
@@ -93,12 +96,12 @@ const RECIPES: Record<ThemeName, (spec: CrestSpec, id: string) => React.ReactNod
     <>
       <path d="M18 10h60l16 16v62l-12 12H6V30z" fill="var(--accent)" />
       <path d="M18 10h60l16 16v62l-12 12H6V30z" fill="none" stroke="var(--bg-primary)" strokeWidth="1.5" transform="translate(5 5) scale(.9)" />
-      <text x="14" y="70" fontFamily="var(--font-display)" fontWeight="700" fontSize="32" fill="var(--bg-primary)">{spec.initials}</text>
       <g fill="var(--bg-primary)">
-        {[0, 4, 7, 11, 14, 19, 22].map((x, i) => <rect key={x} x={14 + x} y="80" width={(i + spec.division) % 3 + 1} height="10" />)}
+        {[0, 4, 7, 11, 14, 19, 22, 26, 29, 33].map((x, i) => <rect key={x} x={14 + x} y="80" width={(i + spec.division) % 3 + 1} height="10" />)}
       </g>
-      <text x="48" y="89" fontFamily="var(--font-display)" fontSize="8" fill="var(--bg-primary)">{`0x${(spec.palette * 61 + spec.division * 13 + 16).toString(16).toUpperCase()}`}</text>
-      <Charge spec={spec} cx={73} cy={33} size={22} color="var(--bg-primary)" />
+      {/* A serial, not a name: the hash of the hero's answers */}
+      <text x="15" y="54" fontFamily="var(--font-display)" fontWeight="700" fontSize="27" letterSpacing="1" fill="var(--bg-primary)">{spec.code.slice(0, 4)}</text>
+      <text x="15" y="70" fontFamily="var(--font-display)" fontSize="11" letterSpacing="1.5" fill="var(--bg-primary)" opacity=".75">{`#${spec.code.slice(4)}-${spec.division}${spec.palette}`}</text>
       {spec.palette % 2 === 0 && <rect x="80" y="74" width="8" height="8" fill="var(--danger)" />}
     </>
   ),
@@ -147,8 +150,7 @@ const RECIPES: Record<ThemeName, (spec: CrestSpec, id: string) => React.ReactNod
         {shape === 0 && <circle cx="50" cy="55" r="44" fill="var(--accent)" />}
         {shape === 1 && <rect x="8" y="13" width="84" height="84" rx="20" fill="var(--accent)" />}
         {shape === 2 && <path d="M50 9l40 23v46L50 101 10 78V32z" fill="var(--accent)" />}
-        <text x="50" y="60" textAnchor="middle" fontFamily="var(--font-display)" fontWeight="600" fontSize="30" fill="var(--bg-primary)">{spec.initials.split('').join('·')}</text>
-        <Charge spec={spec} cx={50} cy={78} size={14} color="var(--bg-primary)" />
+        <Charge spec={spec} cx={50} cy={55} size={42} color="var(--bg-primary)" />
       </>
     )
   },

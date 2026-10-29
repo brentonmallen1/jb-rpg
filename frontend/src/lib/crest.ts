@@ -12,6 +12,7 @@ export interface CrestSpec {
   turn: number      // 0–1, a rotation or offset a recipe can use
   initials: string
   name: string
+  code: string  // six hex digits from the seed, for the forms that print a serial
 }
 
 export type Charge =
@@ -80,6 +81,7 @@ export function crestFor(character: Character, variant: number): CrestSpec {
     division: Math.floor(rand() * 6),
     palette: Math.floor(rand() * 4),
     turn: rand(),
+    code: Math.floor(rand() * 0x1000000).toString(16).toUpperCase().padStart(6, '0'),
     initials: initialsOf(character.name),
     name: character.name,
   }

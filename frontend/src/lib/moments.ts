@@ -113,9 +113,9 @@ const DEFAULT_COPY: Record<MomentType, string> = {
 const THEME_COPY: Record<ThemeName, MomentCopy> = {
   fantasy: { hp_lost: 'A candle flickers out', item_gained: 'Added to your satchel', level_up: 'Your legend grows', finale: 'The final trial' },
   cyberpunk: { hp_lost: 'Integrity breach', item_gained: 'Asset acquired', level_up: 'Clearance raised', finale: '// Final sequence', dice_rolled: '// Roll resolved' },
-  deep_space: { hp_lost: 'Hull breach', item_gained: 'Salvage recovered', level_up: 'Promoted', finale: 'Final approach', dice_rolled: 'Probability resolved' },
-  horror: { hp_lost: 'Something takes hold', item_gained: 'Something to hold on to', level_up: 'You steel yourself', finale: 'The last door', dice_rolled: 'Fate answers', defeat: 'Taken', victory: 'You survived' },
-  insanity: { hp_lost: 'Your grip slips', item_gained: 'You keep it close', level_up: 'Your mind sharpens', finale: 'It sees you now', dice_rolled: 'The bones fall', defeat: 'Lost to the dark', victory: 'You remember who you are' },
+  deep_space: { hp_lost: 'Hull breach', item_gained: 'Salvage recovered', level_up: 'Promoted', finale: 'Final approach', dice_rolled: 'Telemetry acquired' },
+  horror: { hp_lost: 'A chill runs through you', item_gained: 'Something to hold on to', level_up: 'You steel yourself', finale: 'The last door', dice_rolled: 'Fate answers', defeat: 'Taken', victory: 'You survived' },
+  insanity: { hp_lost: 'Your mind slips', item_gained: 'Something to keep your mind clear', level_up: 'Your mind sharpens', finale: 'It sees you now', dice_rolled: 'The bones fall', defeat: 'Lost to the dark', victory: 'You remember who you are' },
   modern: { item_gained: 'Added to your bag', level_up: 'Level up' },
 }
 

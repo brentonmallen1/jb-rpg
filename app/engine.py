@@ -17,6 +17,7 @@ from .models import (
     ChoiceKind,
     Condition,
     ConditionType,
+    Emblem,
     GameState,
     HistoryEntry,
     Player,
@@ -501,6 +502,13 @@ def choose_crest(state: GameState, variant: int) -> None:
     if not 0 <= variant < 1000:
         raise GameError(422, "Invalid crest")
     state.crest = variant
+    state.emblem = None
+
+
+def choose_emblem(state: GameState, emblem: Emblem) -> None:
+    """Or an emblem from the emblem service, which every screen shows as the hero's crest."""
+    require_status(state, SessionStatus.CHARACTER_REVEAL)
+    state.emblem = emblem
 
 
 def opening_choice(state: GameState, choice_index: int | None) -> None:

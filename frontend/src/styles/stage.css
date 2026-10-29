@@ -1190,6 +1190,17 @@
   transform: translateY(-4px);
 }
 
+.crests__option--loading {
+  width: 124px;
+  height: 124px;
+  cursor: default;
+  animation: crest-wait 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes crest-wait { from { opacity: 0.35; } to { opacity: 0.8; } }
+
+@media (prefers-reduced-motion: reduce) { .crests__option--loading { animation: none; } }
+
 .crests__more { margin-top: 14px; min-height: 40px; }
 
 .party__hero {

@@ -166,6 +166,7 @@ export interface GameState {
   proposal?: number | null  // visual index the decider is leaning towards
   no_flashing: boolean  // the table asked for calm effects: every screen caps at "subtle"
   crest: number  // which of the hero's generated crests the table chose (drawn from the answers)
+  emblem: Emblem | null  // or an emblem from the emblem service, which wins over crest
   roll_offered: boolean  // the storyteller sent the digital d20 to the phones (otherwise: real dice)
   final_rolls: number[]  // the digital d20s rolled at the finale, in order
 }
@@ -248,4 +249,13 @@ export interface StoryProblem {
   scene_id: string | null
   field: string | null  // e.g. 'item_name', 'conditional_text', 'choices', 'target_scene_id'
   index: number | null  // which choice / condition
+}
+
+/** A crest from the emblem service (emblazon), SVG included */
+export interface Emblem {
+  theme: string
+  input: string
+  version: number
+  description: string
+  svg: string
 }

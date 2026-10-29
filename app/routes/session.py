@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from .. import auth, config, engine, sse, storage
+from .. import auth, config, emblems, engine, sse, storage
 from ..models import GameState, Story, TurnMode, public_state
 
 router = APIRouter(prefix="/api")
@@ -375,12 +375,32 @@ async def set_no_flashing(request: FlashingRequest, state: GameState = Depends(a
 
 
 class CrestRequest(BaseModel):
-    variant: int
+    variant: int = 0
+    emblem: Optional[str] = Field(None, max_length=200)  # An emblem's input, from /state/emblems
+
+
+@router.get("/state/emblems")
+async def emblem_options(round: int = 0, state: GameState = Depends(auth.verify_storyteller)):
+    """Three emblems for the hero from the emblem service; 503 when it's down (the stage draws its own)."""
+    engine.require_status(state, engine.SessionStatus.CHARACTER_REVEAL)
+    if not 0 <= round < 1000:
+        raise HTTPException(422, "Invalid round")
+    try:
+        return {"emblems": [e.model_dump() for e in await emblems.options(state, round)]}
+    except emblems.EmblemsUnavailable:
+        raise HTTPException(503, "The emblem service is unavailable")
 
 
 @router.post("/state/crest")
 async def choose_crest(request: CrestRequest, state: GameState = Depends(auth.verify_storyteller)):
-    engine.choose_crest(state, request.variant)
+    if request.emblem is None:
+        engine.choose_crest(state, request.variant)
+    else:
+        engine.require_status(state, engine.SessionStatus.CHARACTER_REVEAL)
+        try:
+            engine.choose_emblem(state, await emblems.chosen(state, request.emblem))
+        except emblems.EmblemsUnavailable:
+            raise HTTPException(503, "The emblem service is unavailable")
     return await commit(state)
 
 

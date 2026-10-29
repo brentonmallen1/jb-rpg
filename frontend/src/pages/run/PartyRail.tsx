@@ -26,7 +26,7 @@ export function PartyRail({ state, theme, maxHp, characterDescription, decider, 
         <div>
           <span className="stage-label">The hero</span>
           <div className="party__hero">
-            <Crest character={state.character} variant={state.crest} theme={theme} size={48} />
+            <Crest character={state.character} variant={state.crest} emblem={state.emblem} theme={theme} size={48} />
             <div className="party__name">{state.character.name}</div>
           </div>
           {characterDescription && <p className="party__desc">{characterDescription}</p>}

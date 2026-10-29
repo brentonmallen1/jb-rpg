@@ -168,11 +168,9 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 
 ## Crests
 
-A hero's crest is generated, not stored: `lib/crest.ts` (`crestFor(character, variant)`) seeds from the name and answers, picks emblems by keywords in the answers (lantern, waves, key…), and `components/Crest.tsx` draws it in the theme's form (Fantasy shield, Deep Space patch, Cyberpunk tag, Horror sigil, Insanity mark, Modern badge). The server keeps only `state.crest` (the variant), set at character reveal (`POST /api/state/crest`); the stage offers three per round ("Another three"). Shown on the stage's party rail, the phones' reveal, dock and hero sheet.
+The hero's crest comes from the emblem service, **emblazon** (`EMBLAZON_URL`, default https://emblazon.mallen.us; empty turns it off). `app/emblems.py` maps the story theme to emblazon's (fantasy→heraldry, deep_space→patch, cyberpunk→insignia, horror→sigil, insanity→eldritch, modern→badge) and seeds from a hash of the hero's whole background (`character.description`, the madlib as told; the words never leave the server). At character reveal the stage asks `GET /api/state/emblems?round=N` for three (another round, another three); choosing posts `{emblem: input}` to `/api/state/crest`, and the server fetches that emblem itself and stores it in `state.emblem` (SVG included), so phones and the keepsake never call the service. `Crest` draws `state.emblem` as an `<img>` data URI when there is one.
 
-## Item icons
-
-`lib/items.ts` holds the icon set (24-unit stroked drawings). An item's icon is the one the story chose (`Choice.item_icon`, picked in the Editor's `ItemIconPicker`; the server only stores the name and copies it to `HistoryEntry.item_icon`, `resolved.items_found[].icon` and `journey[].item_icon`), else one its name calls for by keyword, else the theme's own (`THEME_ITEM_ICON`: pouch, canister, datapad, jar, idol, parcel), so there is always one. `components/ItemIcon.tsx` draws it bare (lists) or framed in the theme's form like its crest (the found-item card, the backpack, the party rail); `ChoiceOutcomeIcon` shows it wherever a choice's outcome is shown.
+When the service is down (503), the stage falls back to the built-in crests: `lib/crest.ts` (`crestFor(character, variant)`) seeds from the name and answers, picks emblems by keywords in the answers, and `components/Crest.tsx` draws them in the theme's form; the server keeps only `state.crest` (the variant). Choosing a built-in crest clears `state.emblem`. Shown on the stage's party rail, the phones' reveal, dock and hero sheet, and the keepsake.
 
 ## Keepsake
 

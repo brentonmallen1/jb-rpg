@@ -1,4 +1,4 @@
-import type { AudioFile, Story, StorySummary, GameState, PlayerRef, StoryProblem, GameOptions } from '../types'
+import type { AudioFile, Emblem, Story, StorySummary, GameState, PlayerRef, StoryProblem, GameOptions } from '../types'
 
 const SESSION_TOKEN_KEY = 'jb_rpg_session_token'
 
@@ -142,6 +142,9 @@ export const roll = (attempt: number, sessionId?: string) => post<GameState>('/a
 export const setDecider = (playerId: string | null) => post<GameState>('/api/state/decider', { player_id: playerId })
 export const setNoFlashing = (noFlashing: boolean) => post<GameState>('/api/state/no-flashing', { no_flashing: noFlashing })
 export const chooseCrest = (variant: number) => post<GameState>('/api/state/crest', { variant })
+export const chooseEmblem = (input: string) => post<GameState>('/api/state/crest', { emblem: input })
+// Three emblems for the hero from the emblem service (503 when it's down: draw the built-in crests)
+export const emblemOptions = (round: number) => request<{ emblems: Emblem[] }>(`/api/state/emblems?round=${round}`)
 export const removePlayer = (playerId: string) => request<GameState>(`/api/state/players/${playerId}`, { method: 'DELETE' })
 
 // Player endpoints authenticate with the player's own token, not the storyteller's

@@ -109,7 +109,7 @@ function KeepsakeCard({ state, resolved, cardRef }: KeepsakeProps & { cardRef: R
     <div className={`keepsake ${lost ? `keepsake--defeat keepsake--defeat-${theme}` : ''}`} ref={cardRef}>
       {lost && <DefeatMark theme={theme} />}
       <div className="keepsake__story">{resolved.story_title}</div>
-      {hero && <Crest character={hero} variant={state.crest} theme={theme} size={112} className="keepsake__crest" />}
+      {hero && <Crest character={hero} variant={state.crest} emblem={state.emblem} theme={theme} size={112} className="keepsake__crest" />}
       <div className="keepsake__heading">{heading.title}</div>
       <div className="keepsake__name" aria-label={name}>
         {lost && theme === 'insanity'

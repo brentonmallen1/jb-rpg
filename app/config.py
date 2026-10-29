@@ -15,6 +15,8 @@ ADMIN_USER = os.getenv("ADMIN_USER", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 AUTH_DISABLED = os.getenv("AUTH_DISABLED", "").lower() in ("true", "1", "yes")
 BASE_URL = os.getenv("BASE_URL", "")
+# Emblem service for heroes' crests; empty = draw the built-in crests only
+EMBLAZON_URL = os.getenv("EMBLAZON_URL", "https://emblazon.mallen.us").rstrip("/")
 
 ALLOWED_ORIGINS = [
     o.strip()

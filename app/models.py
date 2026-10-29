@@ -130,6 +130,15 @@ class HistoryEntry(BaseModel):
     damage_amount: int = 1
 
 
+class Emblem(BaseModel):
+    """A crest from the emblem service: the SVG is kept, so screens never need the service again."""
+    theme: str
+    input: str
+    version: int
+    description: str = ""
+    svg: str
+
+
 class Character(BaseModel):
     name: str
     description: str
@@ -173,6 +182,7 @@ class GameState(BaseModel):
     votes: dict[str, int] = {}  # Private: player id -> visual index. Only the storyteller sees the tally
     no_flashing: bool = False  # The whole table asked for calm effects: every screen caps at "subtle"
     crest: int = 0  # Which of the hero's generated crests the table chose (clients draw it from the answers)
+    emblem: Optional[Emblem] = None  # Or the emblem the table chose from the emblem service (wins over crest)
     roll_offered: bool = False  # The storyteller sent the digital d20 to the phones (otherwise the table rolls real dice)
     final_rolls: list[int] = []  # The digital d20s rolled at the finale, in order (the app rolls; a player taps)
     # Private: never sent to clients (see public_state)

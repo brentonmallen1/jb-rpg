@@ -1,17 +1,29 @@
 import { useId, useMemo } from 'react'
 import { CHARGES, crestFor, type CrestSpec } from '../lib/crest'
-import type { Character, ThemeName } from '../types'
+import type { Character, Emblem, ThemeName } from '../types'
 
 interface CrestProps {
   character: Character
   variant: number
   theme: ThemeName
+  /** The emblem the table chose from the emblem service; drawn instead of the built-in crest */
+  emblem?: Emblem | null
   size?: number
   className?: string
 }
 
 /** The hero's crest, in the theme's own form: a shield, a mission patch, a tag, a sigil, a mark, a badge. */
-export function Crest({ character, variant, theme, size = 120, className }: CrestProps) {
+export function Crest({ emblem, ...props }: CrestProps) {
+  return emblem ? <EmblemImage emblem={emblem} size={props.size} className={props.className} /> : <BuiltInCrest {...props} />
+}
+
+/** An emblem's SVG as an image: its ids can't clash with the page's, and it can't run anything */
+export function EmblemImage({ emblem, size = 120, className }: { emblem: Emblem; size?: number; className?: string }) {
+  const src = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(emblem.svg)}`, [emblem.svg])
+  return <img className={`crest crest--emblem ${className ?? ''}`} src={src} width={size} height={size} alt={emblem.description || 'The hero\'s crest'} />
+}
+
+function BuiltInCrest({ character, variant, theme, size = 120, className }: Omit<CrestProps, 'emblem'>) {
   const spec = useMemo(() => crestFor(character, variant), [character, variant])
   const id = useId()
   return (

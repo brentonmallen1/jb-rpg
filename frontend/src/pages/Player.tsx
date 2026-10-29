@@ -247,7 +247,7 @@ function GameScreen({ state, resolved, corruption, level, me, sessionId, onShowH
   if (state.status === 'character_reveal' && state.character) {
     return (
       <div>
-        <Crest character={state.character} variant={state.crest} theme={resolved.theme} size={110} className="phone-crest" />
+        <Crest character={state.character} variant={state.crest} emblem={state.emblem} theme={resolved.theme} size={110} className="phone-crest" />
         <div className="phone-eyebrow">Your hero</div>
         <h1 className="phone-title">{state.character.name}</h1>
         <p className="phone-text">{state.character.description}</p>
@@ -414,7 +414,7 @@ function HeroDock({ state, resolved, choicesEl, onShowHero, onShowPack }: {
       <div className="dock__bar">
         {hero ? (
           <button type="button" className="dock__who" onClick={onShowHero} aria-label={`Your hero, ${hero.name}: read their story`}>
-            <Crest character={hero} variant={state.crest} theme={resolved.theme} size={30} className="dock__crest" />
+            <Crest character={hero} variant={state.crest} emblem={state.emblem} theme={resolved.theme} size={30} className="dock__crest" />
             <span className="dock__who-text">
               <span className="phone-label">Your hero</span>
               <span className="dock__name">{hero.name} <ChevronUpIcon size={14} /></span>
@@ -475,7 +475,7 @@ function HeroSheet({ open, state, resolved, onClose }: { open: boolean; state: G
   return (
     <BottomSheet open={open} label={`Your hero, ${hero.name}`} onClose={onClose}>
       <div className="sheet__hero">
-        <Crest character={hero} variant={state.crest} theme={resolved.theme} size={64} />
+        <Crest character={hero} variant={state.crest} emblem={state.emblem} theme={resolved.theme} size={64} />
         <div>
           <div className="phone-label">Your hero</div>
           <h2 className="sheet__title">{hero.name}</h2>

@@ -196,12 +196,16 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
             teller.fill("#madlib-input", answer)
             teller.keyboard.press("Enter")
             teller.wait_for_timeout(400)
-        teller.wait_for_selector(".crests__option")
-        check("The stage offers three crests drawn from the answers", teller.locator(".crests__option").count() == 3)
-        teller.locator(".crests__option").nth(1).click()
-        teller.wait_for_selector(".crests__option:nth-child(2).is-chosen", timeout=5000)
+        teller.wait_for_selector("button.crests__option", timeout=10000)
+        check("The stage offers three crests (emblems, or drawn from the answers)", teller.locator("button.crests__option").count() == 3)
+        teller.locator("button.crests__option").nth(1).click()
+        teller.wait_for_selector("button.crests__option:nth-child(2).is-chosen", timeout=10000)
         player.wait_for_selector(".phone-crest", timeout=5000)
-        check("The chosen crest is the one the stage marks", teller.locator(".crests__option").nth(1).get_attribute("aria-pressed") == "true")
+        check("The chosen crest is the one the stage marks", teller.locator("button.crests__option").nth(1).get_attribute("aria-pressed") == "true")
+        emblem = teller.locator("button.crests__option img.crest--emblem").count() == 3
+        print(f"  (crests from {'the emblem service' if emblem else 'the built-in fallback'})")
+        if emblem:
+            check("The phone shows the chosen emblem", player.locator("img.phone-crest").count() == 1)
         teller.click("text=Begin the story")
         teller.wait_for_selector("text=Reveal choices", timeout=5000)
 

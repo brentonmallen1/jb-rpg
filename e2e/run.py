@@ -235,6 +235,8 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         teller.keyboard.press("1")
         teller.wait_for_selector(".reading-panel")
         teller.keyboard.press("Enter")
+        player.wait_for_selector(".moment--suspense", timeout=5000)
+        check("A choice holds a beat on the phones before its outcome", True)
         teller.wait_for_function("t => document.querySelector('.stage-title')?.innerText !== t", arg=first_title)
         player.wait_for_function("window.scrollY === 0", timeout=5000)
         check("A new scene starts the phone at the top", True)
@@ -374,6 +376,7 @@ def turn_checks(browser) -> None:
     phones["Wren"].wait_for_selector(".turn-banner--mine", timeout=10000)
     check("The first player's phone says it's their call", "Wren" in phones["Bea"].locator(".turn-banner").inner_text())
 
+    teller.wait_for_selector(".turn-line", timeout=10000)  # the stage's scene is up and taking keys
     teller.keyboard.press("s")
     phones["Wren"].wait_for_selector("button.dealt__card", timeout=10000)
     phones["Wren"].locator("button.dealt__card").nth(1).click()

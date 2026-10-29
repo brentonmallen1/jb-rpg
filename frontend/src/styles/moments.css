@@ -78,6 +78,39 @@
   20%, 75% { opacity: 1; }
 }
 
+/* --- Suspense: after a choice, the room holds its breath ---------------- */
+/* Slow and dark, never a flash: safe at every effects level */
+
+.moment--suspense .moment__backdrop {
+  background: radial-gradient(ellipse at center, transparent 20%, color-mix(in srgb, var(--bg-primary) 85%, black) 75%);
+  animation: moment-close-in var(--moment-duration) cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.moment--suspense .moment__card {
+  animation: moment-hold var(--moment-duration) ease-in-out both;
+}
+
+.moment--suspense .moment__title {
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: clamp(1.6rem, 6vw, 3rem);
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, var(--text-primary) 80%, var(--accent));
+}
+
+@keyframes moment-close-in {
+  0% { opacity: 0; transform: scale(1.25); }
+  55% { opacity: calc(1 * var(--intensity)); transform: scale(1); }
+  85% { opacity: calc(1 * var(--intensity)); transform: scale(0.98); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes moment-hold {
+  0% { opacity: 0; filter: blur(4px); }
+  40%, 82% { opacity: 1; filter: blur(0); }
+  100% { opacity: 0; }
+}
+
 /* --- HP lost: sharp red impact, then a slow settle --------------------- */
 
 .moment--hp_lost .moment__backdrop {

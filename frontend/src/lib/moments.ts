@@ -6,6 +6,7 @@ import type { GameState, ResolvedContent, ThemeName } from '../types'
  */
 export type Moment =
   | { type: 'character_revealed'; name: string }
+  | { type: 'suspense' }
   | { type: 'hp_lost'; hp: number }
   | { type: 'item_gained'; item: string }
   | { type: 'level_up'; level: number }
@@ -37,6 +38,8 @@ export function diffMoments(
   }
 
   if (!undo) {
+    // A choice was made: hold the table for a beat before its consequence lands
+    if (next.history.length > prev.history.length) moments.push({ type: 'suspense' })
     if (next.hp < prev.hp) moments.push({ type: 'hp_lost', hp: next.hp })
     for (const item of next.items.slice(prev.items.length)) moments.push({ type: 'item_gained', item })
     if (next.level > prev.level) moments.push({ type: 'level_up', level: next.level })
@@ -70,6 +73,7 @@ export function diffMoments(
 /** How long each moment holds the stage (ms). Played one after another. */
 export const MOMENT_DURATION: Record<MomentType, number> = {
   character_revealed: 2400,
+  suspense: 1700,
   hp_lost: 1400,
   item_gained: 1800,
   level_up: 1800,
@@ -85,6 +89,7 @@ type MomentCopy = Partial<Record<MomentType, string>>
 
 const DEFAULT_COPY: Record<MomentType, string> = {
   character_revealed: 'A hero is born',
+  suspense: 'And then…',
   hp_lost: 'You’ve been hurt',
   item_gained: 'Item found',
   level_up: 'Level up',
@@ -98,12 +103,12 @@ const DEFAULT_COPY: Record<MomentType, string> = {
 
 // Each theme names its own beats
 const THEME_COPY: Record<ThemeName, MomentCopy> = {
-  fantasy: { hp_lost: 'A candle gutters out', finale: 'The final trial', item_gained: 'Added to your satchel' },
-  cyberpunk: { hp_lost: 'Integrity breach', finale: '// Final sequence', item_gained: 'Asset acquired', level_up: 'Clearance raised' },
-  deep_space: { hp_lost: 'Hull breach', finale: 'Final approach', item_gained: 'Salvage recovered', level_up: 'Rank up' },
-  horror: { hp_lost: 'Something takes hold', finale: 'The last door', defeat: 'Taken', victory: 'You survived' },
-  insanity: { hp_lost: 'Your grip slips', finale: 'It sees you now', defeat: 'Lost to the dark', victory: 'You remember who you are' },
-  modern: {},
+  fantasy: { suspense: 'The candles lean…', hp_lost: 'A candle gutters out', finale: 'The final trial', item_gained: 'Added to your satchel' },
+  cyberpunk: { suspense: '// Resolving…', hp_lost: 'Integrity breach', finale: '// Final sequence', item_gained: 'Asset acquired', level_up: 'Clearance raised' },
+  deep_space: { suspense: 'Brace…', hp_lost: 'Hull breach', finale: 'Final approach', item_gained: 'Salvage recovered', level_up: 'Rank up' },
+  horror: { suspense: 'Something stirs…', hp_lost: 'Something takes hold', finale: 'The last door', defeat: 'Taken', victory: 'You survived' },
+  insanity: { suspense: 'Wait. Listen.', hp_lost: 'Your grip slips', finale: 'It sees you now', defeat: 'Lost to the dark', victory: 'You remember who you are' },
+  modern: { suspense: 'And then…' },
 }
 
 export function momentCopy(theme: ThemeName, type: MomentType): string {

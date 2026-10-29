@@ -32,6 +32,13 @@ export default function Player() {
   const textSize = useTextSize()
   useWakeLock(!!state)
 
+  // On the last life, phones that can vibrate give a heartbeat at each new scene and when the choices are dealt
+  const lastLife = !!state && state.hp === 1 && state.status !== 'game_over'
+  const beat = lastLife && level === 'full' ? `${state.current_scene_id}:${state.choices_revealed}` : null
+  useEffect(() => {
+    if (beat) navigator.vibrate?.([70, 120, 110])
+  }, [beat])
+
   const [showRules, setShowRules] = useState(false)
   const [showHero, setShowHero] = useState(false)
   const [sessionCheck, setSessionCheck] = useState<'checking' | 'valid' | 'invalid'>('checking')
@@ -116,7 +123,6 @@ export default function Player() {
     })
   }
 
-  const lastLife = !!state && state.hp === 1 && state.status !== 'game_over'
   return (
     <>
       {resolved && (

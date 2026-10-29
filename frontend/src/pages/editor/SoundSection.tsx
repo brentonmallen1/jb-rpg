@@ -13,6 +13,7 @@ interface SoundSectionProps {
 
 const STINGS: { moment: string; label: string }[] = [
   { moment: 'scene_changed', label: 'A new scene begins' },
+  { moment: 'suspense', label: 'The pause after a choice' },
   { moment: 'hp_lost', label: 'A life is lost' },
   { moment: 'item_gained', label: 'An item is found' },
   { moment: 'level_up', label: 'Level up' },

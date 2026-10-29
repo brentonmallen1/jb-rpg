@@ -12,7 +12,7 @@ import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
 import { StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
-import { ArrowDownIcon, BookIcon, ChevronUpIcon, D20Icon } from '../components/Icons'
+import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, D20Icon, GemIcon } from '../components/Icons'
 import { PhoneSettings } from './player/PhoneSettings'
 import '../styles/phone.css'
 
@@ -41,6 +41,7 @@ export default function Player() {
 
   const [showRules, setShowRules] = useState(false)
   const [showHero, setShowHero] = useState(false)
+  const [showPack, setShowPack] = useState(false)
   const [sessionCheck, setSessionCheck] = useState<'checking' | 'valid' | 'invalid'>('checking')
 
   // Remember that we were in a game, so an empty state reads as "ended", not "waiting"
@@ -118,7 +119,7 @@ export default function Player() {
     const corruption = resolved.theme === 'insanity' && level === 'full'
       ? { madness, enabled: true }
       : { madness: 0, enabled: false }
-    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} level={level} me={player.identity} onShowHero={() => setShowHero(true)} />, {
+    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} level={level} me={player.identity} onShowHero={() => setShowHero(true)} onShowPack={() => setShowPack(true)} />, {
       center: ['madlib_in_progress', 'character_reveal'].includes(state.status) || (state.status === 'game_over' && !!state.outcome_revealed),
     })
   }
@@ -138,6 +139,7 @@ export default function Player() {
       <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={level} onDone={momentDone} viewerId={player.identity?.id} />
 
       {state?.character && <HeroSheet open={showHero} state={state} onClose={() => setShowHero(false)} />}
+      {state && resolved && <BackpackSheet open={showPack} state={state} resolved={resolved} onClose={() => setShowPack(false)} />}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </>
   )
@@ -200,9 +202,10 @@ interface GameScreenProps {
   level: EffectsLevel
   me: PlayerIdentity | null
   onShowHero: () => void
+  onShowPack: () => void
 }
 
-function GameScreen({ state, resolved, corruption, level, me, onShowHero }: GameScreenProps) {
+function GameScreen({ state, resolved, corruption, level, me, onShowHero, onShowPack }: GameScreenProps) {
   const myTurn = !!me && resolved.decider?.id === me.id
   const [pickError, setPickError] = useState<string | null>(null)
   async function pick(index: number) {
@@ -331,7 +334,7 @@ function GameScreen({ state, resolved, corruption, level, me, onShowHero }: Game
         </>
       )}
 
-      <HeroDock state={state} resolved={resolved} choicesEl={resolved.visible_choices.length > 0 ? choicesEl : null} onShowHero={onShowHero} />
+      <HeroDock state={state} resolved={resolved} choicesEl={resolved.visible_choices.length > 0 ? choicesEl : null} onShowHero={onShowHero} onShowPack={onShowPack} />
     </>
   )
 }
@@ -374,10 +377,17 @@ function SceneText({ text, sceneKey }: { text: ReactNode; sceneKey: string }) {
 }
 
 /**
- * The hero, docked at the bottom of the screen so it never moves: name, health, level, items.
- * Tapping it opens their story. When the choices are dealt but off-screen, a chip points to them.
+ * The hero, docked at the bottom of the screen so it never moves: name, health, level, and the
+ * backpack. The name opens their story; the backpack opens what they carry. When the choices are
+ * dealt but off-screen, a chip points to them.
  */
-function HeroDock({ state, resolved, choicesEl, onShowHero }: { state: GameState; resolved: ResolvedContent; choicesEl: HTMLElement | null; onShowHero: () => void }) {
+function HeroDock({ state, resolved, choicesEl, onShowHero, onShowPack }: {
+  state: GameState
+  resolved: ResolvedContent
+  choicesEl: HTMLElement | null
+  onShowHero: () => void
+  onShowPack: () => void
+}) {
   const hero = state.character
   const [choicesHidden, setChoicesHidden] = useState(false)
 
@@ -391,16 +401,7 @@ function HeroDock({ state, resolved, choicesEl, onShowHero }: { state: GameState
     return () => observer.disconnect()
   }, [choicesEl])
 
-  const stats = (
-    <>
-      <span className="dock__health" aria-label={`${HEALTH_LABEL[resolved.theme]}: ${state.hp} of ${resolved.max_hp}`}>
-        <HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={20} />
-      </span>
-      <span className="dock__stat"><span className="phone-label">Lvl</span><span className="dock__value">{state.level}</span></span>
-      <span className="dock__stat"><span className="phone-label">Items</span><span className="dock__value">{state.items.length}</span></span>
-    </>
-  )
-
+  const items = state.items.length
   return (
     <div className="dock">
       {choicesEl && choicesHidden && (
@@ -412,26 +413,35 @@ function HeroDock({ state, resolved, choicesEl, onShowHero }: { state: GameState
           The choices are in <ArrowDownIcon size={16} />
         </button>
       )}
-      {hero ? (
-        <button type="button" className="dock__bar" onClick={onShowHero} aria-label={`Your hero, ${hero.name}: read their story`}>
-          <span className="dock__who">
+      <div className="dock__bar">
+        {hero ? (
+          <button type="button" className="dock__who" onClick={onShowHero} aria-label={`Your hero, ${hero.name}: read their story`}>
             <span className="phone-label">Your hero</span>
             <span className="dock__name">{hero.name} <ChevronUpIcon size={14} /></span>
-          </span>
-          {stats}
-        </button>
-      ) : (
-        <div className="dock__bar">
+          </button>
+        ) : (
           <span className="dock__who"><span className="phone-label">{HEALTH_LABEL[resolved.theme]}</span></span>
-          {stats}
-        </div>
-      )}
+        )}
+        <span className="dock__health" aria-label={`${HEALTH_LABEL[resolved.theme]}: ${state.hp} of ${resolved.max_hp}`}>
+          <HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={20} />
+        </span>
+        <span className="dock__stat"><span className="phone-label">Lvl</span><span className="dock__value">{state.level}</span></span>
+        <button
+          type="button"
+          className="dock__pack"
+          onClick={onShowPack}
+          aria-label={`The backpack: ${items === 1 ? '1 item' : `${items} items`}`}
+        >
+          <BackpackIcon size={22} />
+          {items > 0 && <span className="dock__count" key={items}>{items}</span>}
+        </button>
+      </div>
     </div>
   )
 }
 
-/** The hero's story and what they carry, sliding up from the dock. */
-function HeroSheet({ open, state, onClose }: { open: boolean; state: GameState; onClose: () => void }) {
+/** A panel sliding up from the dock; closes on its button, a tap outside, or Escape/back. */
+function BottomSheet({ open, label, onClose, children }: { open: boolean; label: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
@@ -439,33 +449,60 @@ function HeroSheet({ open, state, onClose }: { open: boolean; state: GameState; 
     if (open && !dialog.open) dialog.showModal()
     if (!open && dialog.open) dialog.close()
   }, [open])
-  const hero = state.character
-  if (!hero) return null
 
   return (
     <dialog
       ref={ref}
       className="sheet"
-      aria-label={`Your hero, ${hero.name}`}
+      aria-label={label}
       onClose={onClose}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}  // a tap on the backdrop
     >
       <div className="sheet__body">
         <span className="sheet__grip" aria-hidden="true" />
-        <div className="phone-label">Your hero</div>
-        <h2 className="sheet__title">{hero.name}</h2>
-        {hero.description && <p className="phone-text">{hero.description}</p>}
-        <div className="sheet__section">
-          <div className="phone-label">Carrying</div>
-          {state.items.length > 0 ? (
-            <ul className="sheet__items">{state.items.map((item, i) => <li key={`${item}-${i}`}>{item}</li>)}</ul>
-          ) : (
-            <p className="sheet__empty">Nothing yet.</p>
-          )}
-        </div>
+        {children}
         <button type="button" className="sheet__close" onClick={onClose}>Close</button>
       </div>
     </dialog>
+  )
+}
+
+/** The hero's story. */
+function HeroSheet({ open, state, onClose }: { open: boolean; state: GameState; onClose: () => void }) {
+  const hero = state.character
+  if (!hero) return null
+  return (
+    <BottomSheet open={open} label={`Your hero, ${hero.name}`} onClose={onClose}>
+      <div className="phone-label">Your hero</div>
+      <h2 className="sheet__title">{hero.name}</h2>
+      {hero.description && <p className="phone-text">{hero.description}</p>}
+    </BottomSheet>
+  )
+}
+
+/** The backpack: every item found, as a card, with where it was found. Each one adds to the final roll. */
+function BackpackSheet({ open, state, resolved, onClose }: { open: boolean; state: GameState; resolved: ResolvedContent; onClose: () => void }) {
+  const found = resolved.items_found ?? state.items.map(name => ({ name, scene_title: '' }))
+  return (
+    <BottomSheet open={open} label="The backpack" onClose={onClose}>
+      <div className="pack__head">
+        <h2 className="sheet__title">The backpack</h2>
+        {found.length > 0 && <span className="pack__bonus">+{found.length} to the final roll</span>}
+      </div>
+      {found.length === 0 ? (
+        <p className="sheet__empty">Nothing yet. Whatever the hero finds goes in here, and each one helps the final roll.</p>
+      ) : (
+        <ul className="pack">
+          {found.map((item, i) => (
+            <li key={`${item.name}-${i}`} className="pack__item">
+              <GemIcon size={30} />
+              <span className="pack__name">{item.name}</span>
+              {item.scene_title && <span className="pack__where">{item.scene_title}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </BottomSheet>
   )
 }
 

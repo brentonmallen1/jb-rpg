@@ -4,6 +4,7 @@ import { MOMENT_DURATION, momentCopy } from '../lib/moments'
 import type { QueuedMoment } from '../hooks/useMoments'
 import type { EffectsLevel } from '../hooks/useEffectsLevel'
 import type { ThemeName } from '../types'
+import { GemIcon } from './Icons'
 import '../styles/moments.css'
 
 interface MomentLayerProps {
@@ -62,9 +63,11 @@ export function MomentLayer({ moment, theme, level, onDone, viewerId }: MomentLa
       aria-hidden={!title}
     >
       {/* Dims the page under a title so it reads cleanly over any screen */}
-      {title && moment.type !== 'item_gained' && <div className="moment__scrim" />}
+      {title && <div className="moment__scrim" />}
       <div className="moment__backdrop" />
-      {title && (
+      {moment.type === 'item_gained' ? (
+        <ItemCard label={title} item={moment.item} where={moment.where} />
+      ) : title && (
         <div className="moment__card" role="status" aria-live="polite">
           <div className="moment__title">{title}</div>
           {detail && <div className="moment__detail">{detail}</div>}
@@ -72,6 +75,31 @@ export function MomentLayer({ moment, theme, level, onDone, viewerId }: MomentLa
       )}
     </div>,
     document.body,
+  )
+}
+
+/**
+ * An item found: a card lands face down, turns itself over (on every screen at once),
+ * then tucks away toward the backpack.
+ */
+function ItemCard({ label, item, where }: { label: string; item: string; where?: string }) {
+  return (
+    <div className="item-card" role="status" aria-live="polite">
+      <div className="item-card__inner">
+        <div className="item-card__back" aria-hidden="true">
+          <svg width="64" height="64" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M50 20l6 22 22 8-22 8-6 22-6-22-22-8 22-8z" fill="currentColor" />
+          </svg>
+        </div>
+        <div className="item-card__face">
+          <span className="item-card__icon" aria-hidden="true"><GemIcon size={44} /></span>
+          <span className="item-card__label">{label}</span>
+          <span className="item-card__name">{item}</span>
+          {where && <span className="item-card__where">Found in {where}</span>}
+        </div>
+      </div>
+    </div>
   )
 }
 

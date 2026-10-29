@@ -38,3 +38,12 @@ def test_the_live_stream_holds_the_text_for_phones_only(client):
     private = asyncio.run(sse.build_payload(for_storyteller=True))
     assert public["resolved"]["scene_text"] is None
     assert private["resolved"]["scene_text"] == "Scene 1."
+
+
+def test_the_backpack_remembers_where_each_item_was_found(client):
+    sid = begin(client, "storyteller")
+    client.post("/api/state/reveal-choices?show_to_players=true")
+    state = client.get("/api/state").json()["state"]
+    item_at = next(v for v, i in enumerate(state["shuffled_indices"]) if i == 1)  # SCENES: index 1 finds an item
+    client.post("/api/state/choice", json={"choice_index": item_at})
+    assert phone(client, sid)["items_found"] == [{"name": "i1-item", "scene_title": "S1"}]

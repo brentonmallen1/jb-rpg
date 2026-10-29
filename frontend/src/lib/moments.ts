@@ -8,7 +8,7 @@ export type Moment =
   | { type: 'character_revealed'; name: string }
   | { type: 'suspense' }
   | { type: 'hp_lost'; hp: number }
-  | { type: 'item_gained'; item: string }
+  | { type: 'item_gained'; item: string; where?: string }
   | { type: 'level_up'; level: number }
   | { type: 'scene_changed' }
   | { type: 'choices_revealed' }
@@ -41,7 +41,10 @@ export function diffMoments(
     // A choice was made: hold the table for a beat before its consequence lands
     if (next.history.length > prev.history.length) moments.push({ type: 'suspense' })
     if (next.hp < prev.hp) moments.push({ type: 'hp_lost', hp: next.hp })
-    for (const item of next.items.slice(prev.items.length)) moments.push({ type: 'item_gained', item })
+    next.items.slice(prev.items.length).forEach((item, i) => {
+      const where = nextResolved?.items_found?.[prev.items.length + i]?.scene_title
+      moments.push({ type: 'item_gained', item, where })
+    })
     if (next.level > prev.level) moments.push({ type: 'level_up', level: next.level })
   }
 
@@ -75,7 +78,7 @@ export const MOMENT_DURATION: Record<MomentType, number> = {
   character_revealed: 2400,
   suspense: 1700,
   hp_lost: 1400,
-  item_gained: 1800,
+  item_gained: 3400,
   level_up: 1800,
   scene_changed: 1100,
   choices_revealed: 600,

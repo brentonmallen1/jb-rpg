@@ -206,8 +206,11 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         check("Player sees three dealt choices", player.locator(".dealt__card").count() == 3)
         check("The hero is docked at the bottom with their health", player.locator(".dock .phone-label:text-is('Your hero')").count() == 1
               and player.locator(".dock .dock__health").count() == 1)
-        player.click(".dock__bar")
+        player.click(".dock__who")
         check("Tapping the hero shows their story", player.locator("dialog.sheet[open] .phone-text").count() == 1)
+        player.keyboard.press("Escape")
+        player.click(".dock__pack")
+        check("The backpack opens from the dock", player.locator("dialog.sheet[open] h2:text-is('The backpack')").count() == 1)
         player.keyboard.press("Escape")
         toggle = player.locator(".read-along__toggle")
         if toggle.count():

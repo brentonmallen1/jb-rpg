@@ -185,6 +185,12 @@ export interface ResolvedContent {
   madlib_progress?: { step: number; total: number }
   victory_text?: string
   defeat_text?: string
+  items_found?: FoundItem[]  // the backpack, in the order found
+}
+
+export interface FoundItem {
+  name: string
+  scene_title: string  // where it was found
 }
 
 // SSE payload from backend

@@ -124,6 +124,12 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
         # Only during a scene: the turn begins when the scene does
         "decider": _player_ref(current_decider(state)) if state.status == SessionStatus.RUNNING else None,
         "vote": vote_status(state, now),
+        # The backpack: each item with the scene it was found in (scenes the table has already played)
+        "items_found": [
+            {"name": entry.item_name, "scene_title": _scene_title(story, entry.scene_id)}
+            for entry in state.history
+            if entry.item_name
+        ],
     }
 
     if state.status == SessionStatus.MADLIB_IN_PROGRESS:
@@ -167,6 +173,13 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
     if scene.defeat_text:
         resolved["defeat_text"] = inject_variables(scene.defeat_text, fields, state, scene.item_texts, "defeat")
     return resolved
+
+
+def _scene_title(story: Story, scene_id: str) -> str:
+    scene = get_scene(story, scene_id)
+    if scene is not None:
+        return scene.title
+    return story.opening_scene.title if story.opening_scene else ""
 
 
 def for_players(resolved: dict | None, state: GameState | None) -> dict | None:

@@ -8,12 +8,13 @@ export type Moment =
   | { type: 'character_revealed'; name: string }
   | { type: 'suspense' }
   | { type: 'hp_lost'; hp: number }
-  | { type: 'item_gained'; item: string; where?: string }
+  | { type: 'item_gained'; item: string; where?: string; icon?: string | null }
   | { type: 'level_up'; level: number }
   | { type: 'scene_changed' }
   | { type: 'choices_revealed' }
   | { type: 'decider'; playerId: string; name: string }
   | { type: 'finale' }
+  | { type: 'dice_rolled'; roll: number; bonus: number; target: number; attemptsLeft: number }
   | { type: 'victory' }
   | { type: 'defeat' }
 
@@ -42,8 +43,8 @@ export function diffMoments(
     if (next.history.length > prev.history.length) moments.push({ type: 'suspense' })
     if (next.hp < prev.hp) moments.push({ type: 'hp_lost', hp: next.hp })
     next.items.slice(prev.items.length).forEach((item, i) => {
-      const where = nextResolved?.items_found?.[prev.items.length + i]?.scene_title
-      moments.push({ type: 'item_gained', item, where })
+      const found = nextResolved?.items_found?.[prev.items.length + i]
+      moments.push({ type: 'item_gained', item, where: found?.scene_title, icon: found?.icon })
     })
     if (next.level > prev.level) moments.push({ type: 'level_up', level: next.level })
   }
@@ -65,6 +66,13 @@ export function diffMoments(
 
   if (!prev.choices_revealed && next.choices_revealed) moments.push({ type: 'choices_revealed' })
 
+  // The digital d20 lands on every screen at once
+  const rolls = next.final_rolls ?? []
+  rolls.slice((prev.final_rolls ?? []).length).forEach((roll, i) => {
+    const made = (prev.final_rolls ?? []).length + i + 1
+    moments.push({ type: 'dice_rolled', roll, bonus: next.items.length, target: nextResolved?.final_roll?.target ?? 20, attemptsLeft: next.level - made })
+  })
+
   const wasRevealed = prev.outcome_revealed && prev.outcome
   if (!wasRevealed && next.outcome_revealed && next.outcome) {
     moments.push({ type: next.outcome })
@@ -84,6 +92,7 @@ export const MOMENT_DURATION: Record<MomentType, number> = {
   choices_revealed: 600,
   decider: 1900,
   finale: 3200,
+  dice_rolled: 3600,
   victory: 4000,
   defeat: 4000,
 }
@@ -100,6 +109,7 @@ const DEFAULT_COPY: Record<MomentType, string> = {
   choices_revealed: '',
   decider: 'Your call',
   finale: 'The final roll',
+  dice_rolled: 'The die is cast',
   victory: 'Victory',
   defeat: 'Defeat',
 }
@@ -107,10 +117,10 @@ const DEFAULT_COPY: Record<MomentType, string> = {
 // Each theme names its own beats
 const THEME_COPY: Record<ThemeName, MomentCopy> = {
   fantasy: { suspense: 'The candles lean…', hp_lost: 'A candle gutters out', finale: 'The final trial', item_gained: 'Added to your satchel' },
-  cyberpunk: { suspense: '// Resolving…', hp_lost: 'Integrity breach', finale: '// Final sequence', item_gained: 'Asset acquired', level_up: 'Clearance raised' },
-  deep_space: { suspense: 'Brace…', hp_lost: 'Hull breach', finale: 'Final approach', item_gained: 'Salvage recovered', level_up: 'Rank up' },
-  horror: { suspense: 'Something stirs…', hp_lost: 'Something takes hold', finale: 'The last door', defeat: 'Taken', victory: 'You survived' },
-  insanity: { suspense: 'Wait. Listen.', hp_lost: 'Your grip slips', finale: 'It sees you now', defeat: 'Lost to the dark', victory: 'You remember who you are' },
+  cyberpunk: { dice_rolled: '// Roll resolved', suspense: '// Resolving…', hp_lost: 'Integrity breach', finale: '// Final sequence', item_gained: 'Asset acquired', level_up: 'Clearance raised' },
+  deep_space: { dice_rolled: 'Probability resolved', suspense: 'Brace…', hp_lost: 'Hull breach', finale: 'Final approach', item_gained: 'Salvage recovered', level_up: 'Rank up' },
+  horror: { dice_rolled: 'Fate answers', suspense: 'Something stirs…', hp_lost: 'Something takes hold', finale: 'The last door', defeat: 'Taken', victory: 'You survived' },
+  insanity: { dice_rolled: 'The bones fall', suspense: 'Wait. Listen.', hp_lost: 'Your grip slips', finale: 'It sees you now', defeat: 'Lost to the dark', victory: 'You remember who you are' },
   modern: { suspense: 'And then…' },
 }
 

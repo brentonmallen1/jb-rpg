@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import * as api from '../../hooks/api'
-import { KeepsakeDialog } from '../../components'
+import { ItemIcon, KeepsakeDialog } from '../../components'
 import { useHotkeys } from '../../hooks/useHotkeys'
 import type { RunAction } from '../../hooks/useAsyncAction'
 import type { GameState, ResolvedContent, Story } from '../../types'
@@ -22,8 +22,8 @@ export function GameOver({ state, resolved, story, run, onReturnToLibrary }: Gam
   const [showKeepsake, setShowKeepsake] = useState(false)
   useHotkeys({ enter: state.outcome && state.outcome_revealed && !showKeepsake ? onReturnToLibrary : undefined })
 
-  if (!state.outcome) {
-    // Last linear scene played: waiting on the physical d20 roll
+  if (!state.outcome || (!state.outcome_revealed && state.final_rolls?.length)) {
+    // The finale: waiting on the d20 (or the digital dice have decided and the storyteller tells it)
     return (
       <article>
         <div className="eyebrow ink">Everything comes down to this</div>
@@ -54,7 +54,9 @@ export function GameOver({ state, resolved, story, run, onReturnToLibrary }: Gam
               const Icon = OUTCOME_ICON[entry.outcome]
               return (
                 <li key={`${entry.scene_id}-${i}`}>
-                  <Icon size={16} className={`outcome--${entry.outcome}`} />
+                  {entry.outcome === 'item' && entry.item_name
+                    ? <ItemIcon name={entry.item_name} icon={entry.item_icon} theme={story.theme} size={16} className="outcome--item" />
+                    : <Icon size={16} className={`outcome--${entry.outcome}`} />}
                   <span>{scene ? sceneName(scene) : entry.scene_id}</span>
                   <span className={`outcome outcome--${entry.outcome}`}>
                     {OUTCOME_WORDS[entry.outcome]}{entry.outcome === 'item' && entry.item_name ? ` ${entry.item_name}` : ''}

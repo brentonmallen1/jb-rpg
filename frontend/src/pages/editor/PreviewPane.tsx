@@ -3,7 +3,8 @@ import type { GameState, Scene, Story } from '../../types'
 import { Atmosphere, HealthMeter } from '../../components'
 import { D20Icon } from '../../components/Icons'
 import { fillSample } from '../../lib/storyEdit'
-import { outcomeLabel, OUTCOME_ICON } from '../../lib/outcomes'
+import { outcomeLabel } from '../../lib/outcomes'
+import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
 import { HEALTH_LABEL, moodFor, moodSeed } from '../../lib/themes'
 import { PartyRail } from '../run/PartyRail'
 import type { EditorSelection } from './EditorNav'
@@ -97,7 +98,7 @@ function fakeState(story: Story, characterName: string, description: string): Ga
     session_id: '', story_id: story.id, status: 'running', madlib_step: 0, madlib_answers: {},
     current_scene_id: '', hp: story.settings.starting_hp, level: 1, items: [], history: [],
     character: { name: characterName, description, fields: {} },
-    outcome_revealed: false, choices_revealed: false, shuffled_indices: [], turn_mode: 'storyteller', players: [], no_flashing: false, crest: 0,
+    outcome_revealed: false, choices_revealed: false, shuffled_indices: [], turn_mode: 'storyteller', players: [], no_flashing: false, crest: 0, roll_offered: false, final_rolls: [],
   }
 }
 
@@ -152,12 +153,11 @@ function StagePreview({ story, selection, scene, fill, characterName, withItems 
         ) : (
           <div className="choice-list">
             {scene.choices.map((c, i) => {
-              const Icon = OUTCOME_ICON[c.kind]
               return (
                 <div key={i} className="choice-card" style={{ '--i': i } as React.CSSProperties}>
                   <span className="keycap">{i + 1}</span>
                   <span className="choice-card__text">{fill(c.display_text) || 'Do you…?'}</span>
-                  <span className={`outcome outcome--${c.kind}`}><Icon size={16} />{outcomeLabel(c)}</span>
+                  <span className={`outcome outcome--${c.kind}`}><ChoiceOutcomeIcon choice={c} theme={story.theme} />{outcomeLabel(c)}</span>
                 </div>
               )
             })}

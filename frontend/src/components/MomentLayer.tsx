@@ -4,7 +4,7 @@ import { MOMENT_DURATION, momentCopy } from '../lib/moments'
 import type { QueuedMoment } from '../hooks/useMoments'
 import type { EffectsLevel } from '../hooks/useEffectsLevel'
 import type { ThemeName } from '../types'
-import { GemIcon } from './Icons'
+import { ItemIcon } from './ItemIcon'
 import '../styles/moments.css'
 
 interface MomentLayerProps {
@@ -65,8 +65,10 @@ export function MomentLayer({ moment, theme, level, onDone, viewerId }: MomentLa
       {/* Dims the page under a title so it reads cleanly over any screen */}
       {title && <div className="moment__scrim" />}
       <div className="moment__backdrop" />
-      {moment.type === 'item_gained' ? (
-        <ItemCard label={title} item={moment.item} where={moment.where} />
+      {moment.type === 'dice_rolled' ? (
+        <DiceCard label={title} roll={moment.roll} bonus={moment.bonus} target={moment.target} attemptsLeft={moment.attemptsLeft} />
+      ) : moment.type === 'item_gained' ? (
+        <ItemCard label={title} item={moment.item} where={moment.where} icon={moment.icon} theme={theme} />
       ) : title && (
         <div className="moment__card" role="status" aria-live="polite">
           <div className="moment__title">{title}</div>
@@ -82,7 +84,7 @@ export function MomentLayer({ moment, theme, level, onDone, viewerId }: MomentLa
  * An item found: a card lands face down, turns itself over (on every screen at once),
  * then tucks away toward the backpack.
  */
-function ItemCard({ label, item, where }: { label: string; item: string; where?: string }) {
+function ItemCard({ label, item, where, icon, theme }: { label: string; item: string; where?: string; icon?: string | null; theme: ThemeName }) {
   return (
     <div className="item-card" role="status" aria-live="polite">
       <div className="item-card__inner">
@@ -93,12 +95,34 @@ function ItemCard({ label, item, where }: { label: string; item: string; where?:
           </svg>
         </div>
         <div className="item-card__face">
-          <span className="item-card__icon" aria-hidden="true"><GemIcon size={44} /></span>
+          <span className="item-card__icon" aria-hidden="true"><ItemIcon name={item} icon={icon} theme={theme} size={72} framed /></span>
           <span className="item-card__label">{label}</span>
           <span className="item-card__name">{item}</span>
           {where && <span className="item-card__where">Found in {where}</span>}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** The digital d20: it tumbles, lands on its number, and the bonus is added on every screen at once. */
+function DiceCard({ label, roll, bonus, target, attemptsLeft }: { label: string; roll: number; bonus: number; target: number; attemptsLeft: number }) {
+  const total = roll + bonus
+  const enough = total >= target
+  const verdict = enough ? 'Enough' : attemptsLeft > 0 ? `Short · ${attemptsLeft === 1 ? 'one more try' : `${attemptsLeft} more tries`}` : 'Short'
+  return (
+    <div className={`dice-card ${enough ? 'dice-card--enough' : ''}`} role="status" aria-live="polite">
+      <span className="dice-card__label">{label}</span>
+      <div className="dice-card__die" aria-hidden="true">
+        <svg viewBox="0 0 100 100" width="100%" height="100%">
+          <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="color-mix(in srgb, var(--accent) 14%, var(--bg-secondary))" stroke="var(--accent)" strokeWidth="2" />
+          <polygon points="50,24 72,62 28,62" fill="none" stroke="var(--accent)" strokeWidth="1.2" opacity=".7" />
+          <path d="M50 4L50 24M90 27L72 62M90 73L72 62M50 96L72 62M50 96L28 62M10 73L28 62M10 27L28 62M10 27L50 24M90 27L50 24" stroke="var(--accent)" strokeWidth="1" opacity=".45" />
+        </svg>
+        <span className="dice-card__number">{roll}</span>
+      </div>
+      <span className="dice-card__sum">{bonus > 0 ? `${roll} + ${bonus} = ${total}` : `${total}`}</span>
+      <span className="dice-card__verdict">{verdict}</span>
     </div>
   )
 }

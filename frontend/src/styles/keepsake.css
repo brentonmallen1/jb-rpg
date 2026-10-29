@@ -75,6 +75,29 @@
 
 .keepsake__rule:last-child { background: linear-gradient(270deg, transparent, currentColor); }
 
+.keepsake__roll {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.keepsake__roll-label {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.keepsake__roll-line {
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+
 .keepsake__stats {
   margin-top: 24px;
   width: 100%;
@@ -257,3 +280,92 @@
 
 .keepsake__log li > svg { color: var(--accent); }
 .keepsake__log li > svg.outcome--damage { color: color-mix(in srgb, var(--danger) 85%, var(--text-primary)); }
+
+/* --- A lost game: each theme leaves its own mark ------------------------------------ */
+
+.keepsake { position: relative; }
+
+/* The card's own lines sit above the mark */
+.keepsake > :not(.keepsake__mark) { position: relative; }
+
+.keepsake__mark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.keepsake__epitaph {
+  margin-top: 8px;
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--text-secondary);
+  text-wrap: balance;
+}
+
+/* Fantasy: the crest goes grey under a mourning ribbon */
+.keepsake--defeat-fantasy .keepsake__crest { filter: grayscale(0.85) brightness(0.8); }
+
+/* Deep Space: a stamp across the patch, and the card turns to static */
+.keepsake--defeat-deep_space {
+  background:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 3px),
+    radial-gradient(90% 55% at 50% 20%, color-mix(in srgb, var(--danger) 12%, var(--bg-secondary)) 0%, var(--bg-primary) 72%);
+}
+
+.keepsake__stamp {
+  inset: 168px auto auto 58%;
+  width: auto;
+  height: auto;
+  z-index: 2;
+  padding: 6px 16px;
+  transform: translateX(-50%) rotate(-9deg);
+  border: 3px solid var(--danger);
+  border-radius: 6px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  text-transform: uppercase;
+  color: var(--danger);
+  opacity: 0.9;
+  mix-blend-mode: screen;
+}
+
+/* Cyberpunk: the name glitches apart over the flat line */
+.keepsake--defeat-cyberpunk .keepsake__name {
+  text-shadow: -3px 0 color-mix(in srgb, var(--danger) 80%, transparent), 3px 0 color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.keepsake--defeat-cyberpunk .keepsake__crest { opacity: 0.55; }
+
+/* Horror: the crest is left in the dark */
+.keepsake--defeat-horror .keepsake__crest { filter: brightness(0.55) saturate(0.6); }
+
+/* Insanity: the walls are written on, the crest is askew, the name comes apart */
+.keepsake__scrawl {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  overflow: hidden;
+  transform: rotate(-12deg) scale(1.4);
+  font-family: var(--font-display);
+  font-size: 22px;
+  white-space: nowrap;
+  color: var(--accent);
+  opacity: 0.08;
+}
+
+.keepsake--defeat-insanity .keepsake__crest { transform: rotate(14deg); filter: blur(0.6px); }
+
+.keepsake__askew {
+  display: inline-block;
+  white-space: pre;
+  text-shadow: 3px 2px color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+/* Modern: the card fades like an old photograph */
+.keepsake--defeat-modern { filter: grayscale(0.9) sepia(0.15); }

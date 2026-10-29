@@ -120,22 +120,32 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
         "visible_choices": [],
         "max_hp": story.settings.starting_hp,
         # Players never see progress; this is how they learn the end has arrived
-        "finale": state.status == SessionStatus.GAME_OVER and state.outcome is None,
+        # (until the outcome is revealed: a roll can decide it before the storyteller tells it)
+        "finale": state.status == SessionStatus.GAME_OVER and not state.outcome_revealed,
         # Only during a scene: the turn begins when the scene does
         "decider": _player_ref(current_decider(state)) if state.status == SessionStatus.RUNNING else None,
         "vote": vote_status(state, now),
         # The backpack: each item with the scene it was found in (scenes the table has already played)
         "items_found": [
-            {"name": entry.item_name, "scene_title": _scene_title(story, entry.scene_id)}
+            {"name": entry.item_name, "icon": entry.item_icon, "scene_title": _scene_title(story, entry.scene_id)}
             for entry in state.history
             if entry.item_name
         ],
     }
 
+    if state.final_rolls or awaiting_roll(state):
+        base["final_roll"] = {
+            "rolls": state.final_rolls,
+            "bonus": len(state.items),
+            "attempts": state.level,
+            "target": ROLL_TARGET,
+            "offered": state.roll_offered,
+        }
+
     if state.status == SessionStatus.GAME_OVER:
         # The keepsake: the path the table took, once the story is over
         base["journey"] = [
-            {"scene_title": _scene_title(story, entry.scene_id), "outcome": entry.outcome.value, "item_name": entry.item_name}
+            {"scene_title": _scene_title(story, entry.scene_id), "outcome": entry.outcome.value, "item_name": entry.item_name, "item_icon": entry.item_icon}
             for entry in state.history
         ]
 
@@ -323,6 +333,8 @@ def _restore_from_history(state: GameState) -> None:
 def _enter_scene(state: GameState, scene_id: str) -> None:
     """Every scene change starts with that scene's choices hidden and unshuffled, and no decider picked."""
     state.current_scene_id = scene_id
+    state.roll_offered = False
+    state.final_rolls = []
     state.choices_revealed = False
     state.shuffled_indices = []
     state.decider_id = None
@@ -568,6 +580,7 @@ def make_choice(state: GameState, visual_index: int) -> None:
         outcome=choice.kind,
         choice_index=original_index,
         item_name=choice.item_name if choice.kind == ChoiceKind.ITEM else None,
+        item_icon=choice.item_icon if choice.kind == ChoiceKind.ITEM else None,
         damage_amount=choice.amount,
     ))
 
@@ -632,6 +645,80 @@ def select_scene(state: GameState, scene_id: str, revisit: bool) -> None:
 
     _enter_scene(state, scene_id)
     state.status = SessionStatus.RUNNING
+
+
+ROLL_TARGET = 20
+
+
+def awaiting_roll(state: GameState) -> bool:
+    """The finale has come and the dice haven't decided it yet."""
+    if state.outcome is not None:
+        return False
+    if state.status == SessionStatus.GAME_OVER:
+        return True
+    if state.status == SessionStatus.RUNNING and state.story:
+        scene = get_scene(state.story, state.current_scene_id)
+        return bool(scene and scene.is_finale)
+    return False
+
+
+def roll(state: GameState, attempt: int, rng=lambda: secrets.randbelow(20) + 1) -> int:
+    """Roll the d20 for one attempt (one per level, each plus a bonus per item). 20 or more wins;
+    running out of attempts loses. The outcome waits for the storyteller to reveal it.
+    `attempt` is the attempt the roller saw, so two phones tapping at once can't spend two."""
+    if not awaiting_roll(state):
+        raise GameError(409, "There's nothing to roll for")
+    if not state.roll_offered:
+        raise GameError(409, "The storyteller hasn't offered the digital roll")
+    if attempt != len(state.final_rolls):
+        raise GameError(409, "That roll has already been made")
+    value = rng()
+    _apply_roll(state, value)
+    return value
+
+
+def record_roll(state: GameState, attempt: int, value: int) -> None:
+    """Real dice: the storyteller enters what the table rolled, and it counts like a digital roll."""
+    if not awaiting_roll(state):
+        raise GameError(409, "There's nothing to roll for")
+    if state.roll_offered:
+        raise GameError(409, "The phones are rolling the digital d20")
+    if not 1 <= value <= 20:
+        raise GameError(422, "A d20 rolls 1 to 20")
+    if attempt != len(state.final_rolls):
+        raise GameError(409, "That roll has already been entered")
+    _apply_roll(state, value)
+
+
+def undo_roll(state: GameState) -> None:
+    """Real dice: take back the last roll entered (a typo), until the outcome is revealed."""
+    if state.roll_offered or not state.final_rolls or state.outcome_revealed:
+        raise GameError(409, "There's no roll to take back")
+    state.final_rolls.pop()
+    state.outcome = None
+    scene = get_scene(state.story, state.current_scene_id) if state.story else None
+    if scene and scene.is_finale:
+        state.status = SessionStatus.RUNNING
+
+
+def _apply_roll(state: GameState, value: int) -> None:
+    state.final_rolls.append(value)
+    if value + len(state.items) >= ROLL_TARGET:
+        state.outcome = "victory"
+    elif len(state.final_rolls) >= state.level:
+        state.outcome = "defeat"
+    if state.outcome:
+        state.status = SessionStatus.GAME_OVER
+        state.outcome_revealed = False
+
+
+def offer_roll(state: GameState, offered: bool) -> None:
+    """The storyteller sends the digital d20 to the phones, or takes it back for real dice before anyone rolls."""
+    if not awaiting_roll(state):
+        raise GameError(409, "There's nothing to roll for")
+    if not offered and state.final_rolls:
+        raise GameError(409, "The dice are already rolling")
+    state.roll_offered = offered
 
 
 def finish(state: GameState, outcome: Literal["victory", "defeat"]) -> None:

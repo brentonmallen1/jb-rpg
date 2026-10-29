@@ -43,6 +43,7 @@ export interface Choice {
   result_text: string   // What storyteller reads after choice is made
   amount: number
   item_name?: string
+  item_icon?: string | null  // unset: picked from the item's name (lib/items.ts)
 }
 
 export interface Scene {
@@ -104,6 +105,7 @@ export interface HistoryEntry {
   outcome: ChoiceKind
   choice_index: number
   item_name?: string
+  item_icon?: string | null
   damage_amount: number
 }
 
@@ -164,6 +166,8 @@ export interface GameState {
   proposal?: number | null  // visual index the decider is leaning towards
   no_flashing: boolean  // the table asked for calm effects: every screen caps at "subtle"
   crest: number  // which of the hero's generated crests the table chose (drawn from the answers)
+  roll_offered: boolean  // the storyteller sent the digital d20 to the phones (otherwise: real dice)
+  final_rolls: number[]  // the digital d20s rolled at the finale, in order
 }
 
 // Resolved content sent from backend
@@ -174,7 +178,8 @@ export interface ResolvedContent {
   story_title: string
   theme: ThemeName
   visible_choices: string[]  // Choice display text in shuffled order, once revealed to players
-  finale: boolean  // The final d20 roll is underway
+  finale: boolean  // The final d20 roll is underway (until the outcome is revealed)
+  final_roll?: FinalRoll  // at the finale, and after it
   max_hp: number
   decider: PlayerRef | null  // who makes this scene's choice (null = the storyteller)
   vote: VoteStatus | null  // voting games, once the choices are dealt
@@ -194,10 +199,20 @@ export interface JourneyStep {
   scene_title: string
   outcome: ChoiceKind
   item_name: string | null
+  item_icon: string | null
+}
+
+export interface FinalRoll {
+  rolls: number[]
+  bonus: number  // one per item
+  attempts: number  // one per level
+  target: number  // roll + bonus must reach it
+  offered: boolean  // the phones may roll
 }
 
 export interface FoundItem {
   name: string
+  icon: string | null
   scene_title: string  // where it was found
 }
 

@@ -6,6 +6,7 @@ import { OUTCOME_ICON } from '../lib/outcomes'
 import type { GameState, JourneyStep, ResolvedContent, ThemeName } from '../types'
 import { Crest } from './Crest'
 import { HealthMeter } from './HealthMeter'
+import { ItemIcon } from './ItemIcon'
 import { CloseIcon } from './Icons'
 import '../styles/keepsake.css'
 
@@ -19,6 +20,50 @@ const HEADING: Record<ThemeName, { title: string; log: string }> = {
   modern: { title: 'The story of', log: 'Along the way' },
 }
 
+// A lost game: each theme mourns its own way (a heading, a last line, and a mark on the card)
+const DEFEAT: Record<ThemeName, { title: string; epitaph: string }> = {
+  fantasy: { title: 'Here ends the tale of', epitaph: 'The last candle has gone out.' },
+  deep_space: { title: 'Last log of', epitaph: 'Signal lost. No further transmissions.' },
+  cyberpunk: { title: 'Last run of', epitaph: 'Connection terminated. No backup found.' },
+  horror: { title: 'What became of', epitaph: 'They were never found.' },
+  insanity: { title: 'What remains of', epitaph: 'They went mad, and they are still smiling.' },
+  modern: { title: 'In memory of', epitaph: 'They didn’t make it home.' },
+}
+
+/** The mark a lost game leaves on the card, drawn over it */
+function DefeatMark({ theme }: { theme: ThemeName }) {
+  switch (theme) {
+    case 'fantasy':  // a mourning ribbon across the corner
+      return <svg className="keepsake__mark" viewBox="0 0 540 960" aria-hidden="true"><path d="M0 120L120 0h70L0 190z" fill="#0c0806" opacity=".85" /><path d="M0 132L132 0M0 178L178 0" stroke="#d9a557" strokeWidth="1" opacity=".5" /></svg>
+    case 'deep_space':  // stamped across the patch
+      return <div className="keepsake__mark keepsake__stamp">Signal lost</div>
+    case 'cyberpunk':  // the line goes flat
+      return (
+        <svg className="keepsake__mark" viewBox="0 0 540 960" aria-hidden="true">
+          <path d="M0 222h168l10-18 12 34 14-66 12 50h324" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinejoin="round" opacity=".85" />
+        </svg>
+      )
+    case 'horror':  // something with claws
+      return (
+        <svg className="keepsake__mark" viewBox="0 0 540 960" aria-hidden="true">
+          <g fill="none" stroke="var(--danger)" strokeLinecap="round" opacity=".55">
+            <path d="M372 40c-14 50-34 100-62 150" strokeWidth="6" />
+            <path d="M404 50c-16 56-38 112-70 166" strokeWidth="8" />
+            <path d="M434 66c-14 50-34 98-60 142" strokeWidth="5" />
+          </g>
+        </svg>
+      )
+    case 'insanity':  // the walls are written on
+      return (
+        <div className="keepsake__mark keepsake__scrawl" aria-hidden="true">
+          {Array.from({ length: 14 }, (_, i) => <span key={i}>{i % 3 === 2 ? 'IT SEES IT SEES IT SEES' : 'it is behind the stars it is behind the stars'}</span>)}
+        </div>
+      )
+    case 'modern':
+      return null  // the card fades, like an old photo (keepsake.css)
+  }
+}
+
 /** One line of the journey, in the theme's words */
 function stepLine(theme: ThemeName, step: JourneyStep): string {
   if (step.outcome === 'item') return step.item_name ? `Found ${step.item_name}` : momentCopy(theme, 'item_gained')
@@ -26,10 +71,18 @@ function stepLine(theme: ThemeName, step: JourneyStep): string {
   return momentCopy(theme, 'level_up')
 }
 
-/** Long games keep their start and their end */
-function trimJourney(journey: JourneyStep[]): (JourneyStep | number)[] {
-  if (journey.length <= 7) return journey
-  return [...journey.slice(0, 3), journey.length - 6, ...journey.slice(-3)]
+/** The digital rolls in words: "Rolled 14 and 19, with 2 to add" */
+function rollLine(rolls: number[], bonus: number): string {
+  const listed = rolls.length === 1 ? `${rolls[0]}` : `${rolls.slice(0, -1).join(', ')} and ${rolls.at(-1)}`
+  return `Rolled ${listed}${bonus ? `, with ${bonus} to add` : ''}`
+}
+
+/** Long games keep their start and their end (`max` lines in all, the gap counting as one) */
+function trimJourney(journey: JourneyStep[], max: number): (JourneyStep | number)[] {
+  if (journey.length <= max) return journey
+  const head = Math.floor((max - 1) / 2)
+  const tail = max - 1 - head
+  return [...journey.slice(0, head), journey.length - head - tail, ...journey.slice(-tail)]
 }
 
 interface KeepsakeProps {
@@ -41,23 +94,51 @@ interface KeepsakeProps {
 function KeepsakeCard({ state, resolved, cardRef }: KeepsakeProps & { cardRef: React.Ref<HTMLDivElement> }) {
   const theme = resolved.theme
   const hero = state.character
-  const heading = HEADING[theme]
   const outcome = state.outcome ?? 'victory'
-  const journey = trimJourney(resolved.journey ?? [])
+  const lost = outcome === 'defeat'
+  const heading = lost ? { ...HEADING[theme], title: DEFEAT[theme].title } : HEADING[theme]
+  const rolled = (state.final_rolls?.length ?? 0) > 0
+  // The roll and the last line take room from the journey
+  const journey = trimJourney(resolved.journey ?? [], 7 - (rolled ? 1 : 0) - (lost ? 1 : 0))
+  const name = hero?.name ?? resolved.story_title
+  // Insanity's lost heroes come apart on the card: each letter knocked askew (fixed once drawn, so the image matches)
+  const [askew] = useState(() => [...name].map(() => ({ turn: Math.random() * 18 - 9, drop: Math.random() * 10 - 5 })))
   const date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
-    <div className="keepsake" ref={cardRef}>
+    <div className={`keepsake ${lost ? `keepsake--defeat keepsake--defeat-${theme}` : ''}`} ref={cardRef}>
+      {lost && <DefeatMark theme={theme} />}
       <div className="keepsake__story">{resolved.story_title}</div>
       {hero && <Crest character={hero} variant={state.crest} theme={theme} size={112} className="keepsake__crest" />}
       <div className="keepsake__heading">{heading.title}</div>
-      <div className="keepsake__name">{hero?.name ?? resolved.story_title}</div>
+      <div className="keepsake__name" aria-label={name}>
+        {lost && theme === 'insanity'
+          ? [...name].map((ch, i) => (
+              <span key={i} className="keepsake__askew" aria-hidden="true" style={{ transform: `translateY(${askew[i].drop}px) rotate(${askew[i].turn}deg)` }}>{ch}</span>
+            ))
+          : name}
+      </div>
 
       <div className={`keepsake__outcome keepsake__outcome--${outcome}`}>
         <span className="keepsake__rule" />
         <span>{momentCopy(theme, outcome)}</span>
         <span className="keepsake__rule" />
       </div>
+      {lost && <div className="keepsake__epitaph">{DEFEAT[theme].epitaph}</div>}
+
+      {rolled && (
+        <div className="keepsake__roll">
+          <svg width="58" height="62" viewBox="0 0 58 62" aria-hidden="true">
+            <path d="M29 2l25 14v30L29 60 4 46V16z" fill="none" stroke="var(--accent)" strokeWidth="1.6" />
+            <path d="M29 2L15 24h28zM15 24L4 16M43 24l11-8M15 24l14 26 14-26M29 50v10M4 46l25 4 25-4" fill="none" stroke="var(--accent)" strokeWidth=".8" opacity=".55" />
+            <text x="29" y="40" textAnchor="middle" fontFamily="var(--font-display)" fontWeight="700" fontSize="17" fill="var(--text-primary)">{state.final_rolls.at(-1)}</text>
+          </svg>
+          <div>
+            <div className="keepsake__roll-label">The final roll</div>
+            <div className="keepsake__roll-line">{rollLine(state.final_rolls, state.items.length)}</div>
+          </div>
+        </div>
+      )}
 
       <div className="keepsake__stats">
         <div>
@@ -85,7 +166,9 @@ function KeepsakeCard({ state, resolved, cardRef }: KeepsakeProps & { cardRef: R
               const Icon = OUTCOME_ICON[step.outcome]
               return (
                 <li key={`${step.scene_title}-${i}`}>
-                  <Icon size={18} className={`outcome--${step.outcome}`} />
+                  {step.outcome === 'item' && step.item_name
+                    ? <ItemIcon name={step.item_name} icon={step.item_icon} theme={theme} size={18} className="outcome--item" />
+                    : <Icon size={18} className={`outcome--${step.outcome}`} />}
                   <span>
                     <span className="keepsake__scene">{step.scene_title}</span>
                     <span className="keepsake__what">{stepLine(theme, step)}</span>

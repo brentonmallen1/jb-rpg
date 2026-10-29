@@ -237,6 +237,51 @@ async def finish(request: FinishRequest, state: GameState = Depends(auth.verify_
     return await commit(state)
 
 
+class OfferRollRequest(BaseModel):
+    offered: bool
+
+
+@router.post("/state/offer-roll")
+async def offer_roll(request: OfferRollRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.offer_roll(state, request.offered)
+    return await commit(state)
+
+
+class RollRequest(BaseModel):
+    attempt: int  # how many rolls the roller had seen
+    s: Optional[str] = None  # a player's session id (the storyteller sends its token instead)
+
+
+@router.post("/state/roll")
+async def roll(request: RollRequest, x_session_token: Optional[str] = Header(None)):
+    """The digital d20, once the storyteller offers it: any player at the table (or the storyteller) taps, the server rolls."""
+    state = storage.load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+    if not (auth.is_player(state, request.s) or auth.is_storyteller(state, x_session_token)):
+        raise HTTPException(status_code=403, detail="Invalid session")
+    engine.roll(state, request.attempt)
+    return await commit(state)
+
+
+class RecordRollRequest(BaseModel):
+    attempt: int
+    value: int
+
+
+@router.post("/state/record-roll")
+async def record_roll(request: RecordRollRequest, state: GameState = Depends(auth.verify_storyteller)):
+    """Real dice: the storyteller enters each roll as it lands."""
+    engine.record_roll(state, request.attempt, request.value)
+    return await commit(state)
+
+
+@router.post("/state/undo-roll")
+async def undo_roll(state: GameState = Depends(auth.verify_storyteller)):
+    engine.undo_roll(state)
+    return await commit(state)
+
+
 @router.post("/state/reveal-outcome")
 async def reveal_outcome(state: GameState = Depends(auth.verify_storyteller)):
     engine.reveal_outcome(state)

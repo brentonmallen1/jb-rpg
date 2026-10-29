@@ -12,7 +12,8 @@ import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
 import { Crest, KeepsakeDialog, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
-import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, D20Icon, GemIcon } from '../components/Icons'
+import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, D20Icon } from '../components/Icons'
+import { ItemIcon } from '../components/ItemIcon'
 import { PhoneSettings } from './player/PhoneSettings'
 import '../styles/phone.css'
 
@@ -119,7 +120,7 @@ export default function Player() {
     const corruption = resolved.theme === 'insanity' && level === 'full'
       ? { madness, enabled: true }
       : { madness: 0, enabled: false }
-    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} level={level} me={player.identity} onShowHero={() => setShowHero(true)} onShowPack={() => setShowPack(true)} />, {
+    return screen(<GameScreen state={state} resolved={resolved} corruption={corruption} level={level} me={player.identity} sessionId={sessionId} onShowHero={() => setShowHero(true)} onShowPack={() => setShowPack(true)} />, {
       center: ['madlib_in_progress', 'character_reveal'].includes(state.status) || (state.status === 'game_over' && !!state.outcome_revealed),
     })
   }
@@ -201,11 +202,12 @@ interface GameScreenProps {
   corruption: { madness: number; enabled: boolean }
   level: EffectsLevel
   me: PlayerIdentity | null
+  sessionId?: string
   onShowHero: () => void
   onShowPack: () => void
 }
 
-function GameScreen({ state, resolved, corruption, level, me, onShowHero, onShowPack }: GameScreenProps) {
+function GameScreen({ state, resolved, corruption, level, me, sessionId, onShowHero, onShowPack }: GameScreenProps) {
   const myTurn = !!me && resolved.decider?.id === me.id
   const [pickError, setPickError] = useState<string | null>(null)
   async function pick(index: number) {
@@ -286,15 +288,7 @@ function GameScreen({ state, resolved, corruption, level, me, onShowHero, onShow
         : resolved.scene_text && <SceneText text={warp(resolved.scene_text)} sceneKey={resolved.scene_title ?? ''} />)}
 
       {resolved.finale ? (
-        <div className="phone-roll">
-          <D20Icon size={140} className="d20" />
-          <div className="phone-roll__stats">
-            <div className="phone-roll__stat"><div className="phone-label">Bonus</div><div className="phone-roll__value">+{state.items.length}</div></div>
-            <div className="phone-roll__stat"><div className="phone-label">Attempts</div><div className="phone-roll__value">{state.level}</div></div>
-            <div className="phone-roll__stat"><div className="phone-label">Target</div><div className="phone-roll__value">20+</div></div>
-          </div>
-          <p className="phone-text" style={{ textAlign: 'center' }}>Roll a real d20 and add your bonus.</p>
-        </div>
+        <PhoneRoll state={state} resolved={resolved} sessionId={sessionId} />
       ) : (
         <>
           {['rotate', 'pick'].includes(state.turn_mode) && state.status === 'running' && (
@@ -494,7 +488,7 @@ function HeroSheet({ open, state, resolved, onClose }: { open: boolean; state: G
 
 /** The backpack: every item found, as a card, with where it was found. Each one adds to the final roll. */
 function BackpackSheet({ open, state, resolved, onClose }: { open: boolean; state: GameState; resolved: ResolvedContent; onClose: () => void }) {
-  const found = resolved.items_found ?? state.items.map(name => ({ name, scene_title: '' }))
+  const found = resolved.items_found ?? state.items.map(name => ({ name, icon: null, scene_title: '' }))
   return (
     <BottomSheet open={open} label="The backpack" onClose={onClose}>
       <div className="pack__head">
@@ -507,7 +501,7 @@ function BackpackSheet({ open, state, resolved, onClose }: { open: boolean; stat
         <ul className="pack">
           {found.map((item, i) => (
             <li key={`${item.name}-${i}`} className="pack__item">
-              <GemIcon size={30} />
+              <ItemIcon name={item.name} icon={item.icon} theme={resolved.theme} size={40} framed />
               <span className="pack__name">{item.name}</span>
               {item.scene_title && <span className="pack__where">{item.scene_title}</span>}
             </li>
@@ -515,6 +509,60 @@ function BackpackSheet({ open, state, resolved, onClose }: { open: boolean; stat
         </ul>
       )}
     </BottomSheet>
+  )
+}
+
+/** The final roll on a phone: real dice at the table, or (once the storyteller sends it) the app's d20 to tap. */
+function PhoneRoll({ state, resolved, sessionId }: { state: GameState; resolved: ResolvedContent; sessionId?: string }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const roll = resolved.final_roll
+  const rolls = roll?.rolls ?? []
+  const bonus = roll?.bonus ?? state.items.length
+  const attempts = roll?.attempts ?? state.level
+  const decided = !!state.outcome
+  const best = rolls.length ? Math.max(...rolls) + bonus : null
+
+  async function tap() {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.roll(rolls.length, sessionId)
+    } catch (err) {
+      // Someone else's tap got there first: their roll is already on its way
+      if (!(err instanceof api.ApiError && err.status === 409)) setError('The die slipped. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="phone-roll">
+      <D20Icon size={140} className="d20" />
+      <div className="phone-roll__stats">
+        <div className="phone-roll__stat"><div className="phone-label">Bonus</div><div className="phone-roll__value">+{bonus}</div></div>
+        <div className="phone-roll__stat"><div className="phone-label">{rolls.length ? 'Tries left' : 'Attempts'}</div><div className="phone-roll__value">{attempts - rolls.length}</div></div>
+        <div className="phone-roll__stat"><div className="phone-label">Target</div><div className="phone-roll__value">{roll?.target ?? 20}+</div></div>
+      </div>
+      {rolls.length > 0 && (
+        <p className="phone-roll__rolled" aria-live="polite">
+          Rolled {rolls.join(', ')}{best !== null && bonus > 0 ? ` · best ${best} with the bonus` : ''}
+        </p>
+      )}
+      {decided ? (
+        <p className="phone-text" style={{ textAlign: 'center' }}>The dice have spoken. The storyteller will tell you what happens.</p>
+      ) : !roll?.offered ? (
+        <p className="phone-text" style={{ textAlign: 'center' }}>Roll a real d20 and add your bonus.</p>
+      ) : (
+        <>
+          <button type="button" className="join__button phone-roll__button" onClick={tap} disabled={busy}>
+            {busy ? 'Rolling…' : rolls.length ? 'Roll again' : 'Roll the d20'}
+          </button>
+          <p className="phone-roll__hint">Anyone at the table can roll.</p>
+        </>
+      )}
+      {error && <p className="phone-roll__hint" role="alert">{error}</p>}
+    </div>
   )
 }
 

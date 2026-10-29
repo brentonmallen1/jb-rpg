@@ -105,7 +105,7 @@ export function ScenePanel({ story, scene, problems, update, textTarget, audio, 
         <FinaleSection story={story} scene={scene} patch={patch} textTarget={textTarget} />
       ) : (
         <Section title="Choices">
-          <ChoiceCards choices={scene.choices} problems={sceneProblems} onChange={choices => patch({ choices })} />
+          <ChoiceCards choices={scene.choices} problems={sceneProblems} theme={story.theme} onChange={choices => patch({ choices })} />
         </Section>
       )}
 

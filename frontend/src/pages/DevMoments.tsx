@@ -18,6 +18,7 @@ const SAMPLES: Record<MomentType, Moment> = {
   choices_revealed: { type: 'choices_revealed' },
   decider: { type: 'decider', playerId: 'p1', name: 'Wren' },
   finale: { type: 'finale' },
+  dice_rolled: { type: 'dice_rolled', roll: 17, bonus: 2, target: 20, attemptsLeft: 1 },
   victory: { type: 'victory' },
   defeat: { type: 'defeat' },
 }

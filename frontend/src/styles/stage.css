@@ -670,6 +670,82 @@
   to { transform: none; opacity: 1; }
 }
 
+/* The rolls, one slot per attempt: typed in for real dice, filled by the app for the digital d20 */
+.rolls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.rolls__slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rolls__input {
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-primary);
+  text-align: center;
+  appearance: textfield;
+}
+
+.rolls__input::-webkit-inner-spin-button,
+.rolls__input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+
+.rolls__input:focus { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
+
+.rolls__skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.rolls__slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.rolls__die {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-family: var(--font-display);
+  font-size: 2.3rem;
+  color: var(--text-secondary);
+}
+
+.rolls__note {
+  min-height: 1.3em;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.rolls__slot.is-enough .rolls__die {
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-primary);
+}
+
+.rolls__slot.is-enough .rolls__note { color: var(--accent); font-weight: 600; }
+
+.rolls__slot.is-unneeded { opacity: 0.4; }
+.rolls__slot.is-unneeded .rolls__die { border-style: dashed; }
+
 /* --- Scene selection (doors) ------------------------------------------------ */
 
 .door-grid {

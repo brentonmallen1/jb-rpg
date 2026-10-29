@@ -5,7 +5,8 @@ import { formatClock, useCountdown } from '../../hooks/useCountdown'
 import type { RunAction } from '../../hooks/useAsyncAction'
 import type { GameState, ResolvedContent, Story, VoteTally } from '../../types'
 import { BackIcon, EyeOffIcon } from '../../components/Icons'
-import { outcomeLabel, OUTCOME_ICON } from '../../lib/outcomes'
+import { outcomeLabel } from '../../lib/outcomes'
+import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
 import { recap, sceneName } from '../../lib/story'
 import { FinaleRoll } from './FinaleRoll'
 
@@ -132,7 +133,6 @@ export function SceneView({ state, resolved, story, run, pending, voteTally }: S
             {state.shuffled_indices.map((originalIndex, visualIndex) => {
               const choice = scene.choices[originalIndex]
               if (!choice) return null
-              const Icon = OUTCOME_ICON[choice.kind]
               const isSelected = selected === visualIndex
               return (
                 <Fragment key={visualIndex}>
@@ -154,7 +154,7 @@ export function SceneView({ state, resolved, story, run, pending, voteTally }: S
                       )}
                     </span>
                     <span className={`outcome outcome--${choice.kind} storyteller-only`}>
-                      <Icon size={16} />{outcomeLabel(choice)}
+                      <ChoiceOutcomeIcon choice={choice} theme={story.theme} />{outcomeLabel(choice)}
                     </span>
                   </button>
                   {isSelected && (

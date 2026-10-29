@@ -131,6 +131,12 @@ export const selectScene = (sceneId: string, revisit = false) =>
   post<GameState>('/api/state/select-scene', { scene_id: sceneId, revisit })
 export const finish = (outcome: 'victory' | 'defeat') => post<GameState>('/api/state/finish', { outcome })
 export const revealOutcome = () => post<GameState>('/api/state/reveal-outcome')
+// Real dice: the storyteller enters each roll (and can take back a typo)
+export const recordRoll = (attempt: number, value: number) => post<GameState>('/api/state/record-roll', { attempt, value })
+export const undoRoll = () => post<GameState>('/api/state/undo-roll')
+export const offerRoll = (offered: boolean) => post<GameState>('/api/state/offer-roll', { offered })
+// The digital d20: the server rolls. `attempt` is how many rolls the roller had seen; phones send their session id
+export const roll = (attempt: number, sessionId?: string) => post<GameState>('/api/state/roll', { attempt, s: sessionId })
 
 // Turns: who makes each choice
 export const setDecider = (playerId: string | null) => post<GameState>('/api/state/decider', { player_id: playerId })

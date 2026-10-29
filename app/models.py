@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ThemeName(str, Enum):
@@ -68,6 +68,7 @@ class Choice(BaseModel):
     result_text: str   # What storyteller reads after choice is made
     amount: int = 1
     item_name: Optional[str] = None
+    item_icon: Optional[str] = Field(None, max_length=32)  # None = picked from the item's name
 
 
 class Scene(BaseModel):
@@ -125,6 +126,7 @@ class HistoryEntry(BaseModel):
     outcome: ChoiceKind
     choice_index: int
     item_name: Optional[str] = None
+    item_icon: Optional[str] = None
     damage_amount: int = 1
 
 
@@ -171,6 +173,8 @@ class GameState(BaseModel):
     votes: dict[str, int] = {}  # Private: player id -> visual index. Only the storyteller sees the tally
     no_flashing: bool = False  # The whole table asked for calm effects: every screen caps at "subtle"
     crest: int = 0  # Which of the hero's generated crests the table chose (clients draw it from the answers)
+    roll_offered: bool = False  # The storyteller sent the digital d20 to the phones (otherwise the table rolls real dice)
+    final_rolls: list[int] = []  # The digital d20s rolled at the finale, in order (the app rolls; a player taps)
     # Private: never sent to clients (see public_state)
     story: Optional[Story] = None  # Snapshot taken at /start, so editing a story can't break a game
     token_hash: str = ""  # sha256 of the storyteller token, so sessions survive restarts

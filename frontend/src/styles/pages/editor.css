@@ -961,3 +961,55 @@
   .ed-path { grid-template-columns: minmax(0, 1fr) auto; }
   .ed-path select { grid-column: 1; }
 }
+
+/* --- Item icons ----------------------------------------------------------------- */
+
+.ed-icon__current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The story's theme supplies the frame's colours; the editor's own background stays */
+.ed-icon__preview {
+  display: grid;
+  flex-shrink: 0;
+  background: none;
+}
+
+.ed-icon__label { font-weight: 700; }
+
+.ed-icon__toggle { margin-left: auto; }
+
+.ed-icon__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.ed-icon__option {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ed-icon__option:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+
+.ed-icon__option.is-chosen {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+.ed-icon__option--auto {
+  grid-column: span 2;
+  font-size: 0.85rem;
+  font-weight: 600;
+}

@@ -864,3 +864,23 @@ button.dealt__card {
   width: 100%;
   margin-top: 28px;
 }
+
+.phone-roll__button {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.2rem;
+}
+
+.phone-roll__rolled {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.phone-roll__hint {
+  margin: -6px 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: center;
+}

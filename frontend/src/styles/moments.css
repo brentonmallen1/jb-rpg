@@ -279,6 +279,86 @@ html.moment-shake #root {
 .moment--subtle .item-card__inner { animation: none; transform: rotateY(180deg); }
 .moment--subtle .item-card__face::after { display: none; }
 
+/* --- The digital d20: it tumbles, lands, and the bonus is added ------------- */
+
+.moment--dice_rolled .moment__backdrop {
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%);
+  animation: moment-fade var(--moment-duration) ease both;
+}
+
+.dice-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  animation: moment-fade var(--moment-duration) ease both;
+}
+
+.dice-card__label {
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.dice-card__die {
+  position: relative;
+  width: clamp(150px, 20vw, 220px);
+  aspect-ratio: 1;
+  animation: dice-tumble calc(var(--moment-duration) * 0.36) cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.dice-card__number {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-top: 8%;
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 6vw, 3.8rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  animation: dice-land calc(var(--moment-duration) * 0.5) ease both;
+}
+
+.dice-card__sum {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  color: var(--text-primary);
+  animation: dice-after var(--moment-duration) ease both;
+}
+
+.dice-card__verdict {
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--text-secondary);
+  animation: dice-after var(--moment-duration) ease both;
+}
+
+.dice-card--enough .dice-card__verdict { color: var(--accent); font-weight: 600; }
+
+@keyframes dice-tumble {
+  0% { transform: translateY(-30vh) rotate(-540deg) scale(0.5); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: none; }
+}
+
+@keyframes dice-land {
+  0%, 70% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes dice-after {
+  0%, 45% { opacity: 0; transform: translateY(8px); }
+  55%, 100% { opacity: 1; transform: none; }
+}
+
+/* Gentle: the die is already still; the number and the sum fade in */
+.moment--subtle .dice-card__die { animation: none; }
+
 /* --- Level up: a band of light sweeps upward --------------------------- */
 
 .moment--level_up .moment__backdrop {

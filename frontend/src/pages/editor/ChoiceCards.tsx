@@ -1,18 +1,20 @@
-import type { Choice, ChoiceKind, StoryProblem } from '../../types'
+import type { Choice, ChoiceKind, StoryProblem, ThemeName } from '../../types'
 import { KIND_LABEL, newChoices } from '../../lib/storyEdit'
 import { OUTCOME_ICON } from '../../lib/outcomes'
 import { Field, TextArea, TextInput } from './fields'
+import { ItemIconPicker } from './ItemIconPicker'
 
 interface ChoiceCardsProps {
   choices: Choice[]
   problems: StoryProblem[]
+  theme: ThemeName
   onChange: (choices: Choice[]) => void
 }
 
 const KINDS: ChoiceKind[] = ['damage', 'item', 'level']
 
 /** The scene's choices: classically one that costs a life, one that finds an item, one that levels up. */
-export function ChoiceCards({ choices, problems, onChange }: ChoiceCardsProps) {
+export function ChoiceCards({ choices, problems, theme, onChange }: ChoiceCardsProps) {
   const update = (i: number, patch: Partial<Choice>) => onChange(choices.map((c, j) => (j === i ? { ...c, ...patch } : c)))
   const kinds = choices.map(c => c.kind)
   const classic = choices.length === 3 && KINDS.every(k => kinds.includes(k))
@@ -48,7 +50,7 @@ export function ChoiceCards({ choices, problems, onChange }: ChoiceCardsProps) {
                 value={choice.kind}
                 onChange={e => {
                   const kind = e.target.value as ChoiceKind
-                  update(i, { kind, item_name: kind === 'item' ? choice.item_name ?? '' : undefined })
+                  update(i, { kind, item_name: kind === 'item' ? choice.item_name ?? '' : undefined, item_icon: kind === 'item' ? choice.item_icon : undefined })
                 }}
               >
                 {KINDS.map(k => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
@@ -73,6 +75,16 @@ export function ChoiceCards({ choices, problems, onChange }: ChoiceCardsProps) {
                   placeholder="Crimson Blade"
                 />
               </Field>
+            )}
+
+            {choice.kind === 'item' && (
+              <ItemIconPicker
+                id={`choice-${i}-icon`}
+                itemName={choice.item_name ?? ''}
+                icon={choice.item_icon}
+                theme={theme}
+                onChange={item_icon => update(i, { item_icon })}
+              />
             )}
 
             <Field label="What happens" hint="read aloud after the choice" htmlFor={`choice-${i}-result`}>

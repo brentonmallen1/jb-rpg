@@ -307,6 +307,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         turn_checks(browser)
         vote_checks(browser)
         flashing_checks(browser)
+        roll_checks(browser)
         login_checks(browser)
         browser.close()
 
@@ -482,6 +483,54 @@ def flashing_checks(browser) -> None:
     check("A phone can choose its own level", selected.inner_text().strip() == "Gentle")
     phone.click("button[role='switch']")
     check("Dark mode is a switch in the same panel", phone.evaluate("document.documentElement.dataset.mode") == "light")
+
+
+def roll_checks(browser) -> None:
+    """The final roll: real dice by default; the storyteller can send the app's d20 to the phones."""
+    story = call("/api/stories", {"title": "One Last Roll"})
+    story["scenes"] = [{
+        "id": "only", "title": "The Only Room", "base_text": "A door.",
+        "choices": [{"kind": "item", "display_text": "Take it?", "result_text": "Taken.", "amount": 1, "item_name": "Brass Key"}],
+    }]
+    call(f"/api/stories/{story['id']}", story, method="PUT")
+    started = call("/api/state/start", {"story_id": story["id"], "force": True})
+    token, session_id = started["token"], started["state"]["session_id"]
+    call("/api/state/choice", {"choice_index": 0}, token)  # the last scene: the finale
+
+    teller = signed_in_context(browser, viewport={"width": 1280, "height": 900})
+    teller.add_init_script(f"sessionStorage.setItem('jb_rpg_session_token', {json.dumps(token)})")
+    stage = teller.new_page()
+    stage.goto(B + "/run")
+    stage.wait_for_selector(".rolls__input", timeout=10000)
+    phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    phone.goto(f"{B}/player/{session_id}")
+    phone.wait_for_selector(".phone-roll", timeout=10000)
+    check("Real dice by default: the phone has no Roll button", phone.locator(".phone-roll__button").count() == 0)
+
+    stage.fill(".rolls__input", "7")
+    stage.keyboard.press("Enter")
+    phone.wait_for_selector(".dice-card", timeout=10000)
+    check("A real roll the storyteller enters plays on the phones", "7 + 1 = 8" in phone.locator(".dice-card__sum").inner_text())
+    stage.click("text=Undo the last roll")
+    stage.wait_for_selector(".rolls__input", timeout=10000)
+    check("A mistyped roll can be taken back", call("/api/state", token=token, method="GET")["state"]["final_rolls"] == [])
+
+    stage.click("text=Roll on the phones instead")
+    phone.wait_for_selector(".phone-roll__button", timeout=10000)
+    check("Sending the d20 gives the phones a Roll button", True)
+    phone.click(".phone-roll__button")
+    phone.wait_for_selector(".dice-card", timeout=10000)
+    check("The roll lands on the phones", True)
+    stage.wait_for_selector(".rolls__die:not(:empty)", timeout=10000)
+    rolled = call("/api/state", token=token, method="GET")["state"]["final_rolls"]
+    check("The stage shows the number rolled", stage.locator(".rolls__die").first.inner_text() == str(rolled[0]))
+    stage.wait_for_selector("text=Reveal to the table", timeout=10000)
+    stage.click("text=Reveal to the table")
+    phone.wait_for_selector(".phone-keepsake", timeout=15000)
+    phone.click(".phone-keepsake")
+    roll_line = phone.locator(".keepsake__roll-line")
+    roll_line.wait_for(timeout=5000)
+    check("The keepsake remembers the roll", roll_line.inner_text() == f"Rolled {rolled[0]}, with 1 to add", roll_line.inner_text())
 
 
 if __name__ == "__main__":

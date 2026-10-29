@@ -4,7 +4,8 @@ import type { RunAction } from '../../hooks/useAsyncAction'
 import type { GameState, Story } from '../../types'
 import { ConfirmDialog } from '../../components'
 import { LockIcon } from '../../components/Icons'
-import { outcomeLabel, OUTCOME_ICON } from '../../lib/outcomes'
+import { outcomeLabel } from '../../lib/outcomes'
+import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
 import { recap, sceneName } from '../../lib/story'
 
 interface SceneSelectProps {
@@ -37,7 +38,6 @@ export function SceneSelect({ state, story, run }: SceneSelectProps) {
           const historyEntry = state.history.find(h => h.scene_id === scene.id)
           const choiceMade = historyEntry ? scene.choices[historyEntry.choice_index] : null
           const locked = !!scene.is_finale && !allNonFinalesPlayed
-          const Icon = choiceMade ? OUTCOME_ICON[choiceMade.kind] : null
 
           function handleClick() {
             if (locked) return
@@ -58,8 +58,8 @@ export function SceneSelect({ state, story, run }: SceneSelectProps) {
               <span className="door__name">{sceneName(scene)}</span>
               <span className="door__meta">
                 {locked && <><LockIcon size={14} /> Sealed until every other door is opened</>}
-                {!locked && choiceMade && Icon && (
-                  <><Icon size={14} className={`outcome--${choiceMade.kind}`} /> Played · {outcomeLabel(choiceMade)} · revisit</>
+                {!locked && choiceMade && (
+                  <><ChoiceOutcomeIcon choice={choiceMade} theme={story.theme} size={14} className={`outcome--${choiceMade.kind}`} /> Played · {outcomeLabel(choiceMade)} · revisit</>
                 )}
                 {!locked && !choiceMade && (scene.is_finale ? 'The last door' : 'Unopened')}
               </span>

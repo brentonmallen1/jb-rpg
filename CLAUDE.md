@@ -148,7 +148,7 @@ POST /restart  →  (back to no state)
 ```
 
 **HP defeat:** auto-sets `status: game_over`, `outcome: "defeat"` immediately — no `/finish` call needed.
-**Finale:** either a scene with `is_finale: true` (storyteller calls `/finish` from `running`), or the last linear scene, which sets `game_over` with `outcome: null`. Both await the physical d20 roll.
+**Finale:** either a scene with `is_finale: true` (storyteller calls `/finish` from `running`), or the last linear scene, which sets `game_over` with `outcome: null`. Both await the d20: real dice by default (the storyteller enters each roll, `POST /record-roll` with `attempt` and `value`, and can take back a typo with `/undo-roll` until the outcome is revealed; or skips the numbers and records Victory or Defeat with `/finish`), or the storyteller sends the digital d20 to the phones (`POST /offer-roll`, `state.roll_offered`; back to real dice only before the first roll). Then any player (session id) or the storyteller calls `POST /roll` with the `attempt` they saw (a stale second tap gets 409); the server rolls, appends to `state.final_rolls`, and decides when a roll plus one per item reaches 20 (victory) or the attempts (one per level) run out (defeat), setting `game_over` with `outcome_revealed: false` so the storyteller reads it and reveals it. `resolved.final_roll` (`rolls`, `bonus`, `attempts`, `target`, `offered`) goes to every screen; `resolved.finale` stays true until the outcome is revealed. Entering any scene clears `roll_offered` and `final_rolls`. Each roll, real or digital, plays `dice_rolled` on every screen, and the keepsake shows the rolls. A lost game's keepsake is mourned in the theme's way (`DEFEAT` in `Keepsake.tsx`: a heading, a last line, and a mark: a mourning ribbon, a "Signal lost" stamp, a flat line, claw marks, scrawled walls and a name knocked askew, a faded photo).
 **Choice reveal:** `shuffled_indices` maps the visual order to `scene.choices`; history stores the original index. Any scene change (choice, back, select-scene) must reset `shuffled_indices` and `choices_revealed`.
 
 ---
@@ -169,6 +169,10 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 ## Crests
 
 A hero's crest is generated, not stored: `lib/crest.ts` (`crestFor(character, variant)`) seeds from the name and answers, picks emblems by keywords in the answers (lantern, waves, key…), and `components/Crest.tsx` draws it in the theme's form (Fantasy shield, Deep Space patch, Cyberpunk tag, Horror sigil, Insanity mark, Modern badge). The server keeps only `state.crest` (the variant), set at character reveal (`POST /api/state/crest`); the stage offers three per round ("Another three"). Shown on the stage's party rail, the phones' reveal, dock and hero sheet.
+
+## Item icons
+
+`lib/items.ts` holds the icon set (24-unit stroked drawings). An item's icon is the one the story chose (`Choice.item_icon`, picked in the Editor's `ItemIconPicker`; the server only stores the name and copies it to `HistoryEntry.item_icon`, `resolved.items_found[].icon` and `journey[].item_icon`), else one its name calls for by keyword, else the theme's own (`THEME_ITEM_ICON`: pouch, canister, datapad, jar, idol, parcel), so there is always one. `components/ItemIcon.tsx` draws it bare (lists) or framed in the theme's form like its crest (the found-item card, the backpack, the party rail); `ChoiceOutcomeIcon` shows it wherever a choice's outcome is shown.
 
 ## Keepsake
 

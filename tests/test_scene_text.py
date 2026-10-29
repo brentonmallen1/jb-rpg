@@ -46,7 +46,7 @@ def test_the_backpack_remembers_where_each_item_was_found(client):
     state = client.get("/api/state").json()["state"]
     item_at = next(v for v, i in enumerate(state["shuffled_indices"]) if i == 1)  # SCENES: index 1 finds an item
     client.post("/api/state/choice", json={"choice_index": item_at})
-    assert phone(client, sid)["items_found"] == [{"name": "i1-item", "scene_title": "S1"}]
+    assert phone(client, sid)["items_found"] == [{"name": "i1-item", "icon": None, "scene_title": "S1"}]
 
 
 def test_the_journey_arrives_when_the_story_ends(client):

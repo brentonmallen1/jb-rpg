@@ -1,7 +1,8 @@
 import type { GameState, PlayerRef, ThemeName } from '../../types'
 import { Crest, HealthMeter } from '../../components'
 import { HEALTH_LABEL } from '../../lib/themes'
-import { CloseIcon, GemIcon } from '../../components/Icons'
+import { CloseIcon } from '../../components/Icons'
+import { ItemIcon } from '../../components/ItemIcon'
 
 interface PartyRailProps {
   state: GameState
@@ -17,6 +18,8 @@ interface PartyRailProps {
 
 /** The party's state, always in view beside the scene. */
 export function PartyRail({ state, theme, maxHp, characterDescription, decider, playersOnline = [], onRemovePlayer, votedIds }: PartyRailProps) {
+  // Each item's icon is recorded with the choice that found it
+  const found = state.history.filter(entry => entry.outcome === 'item' && entry.item_name)
   return (
     <aside className="party" aria-label="Party">
       {state.character && (
@@ -78,7 +81,7 @@ export function PartyRail({ state, theme, maxHp, characterDescription, decider, 
         {state.items.length > 0 ? (
           <ul className="party__items">
             {state.items.map((item, i) => (
-              <li key={`${item}-${i}`}><GemIcon size={16} />{item}</li>
+              <li key={`${item}-${i}`}><ItemIcon name={item} icon={found[i]?.item_icon} theme={theme} size={28} framed />{item}</li>
             ))}
           </ul>
         ) : (

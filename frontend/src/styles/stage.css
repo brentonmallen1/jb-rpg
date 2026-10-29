@@ -1065,3 +1065,65 @@
 @media (max-width: 560px) {
   .invite { flex-direction: column; align-items: flex-start; }
 }
+
+/* --- The hero's crest ------------------------------------------------------------------ */
+
+.reveal {
+  display: grid;
+  gap: 32px;
+}
+
+/* Wide screens: the crests sit beside the hero's description */
+@media (min-width: 1100px) {
+  .reveal {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 48px;
+    align-items: start;
+  }
+
+  .reveal .action-row { grid-column: 1 / -1; }
+
+  .crests__options { flex-wrap: nowrap; gap: 10px; }
+  .crests__option { padding: 12px 10px 8px; }
+}
+
+.crests__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.crests__option {
+  display: grid;
+  place-items: center;
+  padding: 16px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out-expo, ease-out), border-color 0.2s;
+}
+
+.crests__option:hover { border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+
+.crests__option.is-chosen {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
+  box-shadow: 0 0 0 1px var(--accent), 0 18px 40px rgb(0 0 0 / 0.3);
+  transform: translateY(-4px);
+}
+
+.crests__more { margin-top: 14px; min-height: 40px; }
+
+.party__hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.party__hero .party__name { margin-top: 0; }
+
+/* The TV shows the crests; the table points, the storyteller chooses */
+.stage--presentation .crests__more { display: none; }

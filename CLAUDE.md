@@ -166,6 +166,10 @@ Six themes: `cyberpunk`, `fantasy`, `deep_space`, `modern`, `horror`, `insanity`
 - **Insanity** text corruption (`CorruptText`) scales with health lost; screen readers get clean text.
 - Tune visuals at `/dev/moments` (dev builds only).
 
+## Crests
+
+A hero's crest is generated, not stored: `lib/crest.ts` (`crestFor(character, variant)`) seeds from the name and answers, picks emblems by keywords in the answers (lantern, waves, key…), and `components/Crest.tsx` draws it in the theme's form (Fantasy shield, Deep Space patch, Cyberpunk tag, Horror sigil, Insanity mark, Modern badge). The server keeps only `state.crest` (the variant), set at character reveal (`POST /api/state/crest`); the stage offers three per round ("Another three"). Shown on the stage's party rail, the phones' reveal, dock and hero sheet.
+
 ## Turns
 
 Chosen when a game starts (`turn_mode` on `/api/state/start`, picked in the Library's Play dialog): `storyteller` (default: the table talks, the storyteller chooses; no names), `rotate` (players take turns in join order; the turn is `players[len(history) % n]`, so Back rewinds it), or `pick` (the storyteller chooses a player each scene via `/api/state/decider`). `resolved.decider` exists only during a running scene. The decider's phone can propose a choice (`state.proposal`, a visual index); the storyteller still confirms. Scene changes clear the decider pick and proposal.

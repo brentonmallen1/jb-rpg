@@ -97,7 +97,7 @@ function fakeState(story: Story, characterName: string, description: string): Ga
     session_id: '', story_id: story.id, status: 'running', madlib_step: 0, madlib_answers: {},
     current_scene_id: '', hp: story.settings.starting_hp, level: 1, items: [], history: [],
     character: { name: characterName, description, fields: {} },
-    outcome_revealed: false, choices_revealed: false, shuffled_indices: [], turn_mode: 'storyteller', players: [], no_flashing: false,
+    outcome_revealed: false, choices_revealed: false, shuffled_indices: [], turn_mode: 'storyteller', players: [], no_flashing: false, crest: 0,
   }
 }
 

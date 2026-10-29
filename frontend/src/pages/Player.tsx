@@ -10,7 +10,7 @@ import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
-import { StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
+import { Crest, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
 import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, D20Icon, GemIcon } from '../components/Icons'
 import { PhoneSettings } from './player/PhoneSettings'
@@ -138,7 +138,7 @@ export default function Player() {
       <CriticalPulse active={lastLife} level={level} />
       <MomentLayer moment={moment} theme={resolved?.theme ?? 'modern'} level={level} onDone={momentDone} viewerId={player.identity?.id} />
 
-      {state?.character && <HeroSheet open={showHero} state={state} onClose={() => setShowHero(false)} />}
+      {state?.character && resolved && <HeroSheet open={showHero} state={state} resolved={resolved} onClose={() => setShowHero(false)} />}
       {state && resolved && <BackpackSheet open={showPack} state={state} resolved={resolved} onClose={() => setShowPack(false)} />}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
     </>
@@ -244,6 +244,7 @@ function GameScreen({ state, resolved, corruption, level, me, onShowHero, onShow
   if (state.status === 'character_reveal' && state.character) {
     return (
       <div>
+        <Crest character={state.character} variant={state.crest} theme={resolved.theme} size={110} className="phone-crest" />
         <div className="phone-eyebrow">Your hero</div>
         <h1 className="phone-title">{state.character.name}</h1>
         <p className="phone-text">{state.character.description}</p>
@@ -416,8 +417,11 @@ function HeroDock({ state, resolved, choicesEl, onShowHero, onShowPack }: {
       <div className="dock__bar">
         {hero ? (
           <button type="button" className="dock__who" onClick={onShowHero} aria-label={`Your hero, ${hero.name}: read their story`}>
-            <span className="phone-label">Your hero</span>
-            <span className="dock__name">{hero.name} <ChevronUpIcon size={14} /></span>
+            <Crest character={hero} variant={state.crest} theme={resolved.theme} size={30} className="dock__crest" />
+            <span className="dock__who-text">
+              <span className="phone-label">Your hero</span>
+              <span className="dock__name">{hero.name} <ChevronUpIcon size={14} /></span>
+            </span>
           </button>
         ) : (
           <span className="dock__who"><span className="phone-label">{HEALTH_LABEL[resolved.theme]}</span></span>
@@ -468,13 +472,18 @@ function BottomSheet({ open, label, onClose, children }: { open: boolean; label:
 }
 
 /** The hero's story. */
-function HeroSheet({ open, state, onClose }: { open: boolean; state: GameState; onClose: () => void }) {
+function HeroSheet({ open, state, resolved, onClose }: { open: boolean; state: GameState; resolved: ResolvedContent; onClose: () => void }) {
   const hero = state.character
   if (!hero) return null
   return (
     <BottomSheet open={open} label={`Your hero, ${hero.name}`} onClose={onClose}>
-      <div className="phone-label">Your hero</div>
-      <h2 className="sheet__title">{hero.name}</h2>
+      <div className="sheet__hero">
+        <Crest character={hero} variant={state.crest} theme={resolved.theme} size={64} />
+        <div>
+          <div className="phone-label">Your hero</div>
+          <h2 className="sheet__title">{hero.name}</h2>
+        </div>
+      </div>
       {hero.description && <p className="phone-text">{hero.description}</p>}
     </BottomSheet>
   )

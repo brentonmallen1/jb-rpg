@@ -135,6 +135,7 @@ export const revealOutcome = () => post<GameState>('/api/state/reveal-outcome')
 // Turns: who makes each choice
 export const setDecider = (playerId: string | null) => post<GameState>('/api/state/decider', { player_id: playerId })
 export const setNoFlashing = (noFlashing: boolean) => post<GameState>('/api/state/no-flashing', { no_flashing: noFlashing })
+export const chooseCrest = (variant: number) => post<GameState>('/api/state/crest', { variant })
 export const removePlayer = (playerId: string) => request<GameState>(`/api/state/players/${playerId}`, { method: 'DELETE' })
 
 // Player endpoints authenticate with the player's own token, not the storyteller's

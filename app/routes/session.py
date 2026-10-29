@@ -329,6 +329,16 @@ async def set_no_flashing(request: FlashingRequest, state: GameState = Depends(a
     return await commit(state)
 
 
+class CrestRequest(BaseModel):
+    variant: int
+
+
+@router.post("/state/crest")
+async def choose_crest(request: CrestRequest, state: GameState = Depends(auth.verify_storyteller)):
+    engine.choose_crest(state, request.variant)
+    return await commit(state)
+
+
 @router.delete("/state/players/{player_id}")
 async def remove_player(player_id: str, state: GameState = Depends(auth.verify_storyteller)):
     engine.remove_player(state, player_id)

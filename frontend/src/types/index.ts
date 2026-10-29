@@ -163,6 +163,7 @@ export interface GameState {
   decider_id?: string | null
   proposal?: number | null  // visual index the decider is leaning towards
   no_flashing: boolean  // the table asked for calm effects: every screen caps at "subtle"
+  crest: number  // which of the hero's generated crests the table chose (drawn from the answers)
 }
 
 // Resolved content sent from backend

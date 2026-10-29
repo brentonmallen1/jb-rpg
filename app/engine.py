@@ -476,6 +476,14 @@ def proceed_from_character(state: GameState) -> None:
         state.status = SessionStatus.RUNNING
 
 
+def choose_crest(state: GameState, variant: int) -> None:
+    """The table picks the hero's crest as the hero is revealed. Every screen draws it from the answers."""
+    require_status(state, SessionStatus.CHARACTER_REVEAL)
+    if not 0 <= variant < 1000:
+        raise GameError(422, "Invalid crest")
+    state.crest = variant
+
+
 def opening_choice(state: GameState, choice_index: int | None) -> None:
     require_status(state, SessionStatus.OPENING_SCENE_ACTIVE)
     story = state.story

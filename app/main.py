@@ -1,4 +1,5 @@
 import logging
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -14,6 +15,23 @@ from .storage import InvalidStoryId
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("jb_rpg")
+
+_SECRETS_IN_PATHS = re.compile(r"(/player/)[^/?\s\"]+|([?&](?:s|token|p|d)=)[^&\s\"]+")
+
+
+class RedactAccessLog(logging.Filter):
+    """Player links and session/storyteller/player tokens are keys to the game: keep them out of access logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _SECRETS_IN_PATHS.sub(lambda m: (m.group(1) or m.group(2)) + "…", a) if isinstance(a, str) else a
+                for a in record.args
+            )
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(RedactAccessLog())
 
 
 @asynccontextmanager

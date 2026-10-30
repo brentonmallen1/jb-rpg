@@ -214,19 +214,36 @@ def test_sse_counts_players_and_sends_heartbeats(client, monkeypatch):
     assert sse.connections == {}
 
 
-def test_admin_login_is_generated_when_none_is_configured(client):
+def test_admin_login_is_generated_when_none_is_configured(client, caplog):
+    import re
+
     from app import auth, config, storage
 
     auth.ensure_admin_credentials()
-    saved = json.loads((storage.STATE_FILE.parent / "admin.json").read_text())
-    assert (config.ADMIN_USER, config.ADMIN_PASSWORD) == (saved["user"], saved["password"])
+    path = storage.STATE_FILE.parent / "admin.json"
+    saved = json.loads(path.read_text())
+    user, password = re.search(r"Storyteller login: (\S+) / (\S+)\.", caplog.text).groups()
+    assert saved["user"] == user and "password" not in saved  # only a hash is kept
+    assert password not in path.read_text()
     assert client.get("/api/stories").status_code == 401
-    assert client.get("/api/stories", headers=basic(saved["user"], saved["password"])).status_code == 200
+    assert client.get("/api/stories", headers=basic(user, password)).status_code == 200
 
-    # Stable across restarts
-    config.ADMIN_USER = config.ADMIN_PASSWORD = ""
+    # Stable across restarts, and the password isn't logged again
+    caplog.clear()
+    config.ADMIN_USER = config.ADMIN_PASSWORD_HASH = ""
     auth.ensure_admin_credentials()
-    assert config.ADMIN_PASSWORD == saved["password"]
+    assert password not in caplog.text
+    assert client.get("/api/stories", headers=basic(user, password)).status_code == 200
+
+
+def test_an_older_admin_json_keeps_only_the_hash(client):
+    from app import auth, storage
+
+    path = storage.STATE_FILE.parent / "admin.json"
+    path.write_text(json.dumps({"user": "admin", "password": "old-secret"}))
+    auth.ensure_admin_credentials()
+    assert "old-secret" not in path.read_text()
+    assert client.get("/api/stories", headers=basic("admin", "old-secret")).status_code == 200
 
 
 def test_no_login_is_generated_when_auth_is_disabled(client, monkeypatch):
@@ -261,3 +278,19 @@ def test_a_phone_that_reconnects_counts_once(client):
 
     asyncio.run(scenario())
     assert sse.connections == {} and sse.devices == {}
+
+
+def test_access_logs_leave_out_game_links_and_tokens():
+    import logging
+
+    from app.main import RedactAccessLog
+
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d', (
+        "1.2.3.4:5", "GET", "/api/events?s=secret-session&p=player-token&d=dev", "1.1", 200), None)
+    RedactAccessLog().filter(record)
+    line = record.getMessage()
+    assert "secret-session" not in line and "player-token" not in line and "s=…" in line
+
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s"', ("1.2.3.4:5", "GET", "/player/abc123"), None)
+    RedactAccessLog().filter(record)
+    assert record.getMessage().endswith('"GET /player/…"')

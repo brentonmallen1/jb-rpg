@@ -13,6 +13,14 @@ DEMO_DIR = ROOT_DIR / "demo-stories"  # demo stories bundled in the Docker image
 
 ADMIN_USER = os.getenv("ADMIN_USER", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+ADMIN_PASSWORD_HASH = ""  # set from DATA_DIR/admin.json when the login was generated (auth.ensure_admin_credentials)
+# How long a storyteller sign-in lasts before the sign-in page asks again
+SIGN_IN_DAYS = float(os.getenv("SIGN_IN_DAYS", "7"))
+# A sign-in that goes unused this long ends early
+SIGN_IN_IDLE_HOURS = float(os.getenv("SIGN_IN_IDLE_HOURS", "48"))
+# Behind a reverse proxy: take the client's address from its X-Forwarded-For (for the sign-in limit).
+# Without it, everyone behind the proxy shares one address, so a stranger's wrong guesses could lock you out too.
+TRUST_PROXY = os.getenv("TRUST_PROXY", "").lower() in ("true", "1", "yes")
 AUTH_DISABLED = os.getenv("AUTH_DISABLED", "").lower() in ("true", "1", "yes")
 BASE_URL = os.getenv("BASE_URL", "")
 # Emblem service for heroes' crests; empty = draw the built-in crests only

@@ -70,6 +70,8 @@ export const adminSession = () => request<{ signed_in: boolean; required: boolea
 export const login = (username: string, password: string) =>
   post<{ signed_in: boolean }>('/api/admin/login', { username, password })
 export const logout = () => post<{ signed_in: boolean }>('/api/admin/logout')
+// Every browser that's signed in has to sign in again (this one too)
+export const logoutEverywhere = () => post<{ signed_in: boolean }>('/api/admin/logout-all')
 
 // Stories
 export const getStories = () => request<StorySummary[]>('/api/stories')

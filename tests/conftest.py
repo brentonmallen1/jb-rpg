@@ -14,6 +14,10 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "AUTH_DISABLED", False)
     monkeypatch.setattr(config, "ADMIN_USER", "")
     monkeypatch.setattr(config, "ADMIN_PASSWORD", "")
+    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", "")
+    monkeypatch.setattr(config, "TRUST_PROXY", False)
+    from app import auth
+    auth.reset_guard()
     sse.connections.clear()
     storage.STORIES_DIR.mkdir(exist_ok=True)
     return TestClient(app)

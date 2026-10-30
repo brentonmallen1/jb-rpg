@@ -12,4 +12,8 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - AUTH_DISABLED=${AUTH_DISABLED:-false}
       - BASE_URL=${BASE_URL:-}
+      - SIGN_IN_DAYS=${SIGN_IN_DAYS:-7}
+      - SIGN_IN_IDLE_HOURS=${SIGN_IN_IDLE_HOURS:-48}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - EMBLAZON_URL=${EMBLAZON_URL-https://emblazon.mallen.us}
     restart: unless-stopped

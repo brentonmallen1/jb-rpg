@@ -86,8 +86,9 @@ export default function Login() {
             <summary>Can’t find the login?</summary>
             <p>
               It’s whatever <code>ADMIN_USER</code> and <code>ADMIN_PASSWORD</code> are set to on the server.
-              If they aren’t set, one was made up the first time the server ran: it’s printed in the server log
-              and saved in <code>admin.json</code> in the data folder.
+              If they aren’t set, one was made up the first time the server ran and printed in the server log
+              that one time. Lost it? Delete <code>admin.json</code> in the data folder and restart the server
+              for a new one.
             </p>
           </details>
         </form>

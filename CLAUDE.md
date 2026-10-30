@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A TTRPG companion app for playing story-driven tabletop adventures. One storyteller runs it locally; players connect on their own devices. Two modes: **Editor** (build stories) and **Run** (play through them).
+A storytelling game system: storytellers write and share story-driven adventures, then play them with the whole table, the story on one big screen and each player on their own device. Two modes: **Editor** (build stories) and **Run** (play through them).
 
 Full design spec: `docs/superpowers/specs/2026-03-16-jb-rpg-design.md`
 
@@ -75,6 +75,8 @@ Copy `.env.example` to `.env` and adjust as needed:
 - `FRONTEND_PORT` — Vite dev server port (default 5173)
 - `DATA_DIR` — data directory location
 - `ADMIN_USER` / `ADMIN_PASSWORD` — HTTP Basic auth for the Library, Editor and Run pages and story APIs (empty = open)
+- `SIGN_IN_DAYS` — how long a storyteller sign-in lasts (default 7); `SIGN_IN_IDLE_HOURS` — unused this long, it ends early (default 48)
+- `TRUST_PROXY` — `true` behind a reverse proxy, so the sign-in limit counts each visitor (from `X-Forwarded-For`)
 - `AUTH_DISABLED` — `true` bypasses admin auth and player session checks (local dev only)
 - `ALLOWED_ORIGINS` — CORS origins, comma-separated
 - `BASE_URL` — public origin for player links behind a reverse proxy
@@ -104,7 +106,7 @@ Tests: `just test` (pytest) and `just e2e` (storyteller + player in real browser
 ## Access Model
 
 Four layers, all lightweight (no user accounts):
-1. **Admin (sign-in page)** — `/login` posts to `/api/admin/login`, which sets a signed HttpOnly cookie (`jb_admin`, 30 days; key in `DATA_DIR/session.key` mixed with the login, so changing the password signs everyone out). HTTP Basic still works for scripts, but never send `WWW-Authenticate` (it triggers the browser's own prompt). `verify_admin` + `AdminPagesMiddleware` (redirects to `/login`) + `RequireSignIn` (frontend) protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Only `AUTH_DISABLED=true` turns it off; with no `ADMIN_USER`/`ADMIN_PASSWORD`, a login is generated on first run, saved in `DATA_DIR/admin.json`, and logged at startup.
+1. **Admin (sign-in page)** — `/login` posts to `/api/admin/login`, which sets a signed HttpOnly cookie (`jb_admin`: `<id>.<expiry>.<signature>`, `SIGN_IN_DAYS`, default 7; key in `DATA_DIR/session.key` mixed with the login, so changing the password signs everyone out). Each sign-in's id is recorded in `DATA_DIR/admin_sessions.json` until it expires or goes unused for `SIGN_IN_IDLE_HOURS` (default 48); signing out (`/api/admin/logout`) removes it, so that cookie never works again, and "Sign out everywhere" (`/api/admin/logout-all`) removes them all. Wrong passwords (sign-in page or HTTP Basic) are limited per address: 5 in 10 minutes locks it out for 15 (429 with `Retry-After`); behind a reverse proxy set `TRUST_PROXY=true` so the address comes from the last `X-Forwarded-For` entry. A generated login is logged only when it's made, and `admin.json` keeps a scrypt hash, not the password. Access logs replace player links and `s`/`token`/`p`/`d` query values with `…`. HTTP Basic still works for scripts, but never send `WWW-Authenticate` (it triggers the browser's own prompt). `verify_admin` + `AdminPagesMiddleware` (redirects to `/login`) + `RequireSignIn` (frontend) protect story CRUD, `/api/state/start`, and the `/`, `/editor`, `/run` pages. Only `AUTH_DISABLED=true` turns it off; with no `ADMIN_USER`/`ADMIN_PASSWORD`, a login is generated on first run, saved in `DATA_DIR/admin.json`, and logged at startup.
 2. **Storyteller token** — `/api/state/start` returns a token (kept in memory server-side, `sessionStorage` client-side). Every other `POST /api/state/*` requires it in `X-Session-Token`; SSE takes it as `?token=`.
 3. **Player session id** — players join via `/player/{session_id}`; SSE and `GET /api/state` take it as `?s=`. `GET /api/session/check?s=` validates it without revealing the id. Never expose `session_id` from a public endpoint.
 4. **Player token** — only in turn-taking games: a phone joins by name (`POST /api/session/join`) and gets a token (hash stored on the `Player`; `X-Player-Token` header, SSE `?p=`). It lets that player propose a choice when it's their turn. Token hashes never leave the server (`public_state` excludes them).

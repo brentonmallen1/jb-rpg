@@ -106,10 +106,30 @@ def login_checks(browser) -> None:
     page.click("button:text-is('Sign in')")
     page.wait_for_selector("text=Your stories", timeout=10000)
     check("Signing in opens the library", True)
-    page.click("button:text-is('Sign out')")
+    kept = [c for c in page.context.cookies() if c["name"] == "jb_admin"][0]["value"]
+    page.click("summary:text-is('Sign out')")
+    page.click("button:text-is('Sign out here')")
     page.wait_for_url(B + "/login", timeout=10000)
     check("Signing out returns to the sign-in page", True)
+    with urllib.request.urlopen(urllib.request.Request(f"{A}/api/admin/session", headers={"Cookie": f"jb_admin={kept}"})) as r:
+        check("A signed-out cookie never works again", json.load(r)["signed_in"] is False)
+
+    # Sign out everywhere: another browser that's signed in has to sign in again too
+    other = browser.new_context().new_page()
+    for p_ in (page, other):
+        p_.goto(B + "/login")
+        p_.fill("input[autocomplete='username']", ADMIN["username"])
+        p_.fill("input[type='password']", ADMIN["password"])
+        p_.click("button:text-is('Sign in')")
+        p_.wait_for_selector("text=Your stories", timeout=10000)
+    page.click("summary:text-is('Sign out')")
+    page.click("button:text-is('Sign out everywhere')")
+    page.wait_for_url(B + "/login", timeout=10000)
+    other.goto(B + "/")
+    other.wait_for_url(B + "/login", timeout=10000)
+    check("Signing out everywhere signs out every browser", True)
     page.context.close()
+    other.context.close()
 
 
 def launch(p):

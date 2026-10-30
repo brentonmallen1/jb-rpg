@@ -5,7 +5,7 @@
 <h1 align="center">J&amp;B’s RPG</h1>
 
 <p align="center">
-  <strong>Tell stories together.<br/>A storyteller’s companion for choose-your-path adventures at the table: one screen runs the game, everyone else plays along on their phone. Self-hosted, no accounts, no cloud.</strong>
+  <strong>Tell stories together.<br/>A storytelling game for the whole table: write and share your own adventures, then play them together, with the story on the big screen and every player choosing on their own phone. Self-hosted, no accounts, no cloud.</strong>
 </p>
 
 <p align="center">

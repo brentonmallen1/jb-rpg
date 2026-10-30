@@ -370,7 +370,10 @@
 
 /* --- Header: a game in progress ------------------------------------------------ */
 
-.now-playing-chip { margin-left: 0; }
+.now-playing-chip,
+.menu--down { margin-left: 0; }
+
+.menu--down summary.s-btn { font-size: inherit; }
 
 .now-playing-chip__summary {
   display: inline-flex;
@@ -411,7 +414,8 @@
   white-space: nowrap;
 }
 
-/* The header's menu opens downwards */
+/* Menus in the header open downwards */
+.menu--down .menu__panel,
 .now-playing-chip .menu__panel { top: calc(100% + 6px); bottom: auto; min-width: 220px; }
 
 .now-playing-chip__error {

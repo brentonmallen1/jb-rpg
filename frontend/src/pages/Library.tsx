@@ -62,8 +62,8 @@ export default function Library() {
     api.adminSession().then(s => setCanSignOut(s.required && s.signed_in)).catch(() => {})
   }, [])
 
-  async function signOut() {
-    await api.logout().catch(() => {})
+  async function signOut(everywhere = false) {
+    await (everywhere ? api.logoutEverywhere() : api.logout()).catch(() => {})
     navigate('/login', { replace: true })
   }
 
@@ -163,7 +163,15 @@ export default function Library() {
           <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
             {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
-          {canSignOut && <button className="s-btn s-btn--ghost" onClick={signOut}>Sign out</button>}
+          {canSignOut && (
+            <details className="menu menu--down">
+              <summary className="s-btn s-btn--ghost">Sign out</summary>
+              <div className="menu__panel">
+                <button onClick={() => signOut()}>Sign out here</button>
+                <button onClick={() => signOut(true)}>Sign out everywhere</button>
+              </div>
+            </details>
+          )}
         </div>
       </header>
 

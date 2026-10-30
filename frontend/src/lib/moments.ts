@@ -111,7 +111,7 @@ const DEFAULT_COPY: Record<MomentType, string> = {
 
 // Each theme names its own beats
 const THEME_COPY: Record<ThemeName, MomentCopy> = {
-  fantasy: { hp_lost: 'A candle flickers out', item_gained: 'Added to your satchel', level_up: 'Your legend grows', finale: 'The final trial' },
+  fantasy: { hp_lost: 'A lantern flickers out', item_gained: 'Added to your satchel', level_up: 'Your legend grows', finale: 'The final trial' },
   cyberpunk: { hp_lost: 'Integrity breach', item_gained: 'Asset acquired', level_up: 'Clearance raised', finale: '// Final sequence', dice_rolled: '// Roll resolved' },
   deep_space: { hp_lost: 'Hull breach', item_gained: 'Salvage recovered', level_up: 'Promoted', finale: 'Final approach', dice_rolled: 'Telemetry acquired' },
   horror: { hp_lost: 'A chill runs through you', item_gained: 'Something to hold on to', level_up: 'You steel yourself', finale: 'The last door', dice_rolled: 'Fate answers', defeat: 'Taken', victory: 'You survived' },

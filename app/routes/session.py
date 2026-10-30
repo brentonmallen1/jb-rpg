@@ -374,33 +374,40 @@ async def set_no_flashing(request: FlashingRequest, state: GameState = Depends(a
     return await commit(state)
 
 
+class CrestOptionsRequest(BaseModel):
+    round: int = 0
+
+
+@router.post("/state/crest-options")
+async def crest_options(request: CrestOptionsRequest, state: GameState = Depends(auth.verify_storyteller)):
+    """Three crests for the table: emblems from the emblem service, or the built-in crests when it's down."""
+    engine.require_status(state, engine.SessionStatus.CHARACTER_REVEAL)
+    try:
+        options = await emblems.options(state, request.round)
+    except emblems.EmblemsUnavailable:
+        options = []
+    engine.set_crest_options(state, request.round, options)
+    return await commit(state)
+
+
 class CrestRequest(BaseModel):
     variant: int = 0
-    emblem: Optional[str] = Field(None, max_length=200)  # An emblem's input, from /state/emblems
-
-
-@router.get("/state/emblems")
-async def emblem_options(round: int = 0, state: GameState = Depends(auth.verify_storyteller)):
-    """Three emblems for the hero from the emblem service; 503 when it's down (the stage draws its own)."""
-    engine.require_status(state, engine.SessionStatus.CHARACTER_REVEAL)
-    if not 0 <= round < 1000:
-        raise HTTPException(422, "Invalid round")
-    try:
-        return {"emblems": [e.model_dump() for e in await emblems.options(state, round)]}
-    except emblems.EmblemsUnavailable:
-        raise HTTPException(503, "The emblem service is unavailable")
+    emblem: Optional[str] = Field(None, max_length=200)  # One of state.emblem_options, by input
+    s: Optional[str] = None  # a player's session id (the storyteller sends its token instead)
 
 
 @router.post("/state/crest")
-async def choose_crest(request: CrestRequest, state: GameState = Depends(auth.verify_storyteller)):
+async def choose_crest(request: CrestRequest, x_session_token: Optional[str] = Header(None)):
+    """The table chooses the hero's crest: the storyteller, or any player on their phone."""
+    state = storage.load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+    if not (auth.is_player(state, request.s) or auth.is_storyteller(state, x_session_token)):
+        raise HTTPException(status_code=403, detail="Invalid session")
     if request.emblem is None:
         engine.choose_crest(state, request.variant)
     else:
-        engine.require_status(state, engine.SessionStatus.CHARACTER_REVEAL)
-        try:
-            engine.choose_emblem(state, await emblems.chosen(state, request.emblem))
-        except emblems.EmblemsUnavailable:
-            raise HTTPException(503, "The emblem service is unavailable")
+        engine.choose_emblem(state, request.emblem)
     return await commit(state)
 
 

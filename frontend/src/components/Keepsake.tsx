@@ -22,7 +22,7 @@ const HEADING: Record<ThemeName, { title: string; log: string }> = {
 
 // A lost game: each theme mourns its own way (a heading, a last line, and a mark on the card)
 const DEFEAT: Record<ThemeName, { title: string; epitaph: string }> = {
-  fantasy: { title: 'Here ends the tale of', epitaph: 'The last candle has gone out.' },
+  fantasy: { title: 'Here ends the tale of', epitaph: 'The last lantern has gone out.' },
   deep_space: { title: 'Last log of', epitaph: 'Signal lost. No further transmissions.' },
   cyberpunk: { title: 'Last run of', epitaph: 'Connection terminated. No backup found.' },
   horror: { title: 'What became of', epitaph: 'They were never found.' },

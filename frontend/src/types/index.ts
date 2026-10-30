@@ -167,6 +167,8 @@ export interface GameState {
   no_flashing: boolean  // the table asked for calm effects: every screen caps at "subtle"
   crest: number  // which of the hero's generated crests the table chose (drawn from the answers)
   emblem: Emblem | null  // or an emblem from the emblem service, which wins over crest
+  crest_round: number | null  // which three crests the table is choosing from (null until the stage asks)
+  emblem_options: Emblem[]  // those three from the emblem service; empty = the built-in crests of crest_round
   roll_offered: boolean  // the storyteller sent the digital d20 to the phones (otherwise: real dice)
   final_rolls: number[]  // the digital d20s rolled at the finale, in order
 }

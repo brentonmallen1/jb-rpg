@@ -183,6 +183,8 @@ class GameState(BaseModel):
     no_flashing: bool = False  # The whole table asked for calm effects: every screen caps at "subtle"
     crest: int = 0  # Which of the hero's generated crests the table chose (clients draw it from the answers)
     emblem: Optional[Emblem] = None  # Or the emblem the table chose from the emblem service (wins over crest)
+    crest_round: Optional[int] = None  # Which three crests the table is choosing from (None until the stage asks)
+    emblem_options: list[Emblem] = []  # Those three from the emblem service; empty = the built-in crests of crest_round
     roll_offered: bool = False  # The storyteller sent the digital d20 to the phones (otherwise the table rolls real dice)
     final_rolls: list[int] = []  # The digital d20s rolled at the finale, in order (the app rolls; a player taps)
     # Private: never sent to clients (see public_state)

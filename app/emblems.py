@@ -50,11 +50,3 @@ async def _fetch(theme: str, input: str, count: int) -> list[Emblem]:
 async def options(state: GameState, round: int) -> list[Emblem]:
     """Three emblems for the hero; another round gives another three."""
     return await _fetch(_theme(state), seed(state, round), PER_ROUND)
-
-
-async def chosen(state: GameState, input: str) -> Emblem:
-    """Fetch the chosen emblem again, so the stored SVG comes from the service, not the client."""
-    found = await _fetch(_theme(state), input, 1)
-    if not found:
-        raise EmblemsUnavailable("No emblem")
-    return found[0]

@@ -9,7 +9,7 @@ interface HealthMeterProps {
   size?: number
 }
 
-/** The party's health, drawn in the theme's own iconography (candles, eyes, cells...). */
+/** The party's health, drawn in the theme's own iconography (lanterns, eyes, chips, hull plates, moons, hearts). */
 export function HealthMeter({ hp, max, theme, size = 28 }: HealthMeterProps) {
   const label = HEALTH_LABEL[theme]
   return (
@@ -27,17 +27,18 @@ function HealthIcon({ theme, full }: { theme: ThemeName; full: boolean }) {
   switch (theme) {
     case 'fantasy':
       return full ? (
-        <svg viewBox="0 0 26 54" aria-hidden="true">
-          <g className="hm-flame">
-            <path d="M13 2c4 7 6 10 6 14a6 6 0 0 1-12 0c0-4 2-7 6-14z" fill="var(--accent)" />
-            <path d="M13 9c2 4 3 6 3 8a3 3 0 0 1-6 0c0-2 1-4 3-8z" fill="color-mix(in srgb, var(--accent) 30%, white)" />
-          </g>
-          <rect x="7" y="24" width="12" height="30" rx="2" fill="color-mix(in srgb, var(--text-primary) 90%, var(--accent))" />
+        <svg viewBox="0 0 28 40" aria-hidden="true">
+          <path d="M10 4h8M14 1v3" stroke="var(--text-primary)" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M8 8h12l2 4v18l-2 4H8l-2-4V12z" fill="color-mix(in srgb, var(--accent) 20%, transparent)" stroke="var(--text-primary)" strokeWidth="1.6" />
+          <path className="hm-flame" d="M14 15c3 4 4 6 4 8a4 4 0 0 1-8 0c0-2 1-4 4-8z" fill="var(--accent)" />
+          <path d="M6 36h16" stroke="var(--text-primary)" strokeWidth="1.6" />
         </svg>
       ) : (
-        <svg viewBox="0 0 26 54" aria-hidden="true">
-          <path className="hm-smoke" d="M13 22c-2-3 1-5 0-8" fill="none" stroke="var(--text-secondary)" strokeWidth="1.4" strokeLinecap="round" />
-          <rect x="7" y="30" width="12" height="24" rx="2" fill="color-mix(in srgb, var(--text-secondary) 55%, var(--bg-primary))" />
+        <svg viewBox="0 0 28 40" aria-hidden="true">
+          <path d="M10 4h8M14 1v3" stroke="var(--text-secondary)" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M8 8h12l2 4v18l-2 4H8l-2-4V12z" fill="none" stroke="var(--text-secondary)" strokeWidth="1.6" />
+          <path className="hm-smoke" d="M14 26c-1.5-2 1-3.5 0-5.5" fill="none" stroke="var(--text-secondary)" strokeWidth="1.3" strokeLinecap="round" />
+          <path d="M6 36h16" stroke="var(--text-secondary)" strokeWidth="1.6" />
         </svg>
       )
     case 'horror':
@@ -57,39 +58,50 @@ function HealthIcon({ theme, full }: { theme: ThemeName; full: boolean }) {
       )
     case 'cyberpunk':
       return full ? (
-        <svg viewBox="0 0 28 32" aria-hidden="true">
-          <polygon className="hm-cell" points="14,2 26,9 26,23 14,30 2,23 2,9" fill="color-mix(in srgb, var(--accent) 85%, transparent)" stroke="var(--accent)" strokeWidth="1.5" />
-          <polygon points="14,9 20,12.5 20,19.5 14,23 8,19.5 8,12.5" fill="color-mix(in srgb, var(--accent) 40%, white)" />
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <g className="hm-cell">
+            <path d="M10 2v5M16 2v5M22 2v5M10 25v5M16 25v5M22 25v5M2 10h5M2 16h5M2 22h5M25 10h5M25 16h5M25 22h5" stroke="var(--accent)" strokeWidth="1.5" />
+            <rect x="7" y="7" width="18" height="18" rx="2" fill="color-mix(in srgb, var(--accent) 85%, transparent)" />
+            <rect x="12" y="12" width="8" height="8" fill="var(--bg-primary)" />
+          </g>
         </svg>
       ) : (
-        <svg viewBox="0 0 28 32" aria-hidden="true">
-          <polygon points="14,2 26,9 26,23 14,30 2,23 2,9" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeDasharray="3 2" />
-          <path d="M9 8l5 8-3 3 6 7" fill="none" stroke="var(--danger)" strokeWidth="1.4" />
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M10 2v5M16 2v5M22 2v5M10 25v5M16 25v5M22 25v5M2 10h5M2 16h5M2 22h5M25 10h5M25 16h5M25 22h5" stroke="color-mix(in srgb, var(--text-secondary) 40%, transparent)" strokeWidth="1.5" />
+          <rect x="7" y="7" width="18" height="18" rx="2" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" />
+          <path d="M11 8l5 7-3 3 5 6" fill="none" stroke="var(--danger)" strokeWidth="1.5" />
         </svg>
       )
     case 'deep_space':
       return full ? (
-        <svg viewBox="0 0 28 32" aria-hidden="true">
-          <path className="hm-shield" d="M14 2l11 4v9c0 8-5 13-11 15C8 28 3 23 3 15V6z" fill="color-mix(in srgb, var(--accent) 80%, transparent)" stroke="var(--accent)" strokeWidth="1.4" />
-          <path d="M14 7v18M8 12h12" stroke="color-mix(in srgb, var(--bg-primary) 60%, transparent)" strokeWidth="1.2" />
+        <svg viewBox="0 0 34 30" aria-hidden="true">
+          <g className="hm-shield">
+            <path d="M7 2h20l6 6v14l-6 6H7l-6-6V8z" fill="color-mix(in srgb, var(--accent) 80%, transparent)" stroke="var(--accent)" strokeWidth="1.4" />
+            <path d="M5 15h24" stroke="color-mix(in srgb, var(--bg-primary) 55%, transparent)" strokeWidth="1.2" />
+            <g fill="color-mix(in srgb, var(--bg-primary) 65%, transparent)">
+              <circle cx="7" cy="8" r="1.2" /><circle cx="27" cy="8" r="1.2" /><circle cx="7" cy="22" r="1.2" /><circle cx="27" cy="22" r="1.2" />
+            </g>
+          </g>
         </svg>
       ) : (
-        <svg viewBox="0 0 28 32" aria-hidden="true">
-          <path d="M14 2l11 4v9c0 8-5 13-11 15C8 28 3 23 3 15V6z" fill="none" stroke="var(--text-secondary)" strokeWidth="1.4" />
-          <path d="M16 3l-4 9 5 3-5 13" fill="none" stroke="var(--danger)" strokeWidth="1.3" />
+        <svg viewBox="0 0 34 30" aria-hidden="true">
+          <path d="M7 2h20l6 6v14l-6 6H7l-6-6V8z" fill="none" stroke="var(--text-secondary)" strokeWidth="1.4" strokeDasharray="4 2" />
+          <path d="M15 2l3 7-4 4 5 5-3 10" fill="none" stroke="var(--danger)" strokeWidth="1.4" />
         </svg>
       )
     case 'insanity':
-      return (
-        <svg viewBox="0 0 28 28" aria-hidden="true">
-          <path
-            className={full ? 'hm-sigil' : undefined}
-            d="M14 14m0-2a2 2 0 1 1-2 2 4 4 0 1 1 4 4 6 6 0 1 1-6-6 8 8 0 1 1 8 8"
-            fill="none"
-            stroke={full ? 'var(--accent)' : 'color-mix(in srgb, var(--text-secondary) 50%, transparent)'}
-            strokeWidth="1.7"
-            strokeLinecap="round"
-          />
+      return full ? (
+        <svg viewBox="0 0 30 30" aria-hidden="true">
+          <g className="hm-moon">
+            <circle cx="15" cy="15" r="12" fill="var(--accent)" />
+            <circle cx="11" cy="11" r="2" fill="color-mix(in srgb, var(--bg-primary) 20%, transparent)" />
+            <circle cx="19" cy="18" r="3" fill="color-mix(in srgb, var(--bg-primary) 20%, transparent)" />
+          </g>
+        </svg>
+      ) : (
+        <svg viewBox="0 0 30 30" aria-hidden="true">
+          <circle cx="15" cy="15" r="12" fill="none" stroke="color-mix(in srgb, var(--text-secondary) 40%, transparent)" strokeWidth="1.4" />
+          <path d="M15 3a12 12 0 0 1 0 24 8 12 0 0 0 0-24z" fill="color-mix(in srgb, var(--danger) 60%, transparent)" />
         </svg>
       )
     default:

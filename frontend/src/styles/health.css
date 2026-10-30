@@ -20,8 +20,18 @@
 }
 
 .health--fantasy .health__unit {
-  width: calc(var(--hm-size) * 0.6);
-  height: calc(var(--hm-size) * 1.3);
+  width: calc(var(--hm-size) * 0.85);
+  height: calc(var(--hm-size) * 1.2);
+}
+
+.health--deep_space .health__unit {
+  width: calc(var(--hm-size) * 1.2);
+  height: calc(var(--hm-size) * 1.05);
+}
+
+.health--cyberpunk .health__unit,
+.health--insanity .health__unit {
+  height: var(--hm-size);
 }
 
 .health--horror .health__unit {
@@ -44,7 +54,7 @@
 .hm-blink { transform-origin: 50% 50%; animation: hm-blink 6s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -1.7s); }
 .hm-cell { animation: hm-glow 2.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -0.7s); }
 .hm-shield { animation: hm-glow 3s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -1s); }
-.hm-sigil { transform-origin: 50% 50%; animation: hm-turn 9s linear infinite; animation-delay: calc(var(--i, 0) * -3s); }
+.hm-moon { animation: hm-glow 4s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -1.3s); }
 .hm-beat { transform-origin: 50% 55%; animation: hm-beat 1.8s ease-in-out infinite; }
 
 @keyframes hm-flicker {
@@ -67,10 +77,6 @@
 @keyframes hm-glow {
   0%, 100% { opacity: 0.85; }
   50% { opacity: 1; filter: drop-shadow(0 0 4px var(--accent)); }
-}
-
-@keyframes hm-turn {
-  to { transform: rotate(360deg); }
 }
 
 @keyframes hm-beat {

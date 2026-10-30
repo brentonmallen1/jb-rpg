@@ -490,6 +490,7 @@ def madlib_back(state: GameState) -> None:
 
 def proceed_from_character(state: GameState) -> None:
     require_status(state, SessionStatus.CHARACTER_REVEAL)
+    state.emblem_options = []  # chosen; the rest needn't travel with every update
     if state.story.opening_scene:
         state.status = SessionStatus.OPENING_SCENE_ACTIVE
     else:
@@ -505,9 +506,24 @@ def choose_crest(state: GameState, variant: int) -> None:
     state.emblem = None
 
 
-def choose_emblem(state: GameState, emblem: Emblem) -> None:
-    """Or an emblem from the emblem service, which every screen shows as the hero's crest."""
+def set_crest_options(state: GameState, round: int, options: list[Emblem]) -> None:
+    """Three crests for the table to choose from, on the stage and the phones: emblems from the
+    service, or (none) the built-in crests of that round. The first of the three is chosen to start."""
     require_status(state, SessionStatus.CHARACTER_REVEAL)
+    if not 0 <= round < 300:
+        raise GameError(422, "Invalid round")
+    state.crest_round = round
+    state.emblem_options = options
+    state.crest = round * 3
+    state.emblem = options[0] if options else None
+
+
+def choose_emblem(state: GameState, input: str) -> None:
+    """Or one of the emblems on offer, which every screen shows as the hero's crest."""
+    require_status(state, SessionStatus.CHARACTER_REVEAL)
+    emblem = next((e for e in state.emblem_options if e.input == input), None)
+    if emblem is None:
+        raise GameError(422, "That emblem isn't on offer")
     state.emblem = emblem
 
 

@@ -243,6 +243,46 @@ button.dock__who:focus-visible,
 
 .effects-off .phone-crest { animation: none; }
 
+/* The hero's reveal: the table chooses a crest from the same three the stage shows */
+.phone-crests {
+  margin-top: 24px;
+  animation: phone-ink 1.2s 0.4s var(--ease-out-expo) both;
+}
+
+.effects-off .phone-crests { animation: none; }
+
+.phone-crests .crests__options {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.phone-crests .crests__option {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  transition: transform 0.2s var(--ease-out-expo, ease-out), border-color 0.2s;
+}
+
+.phone-crests .crests__option.is-chosen {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-secondary));
+  box-shadow: 0 0 0 1px var(--accent);
+  transform: translateY(-3px);
+}
+
+.phone-crests .crests__option--loading {
+  animation: crest-wait 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes crest-wait { from { opacity: 0.35; } to { opacity: 0.8; } }
+
+@media (prefers-reduced-motion: reduce) { .phone-crests .crests__option--loading { animation: none; } }
+
 .sheet__hero {
   display: flex;
   align-items: center;

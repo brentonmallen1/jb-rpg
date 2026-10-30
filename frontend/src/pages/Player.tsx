@@ -10,7 +10,7 @@ import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
 import type { GameState, ResolvedContent } from '../types'
-import { Crest, KeepsakeDialog, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
+import { Crest, CrestChoices, KeepsakeDialog, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
 import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, D20Icon } from '../components/Icons'
 import { ItemIcon } from '../components/ItemIcon'
@@ -247,10 +247,18 @@ function GameScreen({ state, resolved, corruption, level, me, sessionId, onShowH
   if (state.status === 'character_reveal' && state.character) {
     return (
       <div>
-        <Crest character={state.character} variant={state.crest} emblem={state.emblem} theme={resolved.theme} size={110} className="phone-crest" />
         <div className="phone-eyebrow">Your hero</div>
         <h1 className="phone-title">{state.character.name}</h1>
         <p className="phone-text">{state.character.description}</p>
+        <section className="phone-crests" aria-label="Choose a crest together">
+          <div className="phone-label">Choose a crest together</div>
+          <CrestChoices
+            state={state}
+            theme={resolved.theme}
+            size={84}
+            onChoose={pick => ('emblem' in pick ? api.chooseEmblem(pick.emblem, sessionId) : api.chooseCrest(pick.variant, sessionId)).catch(() => {})}
+          />
+        </section>
       </div>
     )
   }

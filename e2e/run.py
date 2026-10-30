@@ -200,12 +200,20 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         check("The stage offers three crests (emblems, or drawn from the answers)", teller.locator("button.crests__option").count() == 3)
         teller.locator("button.crests__option").nth(1).click()
         teller.wait_for_selector("button.crests__option:nth-child(2).is-chosen", timeout=10000)
-        player.wait_for_selector(".phone-crest", timeout=5000)
         check("The chosen crest is the one the stage marks", teller.locator("button.crests__option").nth(1).get_attribute("aria-pressed") == "true")
         emblem = teller.locator("button.crests__option img.crest--emblem").count() == 3
         print(f"  (crests from {'the emblem service' if emblem else 'the built-in fallback'})")
-        if emblem:
-            check("The phone shows the chosen emblem", player.locator("img.phone-crest").count() == 1)
+        # The phones show the same three, and a player can choose
+        player.wait_for_selector(".phone-crests button.crests__option", timeout=10000)
+        check("The phones offer the same three crests", player.locator(".phone-crests button.crests__option").count() == 3)
+        check("The phone marks the stage's choice", player.locator(".phone-crests button.crests__option").nth(1).get_attribute("aria-pressed") == "true")
+        player.locator(".phone-crests button.crests__option").nth(2).click()
+        teller.wait_for_selector("button.crests__option:nth-child(3).is-chosen", timeout=10000)
+        check("A player's choice shows on the stage", True)
+        teller.click("button:has-text('Another three')")
+        teller.wait_for_function("() => document.querySelector('button.crests__option:nth-child(1)')?.classList.contains('is-chosen')", timeout=10000)
+        player.wait_for_selector(".phone-crests button.crests__option:nth-child(1).is-chosen", timeout=10000)
+        check("Another three reach the phones too", True)
         teller.click("text=Begin the story")
         teller.wait_for_selector("text=Reveal choices", timeout=5000)
 

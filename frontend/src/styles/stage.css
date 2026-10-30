@@ -1191,8 +1191,6 @@
 }
 
 .crests__option--loading {
-  width: 124px;
-  height: 124px;
   cursor: default;
   animation: crest-wait 1.6s ease-in-out infinite alternate;
 }

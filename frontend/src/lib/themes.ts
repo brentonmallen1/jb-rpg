@@ -2,7 +2,7 @@ import type { ThemeName } from '../types'
 
 /** What each theme calls the party's health. */
 export const HEALTH_LABEL: Record<ThemeName, string> = {
-  fantasy: 'Candles',
+  fantasy: 'Lanterns',
   horror: 'Sight',
   cyberpunk: 'Integrity',
   deep_space: 'Hull',

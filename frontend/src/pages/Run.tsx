@@ -154,7 +154,7 @@ export default function Run() {
       case 'madlib_in_progress':
         return <MadlibStep state={state} story={story} run={run} pending={pending} />
       case 'character_reveal':
-        return state.character ? <CharacterReveal character={state.character} crest={state.crest} emblem={state.emblem} theme={story.theme} run={run} /> : null
+        return state.character ? <CharacterReveal state={state} theme={story.theme} run={run} /> : null
       case 'opening_scene_active':
         return story.opening_scene && resolved
           ? <OpeningScene scene={story.opening_scene} sceneText={resolved.scene_text ?? ''} run={run} />

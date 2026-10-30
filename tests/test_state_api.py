@@ -385,7 +385,7 @@ def test_choice_item_without_name_rejected_at_start(client):
     # Caught when the game starts, not mid-game
     resp = client.post("/api/state/start", json={"story_id": story_id})
     assert resp.status_code == 422
-    assert "item name" in resp.json()["detail"].lower()
+    assert "item choice has no item" in resp.json()["detail"].lower()
 
 
 def test_choice_item_null_name_rejected_at_start(client):
@@ -404,7 +404,7 @@ def test_choice_item_null_name_rejected_at_start(client):
     # Caught when the game starts, not mid-game
     resp = client.post("/api/state/start", json={"story_id": story_id})
     assert resp.status_code == 422
-    assert "item name" in resp.json()["detail"].lower()
+    assert "item choice has no item" in resp.json()["detail"].lower()
 
 
 def test_choice_index_out_of_bounds(client):

@@ -1,9 +1,13 @@
 """Data models for stories and session state."""
 
+import math
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+# Where a link goes when it ends the story (the finale roll), instead of naming a scene
+END = "end"
 
 
 class ThemeName(str, Enum):
@@ -35,6 +39,7 @@ class ConditionType(str, Enum):
     ITEMS = "items"
     LEVEL = "level"
     SCENE_OUTCOME = "scene_outcome"
+    ITEM_HELD = "item_held"
 
 
 class Condition(BaseModel):
@@ -43,6 +48,7 @@ class Condition(BaseModel):
     value: Optional[int] = None
     scene_id: Optional[str] = None
     outcome: Optional[Literal["damage", "item", "level"]] = None
+    item_id: Optional[str] = None  # item_held: an item from the story's catalogue
 
 
 class ConditionalText(BaseModel):
@@ -62,14 +68,31 @@ class OpeningScene(BaseModel):
     conditional_text: list[ConditionalText] = []
 
 
+class ItemDef(BaseModel):
+    """An item the story can give, defined once: choices, conditions and finale texts point at its id."""
+    id: str
+    name: str
+    icon: Optional[str] = Field(None, max_length=32)  # None = picked from the item's name
+    description: Optional[str] = Field(None, max_length=600)  # Flavour text, shown when a player opens it in the backpack
+
+
 class Choice(BaseModel):
     kind: ChoiceKind
     display_text: str  # What players see when choosing (e.g., "Do you choose to...")
     result_text: str   # What storyteller reads after choice is made
     amount: int = 1
+    item_id: Optional[str] = None  # Item choices: the item from the story's catalogue
+    next_scene_id: Optional[str] = None  # Where this choice leads (a scene id or END); None = where the scene goes next
+    # Older stories kept the item on the choice; loading moves it into the catalogue (Story.items)
     item_name: Optional[str] = None
-    item_icon: Optional[str] = Field(None, max_length=32)  # None = picked from the item's name
-    item_description: Optional[str] = Field(None, max_length=600)  # Flavour text, shown when a player opens it in the backpack
+    item_icon: Optional[str] = Field(None, max_length=32)
+    item_description: Optional[str] = Field(None, max_length=600)
+
+
+class Route(BaseModel):
+    """After a choice that doesn't say where it leads: if the condition holds, go to target (a scene id or END)."""
+    condition: Condition
+    target: str = ""
 
 
 class Scene(BaseModel):
@@ -83,8 +106,12 @@ class Scene(BaseModel):
     finale_setup_text: Optional[str] = None  # Read before die roll
     victory_text: Optional[str] = None  # Read on victory
     defeat_text: Optional[str] = None  # Read on defeat
-    # Item-conditional text blocks for finale: { "ItemName": { "victory": "...", "defeat": "..." } }
+    # Item-conditional text blocks for finale: { item_id: { "victory": "...", "defeat": "..." } }
     item_texts: dict[str, dict[str, str]] = {}
+    # Where the story goes after this scene, when the choice doesn't say: routes in order, then next
+    routes: list[Route] = []
+    next: Optional[str] = None  # a scene id or END; None = the next scene in the list (or back to the doors)
+    requires: list[Condition] = []  # Door stories: the door stays locked until all of these hold
     mood: Optional[str] = None  # Backdrop mood within the story's theme; None = picked automatically
     ambience: Optional[str] = None  # Uploaded audio file to loop; None = story default, "none" = silence
 
@@ -111,6 +138,11 @@ class StorySound(BaseModel):
     stings: dict[str, str] = {}  # Moment type (hp_lost, victory…) -> uploaded file name
 
 
+class NodePosition(BaseModel):
+    x: float
+    y: float
+
+
 class Story(BaseModel):
     id: str
     title: str
@@ -120,6 +152,64 @@ class Story(BaseModel):
     scenes: list[Scene]
     opening_scene: Optional[OpeningScene] = None
     sound: StorySound = StorySound()
+    items: list[ItemDef] = []  # Every item the story can give
+    layout: dict[str, NodePosition] = {}  # Editor only: where each node sits in the Flow view
+
+    @model_validator(mode="after")
+    def _items_into_catalogue(self) -> "Story":
+        """Older stories named an item on the choice that gives it. Move each into the catalogue
+        (the same name is the same item) and point the choice, and finale item texts, at it."""
+        by_name = {item.name: item for item in self.items}
+        taken = {item.id for item in self.items}
+        for scene in self.scenes:
+            for choice in scene.choices:
+                name = (choice.item_name or "").strip()
+                if choice.kind == ChoiceKind.ITEM and name and not choice.item_id:
+                    item = by_name.get(name)
+                    if item is None:
+                        item = ItemDef(id=_unique_id(name, taken), name=name, icon=choice.item_icon, description=choice.item_description or None)
+                        self.items.append(item)
+                        by_name[name] = item
+                    else:
+                        item.icon = item.icon or choice.item_icon
+                        item.description = item.description or choice.item_description or None
+                    choice.item_id = item.id
+                choice.item_name = choice.item_icon = choice.item_description = None
+        ids = {item.id for item in self.items}
+        for scene in self.scenes:
+            if any(key not in ids and key in by_name for key in scene.item_texts):
+                scene.item_texts = {
+                    by_name[key].id if key not in ids and key in by_name else key: texts
+                    for key, texts in scene.item_texts.items()
+                }
+        return self
+
+    @model_validator(mode="after")
+    def _layout_for_nodes_only(self) -> "Story":
+        """Keep only places for nodes the Flow view draws (lib/storyGraph.ts): scenes, their routes,
+        the prologue, The end and the doors. Anything else is a node that's gone, and a place that
+        isn't a real number (NaN, infinity) is no place: the Flow view lays that node out again."""
+        nodes = {"opening", END, "doors"}
+        for scene in self.scenes:
+            nodes.add(scene.id)
+            nodes.update(f"route:{scene.id}:{i}" for i in range(len(scene.routes)))
+
+        def keep(key: str, pos: NodePosition) -> bool:
+            return key in nodes and math.isfinite(pos.x) and math.isfinite(pos.y)
+
+        if not all(keep(key, pos) for key, pos in self.layout.items()):
+            self.layout = {key: pos for key, pos in self.layout.items() if keep(key, pos)}
+        return self
+
+
+def _unique_id(name: str, taken: set[str]) -> str:
+    words = "".join(ch if ch.isalnum() else " " for ch in name.lower().replace("'", "").replace("’", ""))
+    base = "item_" + ("_".join(words.split()) or "thing")
+    candidate, n = base, 2
+    while candidate in taken:
+        candidate, n = f"{base}_{n}", n + 1
+    taken.add(candidate)
+    return candidate
 
 
 class HistoryEntry(BaseModel):
@@ -129,6 +219,7 @@ class HistoryEntry(BaseModel):
     item_name: Optional[str] = None
     item_icon: Optional[str] = None
     item_description: Optional[str] = None
+    item_id: Optional[str] = None
     damage_amount: int = 1
     decided_by: Optional[str] = None  # the player who made this choice (turn-taking games)
 

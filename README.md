@@ -83,6 +83,14 @@ three choices a scene, one hero the whole table builds together, and a real d20 
 
 <p align="center">
   <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshots/flow-dark.png" />
+    <img src="docs/images/screenshots/flow-light.png" alt="The Flow view: a branching story as a diagram of scenes, a route on the lantern, and The end, with the selected scene open beside it" width="900" />
+  </picture>
+  <br/><em>The Flow view: draw where each choice leads, and see every branch at once.</em>
+</p>
+
+<p align="center">
+  <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshots/library-dark.png" />
     <img src="docs/images/screenshots/library-light.png" alt="The library of stories, each cover in its own theme" width="900" />
   </picture>
@@ -151,6 +159,7 @@ Putting it on the internet so friends elsewhere can join: [docs/deployment.md](d
 | `ADMIN_USER` / `ADMIN_PASSWORD` | generated | The storyteller’s login |
 | `AUTH_DISABLED` | `false` | `true` turns the login off: local development only |
 | `BASE_URL` | the browser’s address | The public address used in player links, behind a reverse proxy |
+| `MAX_STORY_MB` | `10` | The largest story the server takes, saved or imported (uploaded audio has its own 30 MB limit) |
 | `ALLOWED_ORIGINS` | localhost | CORS origins, comma-separated (only needed for development setups) |
 
 ### Develop it

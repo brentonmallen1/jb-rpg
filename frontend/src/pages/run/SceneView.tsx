@@ -9,6 +9,7 @@ import { outcomeLabel } from '../../lib/outcomes'
 import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
 import { TurnLine } from './TurnLine'
 import { recap, sceneName } from '../../lib/story'
+import { choiceWithItem } from '../../lib/storyEdit'
 import { FinaleRoll } from './FinaleRoll'
 
 interface SceneViewProps {
@@ -108,7 +109,7 @@ export function SceneView({ state, resolved, story, run, pending, voteTally }: S
           </div>
           <div className={`choice-list ${selected !== null ? 'choice-list--deciding' : ''}`}>
             {state.shuffled_indices.map((originalIndex, visualIndex) => {
-              const choice = scene.choices[originalIndex]
+              const choice = choiceWithItem(story, scene.choices[originalIndex])
               if (!choice) return null
               const isSelected = selected === visualIndex
               return (

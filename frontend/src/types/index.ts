@@ -9,7 +9,7 @@ export type SessionStatus = 'madlib_in_progress' | 'character_reveal' | 'opening
 export type ChoiceKind = 'damage' | 'item' | 'level'
 
 // Condition types for conditional text
-export type ConditionType = 'hp' | 'items' | 'level' | 'scene_outcome'
+export type ConditionType = 'hp' | 'items' | 'level' | 'scene_outcome' | 'item_held'
 export type ConditionOp = 'lte' | 'gte' | 'eq'
 
 export interface Condition {
@@ -18,6 +18,7 @@ export interface Condition {
   value?: number
   scene_id?: string
   outcome?: ChoiceKind
+  item_id?: string  // item_held: an item from the story's catalogue
 }
 
 export interface ConditionalText {
@@ -37,14 +38,34 @@ export interface OpeningScene {
   conditional_text: ConditionalText[]
 }
 
+/** Where a link ends the story (the d20 finale), instead of naming a scene */
+export const END = 'end'
+
+/** An item the story can give, defined once (Story.items); choices, conditions and finale texts point at its id */
+export interface ItemDef {
+  id: string
+  name: string
+  icon?: string | null  // unset: picked from the item's name (lib/items.ts)
+  description?: string | null  // flavour text, shown when a player opens it in the backpack
+}
+
 export interface Choice {
   kind: ChoiceKind
   display_text: string  // What players see when choosing
   result_text: string   // What storyteller reads after choice is made
   amount: number
-  item_name?: string
-  item_icon?: string | null  // unset: picked from the item's name (lib/items.ts)
-  item_description?: string | null  // flavour text, shown when a player opens it in the backpack
+  item_id?: string | null  // item choices: the item from the story's catalogue
+  next_scene_id?: string | null  // where this choice leads (a scene id or END); unset = where the scene goes next
+  // Older stories kept the item here; the server moves it into the catalogue. Filled in for display by choiceWithItem
+  item_name?: string | null
+  item_icon?: string | null
+  item_description?: string | null
+}
+
+/** After a choice that doesn't say where it leads: if the condition holds, go to target (a scene id or END) */
+export interface Route {
+  condition: Condition
+  target: string
 }
 
 export interface Scene {
@@ -58,7 +79,10 @@ export interface Scene {
   finale_setup_text?: string  // Read before die roll
   victory_text?: string  // Read on victory
   defeat_text?: string  // Read on defeat
-  item_texts?: Record<string, { victory?: string; defeat?: string }>  // Item-conditional text blocks for finale
+  item_texts?: Record<string, { victory?: string; defeat?: string }>  // Finale lines per item id, where {item_text:Name} is written
+  routes?: Route[]  // checked in order after a choice that doesn't say where it leads
+  next?: string | null  // a scene id or END; unset = the next scene in the list (or back to the doors)
+  requires?: Condition[]  // door stories: the door stays locked until all of these hold
   mood?: string | null  // backdrop mood within the theme; unset = automatic
   ambience?: string | null  // uploaded audio to loop; unset = story default, 'none' = silence
 }
@@ -99,6 +123,8 @@ export interface Story {
   scenes: Scene[]
   opening_scene?: OpeningScene
   sound?: StorySound
+  items?: ItemDef[]  // every item the story can give
+  layout?: Record<string, { x: number; y: number }>  // editor only: node positions in the Flow view
 }
 
 export interface HistoryEntry {
@@ -108,6 +134,7 @@ export interface HistoryEntry {
   item_name?: string
   item_icon?: string | null
   item_description?: string | null
+  item_id?: string | null
   damage_amount: number
   decided_by?: string | null  // the player who made this choice (turn-taking games)
 }
@@ -193,6 +220,7 @@ export interface ResolvedContent {
   max_hp: number
   decider: PlayerRef | null  // who makes this scene's choice, or picks the next door (null = the storyteller)
   doors?: Door[] | null  // non-linear stories, choosing the next door: the doors that can be opened
+  doors_text?: string | null  // back at the doors after a room: the prologue's lines that now hold (stage and TV only)
   vote: VoteStatus | null  // voting games, once the choices are dealt
   mood?: string | null  // the scene's chosen backdrop mood (null = automatic)
   mood_seed?: number  // stable per scene, picks the automatic mood
@@ -238,6 +266,13 @@ export interface SSEStatePayload {
   storyteller_connected: boolean
   players_online: string[]  // ids of named players with a live connection
   vote_tally?: VoteTally | null  // sent only to the storyteller
+  path_progress?: PathProgress | null  // sent only to the storyteller, in branching stories
+}
+
+/** Branching stories (storyteller only): scenes played, and the fewest and most left, this one included */
+export interface PathProgress {
+  played: number
+  to_go: [number, number]
 }
 
 export interface SSESessionEndedPayload {
@@ -254,13 +289,15 @@ export interface StorySummary {
   scene_count: number
 }
 
-// Something that would stop a story being played, and where it is
+// Something that would stop a story being played (an error), or only surprise (a warning), and where it is
 export interface StoryProblem {
   message: string
-  area: 'story' | 'characters' | 'opening' | 'scene'
+  area: 'story' | 'characters' | 'opening' | 'scene' | 'items'
   scene_id: string | null
-  field: string | null  // e.g. 'item_name', 'conditional_text', 'choices', 'target_scene_id'
-  index: number | null  // which choice / condition
+  field: string | null  // e.g. 'item_id', 'conditional_text', 'choices', 'next_scene_id', 'routes', 'next', 'requires'
+  index: number | null  // which choice / condition / route / item
+  severity: 'error' | 'warning'  // only errors stop a game starting
+  code: 'unreachable' | 'item_never_given' | 'unknown_item_text' | null  // what kind of warning
 }
 
 /** A crest from the emblem service (emblazon), SVG included */
@@ -278,6 +315,7 @@ export interface Door {
   title: string
   last: boolean  // the finale's door
   played: boolean  // opened already
-  sealed: boolean  // the last door, until every other is opened
+  locked: boolean  // its conditions don't hold yet (Scene.requires)
+  sealed: boolean  // the last door, while any other can still be opened
   open: boolean  // can be chosen now
 }

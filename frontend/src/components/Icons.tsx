@@ -81,6 +81,12 @@ export const ChevronUpIcon = (p: IconProps) => (
 export const ArrowDownIcon = (p: IconProps) => (
   <Icon {...p}><path d="M12 5v14M6 13l6 6 6-6" /></Icon>
 )
+export const ExpandIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" /></Icon>
+)
+export const BranchIcon = (p: IconProps) => (
+  <Icon {...p}><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="12" r="2" /><path d="M6 7v10M6 9c0 3 4 3 10 3" /></Icon>
+)
 export const BackIcon = (p: IconProps) => (
   <Icon {...p}><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></Icon>
 )

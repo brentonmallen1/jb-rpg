@@ -8,13 +8,16 @@ import { loadAllThemes } from '../hooks/useTheme'
 import type { AudioFile, Story, StoryProblem } from '../types'
 import { ConfirmDialog, Modal, NowPlaying, PageMessage } from '../components'
 import { BackIcon, EyeIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
-import { moveSceneTo, newScene } from '../lib/storyEdit'
+import { addScene, createScene, deleteScene, moveSceneTo } from '../lib/storyEdit'
 import { EditorNav, type EditorSelection } from './editor/EditorNav'
 import { StoryPanel } from './editor/StoryPanel'
 import { CharactersPanel } from './editor/CharactersPanel'
 import { OpeningPanel } from './editor/OpeningPanel'
 import { ScenePanel } from './editor/ScenePanel'
+import { ItemsPanel } from './editor/ItemsPanel'
 import { PreviewPane } from './editor/PreviewPane'
+import { SuggestionsContext } from './editor/suggest'
+import { FlowView } from './editor/FlowView'
 import '../styles/stage.css'
 import '../styles/phone.css'
 import '../styles/pages/library.css'
@@ -22,6 +25,18 @@ import '../styles/pages/editor.css'
 
 const SAVE_LABEL = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved changes' } as const
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+type EditorView = 'text' | 'flow'
+const VIEW_KEY = 'jb_rpg_editor_view'
+
+/** Text or Flow, remembered per device */
+function readView(): EditorView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'flow' ? 'flow' : 'text'
+  } catch {
+    return 'text'
+  }
+}
 
 function readSamples(storyId: string): Record<string, string> {
   try {
@@ -46,6 +61,9 @@ export default function Editor() {
   const [replaceMessage, setReplaceMessage] = useState<string | null>(null)
   const [navOpen, setNavOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [view, setView] = useState<EditorView>(readView)
+  // Flow view: the selected node's panel opens beside the canvas
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [audio, setAudio] = useState<AudioFile[]>([])
   const refreshAudio = useCallback(() => {
     api.listAudio(storyId).then(setAudio).catch(() => setAudio([]))
@@ -141,9 +159,36 @@ export default function Editor() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [saveNow, undo, redo])
 
+  // A selection can point at one field in its panel (an item's "Given by" / "Checked by"): bring it into view
+  useEffect(() => {
+    const focus = 'focus' in selection ? selection.focus : undefined
+    const field = focus ? document.querySelector<HTMLElement>(`.ed-panel [data-focus="${CSS.escape(focus)}"]`) : null
+    if (!field) return
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    field.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' })
+    ;(field.querySelector<HTMLElement>('textarea') ?? field.querySelector<HTMLElement>('input, select'))?.focus({ preventScroll: true })
+    field.classList.add('is-pointed')
+    const fade = () => field.classList.remove('is-pointed')
+    const done = setTimeout(fade, 1800)
+    return () => {
+      clearTimeout(done)
+      fade()
+    }
+  }, [selection])
+
   function select(next: EditorSelection) {
     setSelection(next)
     setNavOpen(false)
+    setDrawerOpen(true)
+  }
+
+  function changeView(next: EditorView) {
+    setView(next)
+    try {
+      localStorage.setItem(VIEW_KEY, next)
+    } catch {
+      // per-device convenience only
+    }
   }
 
   function rememberTextField(e: React.FocusEvent) {
@@ -182,11 +227,16 @@ export default function Editor() {
   if (!story) return <PageMessage message="Loading…" />
 
   const selectedScene = selection.kind === 'scene' ? story.scenes.find(s => s.id === selection.id) : undefined
+  const errors = problems.filter(p => p.severity === 'error')
+  const suggestions = story.madlib_template.fields.filter(f => f.key.trim()).map(f => ({ token: `{${f.key}}`, hint: f.label }))
 
   function renderPanel() {
     if (!story) return null
     if (selection.kind === 'characters') {
       return <CharactersPanel story={story} problems={problems} samples={samples} onSamples={changeSamples} update={update} />
+    }
+    if (selection.kind === 'items') {
+      return <ItemsPanel story={story} itemId={selection.id} problems={problems} update={update} onSelect={select} dragToCanvas={view === 'flow'} />
     }
     if (selection.kind === 'opening' && story.opening_scene) {
       return <OpeningPanel story={story} opening={story.opening_scene} problems={problems} update={update} textTarget={textTarget} />
@@ -202,6 +252,7 @@ export default function Editor() {
           textTarget={textTarget}
           audio={audio}
           onDelete={() => setDeleteTarget(selectedScene.id)}
+          onOpenItem={id => select({ kind: 'items', id })}
         />
       )
     }
@@ -218,6 +269,10 @@ export default function Editor() {
           <button className="icon-btn editor__nav-toggle" onClick={() => setNavOpen(!navOpen)} aria-expanded={navOpen} aria-label="Story sections">☰</button>
           <span className="stage__story-title">{story.title || 'Untitled story'}</span>
           <span className={`editor__save editor__save--${saveStatus}`} role="status">{SAVE_LABEL[saveStatus]}</span>
+          <div className="ed-segmented ed-segmented--small editor__view" role="radiogroup" aria-label="Edit as">
+            <button type="button" role="radio" aria-checked={view === 'text'} onClick={() => changeView('text')}>Text</button>
+            <button type="button" role="radio" aria-checked={view === 'flow'} onClick={() => changeView('flow')}>Flow</button>
+          </div>
         </div>
         <div className="stage__tools">
           <NowPlaying />
@@ -229,49 +284,84 @@ export default function Editor() {
           <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
             {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
-          {problems.length > 0 && (
+          {errors.length > 0 && (
             <button className="s-btn s-btn--ghost editor__problems" onClick={() => select({ kind: 'story' })}>
-              {problems.length} to fix
+              {errors.length} to fix
             </button>
           )}
           <button className="s-btn" onClick={() => playtest()}>Playtest</button>
         </div>
       </header>
 
-      <div className="editor__layout">
-        <div className={`editor__nav ${navOpen ? 'is-open' : ''}`}>
-          <EditorNav
-            story={story}
-            selection={selection}
-            problems={problems}
-            onSelect={select}
-            onAddScene={() => {
-              const scene = newScene(story.scenes.length + 1)
-              update(s => ({ ...s, scenes: [...s.scenes, scene] }))
-              select({ kind: 'scene', id: scene.id })
-            }}
-            onAddOpening={() => {
-              update(s => ({ ...s, opening_scene: { title: 'Prologue', base_text: '', choices: [], conditional_text: [] } }))
-              select({ kind: 'opening' })
-            }}
-            onMoveScene={(id, to) => update(s => moveSceneTo(s, id, to))}
-          />
-        </div>
-
-        <main className="editor__main" onFocusCapture={rememberTextField}>
-          {error && (
-            <div className="stage-error" role="alert">
-              <span>{error}</span>
-              <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
-            </div>
+      {view === 'flow' ? (
+        <div className={`editor__layout editor__layout--flow ${drawerOpen ? 'has-drawer' : ''}`}>
+          <FlowView story={story} problems={problems} selection={selection} update={update} onSelect={select} />
+          {drawerOpen && (
+            <aside className="editor__drawer" aria-label="Edit the selection" onFocusCapture={rememberTextField}>
+              <div className="editor__drawer-bar">
+                <div className="ed-segmented ed-segmented--small" role="group" aria-label="Story sections">
+                  <button type="button" aria-pressed={selection.kind === 'story'} onClick={() => select({ kind: 'story' })}>Story</button>
+                  <button type="button" aria-pressed={selection.kind === 'characters'} onClick={() => select({ kind: 'characters' })}>Characters</button>
+                  <button type="button" aria-pressed={selection.kind === 'items'} onClick={() => select({ kind: 'items' })}>Items</button>
+                </div>
+                <button type="button" className="s-btn s-btn--ghost" onClick={() => setDrawerOpen(false)}>Close</button>
+              </div>
+              {error && (
+                <div className="stage-error" role="alert">
+                  <span>{error}</span>
+                  <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
+                </div>
+              )}
+              <SuggestionsContext.Provider value={suggestions}>
+                {renderPanel()}
+              </SuggestionsContext.Provider>
+            </aside>
           )}
-          {renderPanel()}
-        </main>
-
-        <div className={`editor__preview ${previewOpen ? 'is-open' : ''}`}>
-          <PreviewPane story={story} selection={selection} samples={samples} colorMode={colorMode} />
+          {!drawerOpen && (
+            <button type="button" className="s-btn s-btn--ghost editor__drawer-open" onClick={() => setDrawerOpen(true)}>
+              Story, characters and items
+            </button>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="editor__layout">
+          <div className={`editor__nav ${navOpen ? 'is-open' : ''}`}>
+            <EditorNav
+              story={story}
+              selection={selection}
+              problems={problems}
+              onSelect={select}
+              onAddScene={() => {
+                const scene = createScene(story)
+                update(s => addScene(s, scene))
+                select({ kind: 'scene', id: scene.id })
+              }}
+              onAddOpening={() => {
+                update(s => ({ ...s, opening_scene: { title: 'Prologue', base_text: '', choices: [], conditional_text: [] } }))
+                select({ kind: 'opening' })
+              }}
+              onMoveScene={(id, to) => update(s => moveSceneTo(s, id, to))}
+            />
+          </div>
+
+          <main className="editor__main" onFocusCapture={rememberTextField}>
+            {error && (
+              <div className="stage-error" role="alert">
+                <span>{error}</span>
+                <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
+              </div>
+            )}
+            {/* Typing "{" in any text offers the hero's answers */}
+            <SuggestionsContext.Provider value={suggestions}>
+              {renderPanel()}
+            </SuggestionsContext.Provider>
+          </main>
+
+          <div className={`editor__preview ${previewOpen ? 'is-open' : ''}`}>
+            <PreviewPane story={story} selection={selection} samples={samples} colorMode={colorMode} />
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
@@ -280,12 +370,12 @@ export default function Editor() {
           setDeleteTarget(null)
           if (!id) return
           const remaining = story.scenes.filter(s => s.id !== id)
-          update(s => ({ ...s, scenes: s.scenes.filter(sc => sc.id !== id) }))
+          update(s => deleteScene(s, id))
           select(remaining[0] ? { kind: 'scene', id: remaining[0].id } : { kind: 'story' })
         }}
         onCancel={() => setDeleteTarget(null)}
         title="Delete this scene?"
-        message={`“${story.scenes.find(s => s.id === deleteTarget)?.title}” will be removed. You can undo this with ${isMac ? '⌘' : 'Ctrl+'}Z.`}
+        message={`“${story.scenes.find(s => s.id === deleteTarget)?.title}” will be removed, and anything that led to it will go where the story goes by default. You can undo this with ${isMac ? '⌘' : 'Ctrl+'}Z.`}
         confirmText="Delete"
         variant="danger"
       />

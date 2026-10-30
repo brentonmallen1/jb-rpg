@@ -2,7 +2,7 @@ import logging
 import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -75,10 +75,49 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+_AUDIO_UPLOAD = re.compile(r"^/api/stories/[^/]+/audio/")  # MAX_AUDIO_BYTES in routes/stories.py
+
+
+class BodyLimitMiddleware:
+    """Refuses a request body over MAX_STORY_MB before anything parses it: by its Content-Length,
+    or as it arrives when it doesn't say."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or _AUDIO_UPLOAD.match(scope["path"]):
+            return await self.app(scope, receive, send)
+        limit = int(config.MAX_STORY_MB * 1024 * 1024)
+        length = dict(scope["headers"]).get(b"content-length", b"")
+        if length.isdigit() and int(length) > limit:
+            return await self.too_large(scope, receive, send)
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    raise HTTPException(status_code=413, detail=self.message())
+            return message
+
+        await self.app(scope, limited_receive, send)
+
+    @staticmethod
+    def message() -> str:
+        return f"That's more than the server takes ({config.MAX_STORY_MB:g} MB)"
+
+    async def too_large(self, scope, receive, send):
+        await JSONResponse(status_code=413, content={"detail": self.message()})(scope, receive, send)
+
+
 # The interactive API docs are a map of every endpoint: only for local development
 _docs = {} if config.AUTH_DISABLED else {"docs_url": None, "redoc_url": None, "openapi_url": None}
 app = FastAPI(title="J&B's RPG", lifespan=lifespan, **_docs)
 
+app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,

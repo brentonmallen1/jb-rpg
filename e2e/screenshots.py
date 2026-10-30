@@ -22,6 +22,7 @@ DESKTOP = {"width": 1440, "height": 900}
 PHONE = {"width": 390, "height": 844}
 ANSWERS = ["Wren Ashdown", "the Salt Marshes", "a brass lantern"]
 PHONE_THEMES = ["deep_space", "fantasy", "horror", "cyberpunk"]
+BRANCHING = "demo-drowned-bell"
 
 
 def as_player(path: str, body: dict, player_token: str) -> None:
@@ -86,6 +87,21 @@ def compose_phones(browser) -> None:
     print("saved phones")
 
 
+def open_road(page) -> None:
+    """The Flow view with the Sunken Road open beside it: its route to the stair, and where it goes otherwise."""
+    page.click(".react-flow__node[data-id='scene_sunken_road']")
+    page.wait_for_selector(".editor__drawer .ed-title-input")
+    page.click(".fl-toolbar button:text-is('Fit')")
+    page.wait_for_timeout(600)
+    # Close enough to read: from the prologue to the dark water
+    box = page.locator(".react-flow__node[data-id='opening']").bounding_box()
+    page.mouse.move(box["x"], box["y"] + box["height"] / 2)
+    for _ in range(4):
+        page.mouse.wheel(0, -120)
+        page.wait_for_timeout(150)
+    page.mouse.move(5, 5)
+
+
 def take(browser) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -102,6 +118,11 @@ def take(browser) -> None:
         shoot(
             browser, f"{B}/editor/{STORY}", f"editor-{mode}", init=settings(mode=mode), ready="text=The Village Gate",
             before=lambda page: page.click("nav >> text=The Chasm Bridge"),
+        )
+        shoot(
+            browser, f"{B}/editor/{BRANCHING}", f"flow-{mode}",
+            init=settings(mode=mode) + "localStorage.setItem('jb_rpg_editor_view','flow');", ready=".fl-scene",
+            before=open_road,
         )
 
     # A voting game: two phones have voted on the second scene
@@ -136,7 +157,8 @@ def main() -> int:
         return 1
     data_dir = Path(tempfile.mkdtemp(prefix="jb-rpg-shots-"))
     (data_dir / "stories").mkdir()
-    shutil.copy(ROOT / "data" / "stories" / f"{STORY}.json", data_dir / "stories")
+    for story in (STORY, BRANCHING):
+        shutil.copy(ROOT / "data" / "stories" / f"{story}.json", data_dir / "stories")
     backend = start_backend(data_dir)
     frontend = subprocess.Popen(
         ["npx", "vite", "--port", str(FRONTEND_PORT), "--strictPort"],

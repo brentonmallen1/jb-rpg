@@ -1,0 +1,365 @@
+/* The Flow view: the story as a diagram. Editor chrome tokens only (themes stay in the preview). */
+
+.fl-canvas {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black);
+  --fl-item: color-mix(in srgb, var(--success) 80%, var(--text-primary));
+  --fl-damage: color-mix(in srgb, var(--danger) 75%, var(--text-primary));
+  --fl-level: var(--level);
+  --fl-line: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+}
+
+[data-mode="light"] .fl-canvas { background: color-mix(in srgb, var(--bg-primary) 94%, var(--text-secondary)); }
+
+.fl-bg { color: color-mix(in srgb, var(--text-secondary) 35%, transparent); }
+
+/* --- Nodes ------------------------------------------------------------------- */
+
+.fl-node {
+  position: relative;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  transition: opacity 0.2s;
+}
+
+.fl-scene {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px 8px;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 14%, var(--line));
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+  font-size: 0.8rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.fl-scene:hover { border-color: color-mix(in srgb, var(--text-primary) 30%, var(--line)); }
+
+.fl-scene.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent), 0 6px 20px rgb(0 0 0 / 0.18);
+}
+
+.fl-scene--finale {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-secondary));
+}
+
+.fl-scene.has-error,
+.fl-route.has-error .fl-route__shape { border-color: var(--warning); }
+.fl-scene.has-warning { opacity: 0.72; border-style: dashed; }
+
+.fl-scene__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-height: 28px;
+}
+
+.fl-scene__head .ed-dot { margin-left: auto; }
+
+.fl-scene__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fl-kicker {
+  flex-basis: 100%;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.fl-scene--finale .fl-kicker { color: var(--accent); }
+
+.fl-lock {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--level);
+}
+
+.fl-choices {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fl-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+}
+
+.fl-choice__text {
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fl-choice__text--item { color: var(--fl-item); font-weight: 600; }
+.fl-choice--empty { color: var(--text-secondary); }
+
+.fl-then {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.fl-then .fl-kicker { flex-basis: auto; }
+
+.fl-then__target {
+  overflow: hidden;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fl-scene__d20 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  color: var(--text-secondary);
+}
+
+.fl-badge {
+  position: absolute;
+  top: -11px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fl-badge--error { background: var(--warning); color: var(--bg-primary); }
+.fl-badge--warning { border: 1px dashed var(--text-secondary); background: var(--bg-secondary); color: var(--text-secondary); }
+
+/* Routes: a diamond with a yes (right) and a no (below) */
+.fl-route {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.fl-route__shape {
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--level) 45%, var(--line));
+  background: color-mix(in srgb, var(--level) 12%, var(--bg-secondary));
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+[data-mode="light"] .fl-route__shape { background: color-mix(in srgb, var(--level) 24%, var(--bg-secondary)); }
+
+.fl-route__text {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 112px;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.fl-route__text .fl-kicker { flex-basis: auto; color: var(--level); }
+
+.fl-route__label {
+  position: absolute;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.fl-route__label--yes { top: 34px; right: -26px; }
+.fl-route__label--no { bottom: -20px; left: 92px; }
+
+.fl-end,
+.fl-doors {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.8rem;
+}
+
+.fl-end {
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg-secondary));
+}
+
+.fl-end .fl-kicker { color: var(--accent); }
+
+.fl-end__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.fl-doors {
+  border: 1px solid color-mix(in srgb, var(--text-primary) 18%, var(--line));
+  background: var(--bg-secondary);
+}
+
+.fl-doors__title { font-family: var(--font-display); font-size: 0.95rem; font-weight: 600; }
+.fl-doors__text { color: var(--text-secondary); font-size: 0.72rem; }
+
+/* An item selected in the Items panel: where it's given and checked stand out */
+.fl-node.is-dim { opacity: 0.28; }
+.fl-scene.is-given { border: 2px solid var(--fl-item); box-shadow: 0 0 0 5px color-mix(in srgb, var(--fl-item) 18%, transparent); }
+.fl-scene.is-checked { border: 2px dashed var(--fl-item); }
+.fl-route.is-checked .fl-route__shape { background: color-mix(in srgb, var(--fl-item) 22%, var(--bg-secondary)); }
+
+/* An item dragged from the Items panel: choices and routes are where it can land */
+.is-dragging-item .fl-choice { border-radius: 6px; outline: 1px dashed color-mix(in srgb, var(--fl-item) 55%, transparent); outline-offset: -2px; }
+.is-dragging-item .fl-route__shape { background: color-mix(in srgb, var(--fl-item) 14%, var(--bg-secondary)); }
+.fl-choice.is-drop { outline: 2px solid var(--fl-item); background: color-mix(in srgb, var(--fl-item) 16%, transparent); }
+.fl-route.is-drop .fl-route__shape { background: color-mix(in srgb, var(--fl-item) 30%, var(--bg-secondary)); }
+
+/* --- Handles ------------------------------------------------------------------ */
+
+.react-flow__handle.fl-handle {
+  width: 10px;
+  height: 10px;
+  min-width: 0;
+  min-height: 0;
+  border: 2px solid var(--bg-secondary);
+  border-radius: 50%;
+  background: var(--fl-line);
+}
+
+.react-flow__handle.fl-handle--in {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.fl-choice .react-flow__handle { right: -15px; }
+.fl-then .react-flow__handle { right: -15px; }
+
+/* A choice without its own path follows "Then": its port shows only on hover, to drag from */
+.react-flow__handle.fl-handle--choice { opacity: 0; background: currentColor; transition: opacity 0.15s; }
+.react-flow__handle.fl-handle--choice.has-path,
+.fl-scene:hover .react-flow__handle.fl-handle--choice,
+.react-flow__handle.fl-handle--choice.connectingfrom { opacity: 1; }
+.fl-scene:hover .react-flow__handle.fl-handle--choice:not(.has-path) { background: var(--bg-secondary); border-color: currentColor; }
+
+.react-flow__handle.fl-handle--yes { background: var(--level); }
+.react-flow__handle.fl-handle--then,
+.react-flow__handle.fl-handle--no,
+.react-flow__handle.fl-handle--out { background: var(--text-secondary); }
+
+.react-flow__handle.connectionindicator:hover,
+.react-flow__handle.valid { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* --- Edges -------------------------------------------------------------------- */
+
+.fl-edge .react-flow__edge-path { stroke: var(--fl-line); stroke-width: 2; }
+.fl-edge--damage .react-flow__edge-path { stroke: var(--fl-damage); }
+.fl-edge--item .react-flow__edge-path { stroke: var(--fl-item); }
+.fl-edge--level .react-flow__edge-path,
+.fl-edge--yes .react-flow__edge-path { stroke: var(--fl-level); }
+.fl-edge--default .react-flow__edge-path { stroke-dasharray: 5 6; opacity: 0.7; }
+.fl-edge--dim { opacity: 0.2; }
+
+/* "Depends on": a line, route or lock that looks back on how a scene went; drawn, never edited */
+.fl-edge--depends .react-flow__edge-path { stroke: var(--level); stroke-width: 1.5; stroke-dasharray: 2 5; opacity: 0.75; }
+.fl-edge--depends { pointer-events: none; }
+.fl-edge--depends .react-flow__edge-text { fill: var(--text-secondary); font-size: 10px; }
+.fl-edge--depends .react-flow__edge-textbg { fill: var(--bg-primary); }
+.react-flow__handle.fl-handle--depends { opacity: 0; pointer-events: none; }
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus-visible .react-flow__edge-path { stroke: var(--accent); stroke-width: 3; }
+
+.react-flow__connection-path { stroke: var(--accent); stroke-width: 2; }
+
+/* --- Toolbar and minimap ---------------------------------------------------------- */
+
+.fl-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fl-toolbar__group {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.fl-toolbar button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fl-toolbar__group button + button { border-left: 1px solid var(--line); }
+.fl-toolbar button:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
+.fl-toolbar button:disabled { color: var(--text-secondary); opacity: 0.6; cursor: default; }
+
+.fl-toolbar__single {
+  border: 1px solid var(--line) !important;
+  border-radius: 10px;
+  background: var(--bg-secondary) !important;
+}
+
+.fl-minimap {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  --xy-minimap-background-color: var(--bg-secondary);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--bg-primary) 60%, transparent);
+  --xy-minimap-node-background-color: color-mix(in srgb, var(--text-secondary) 45%, transparent);
+}
+
+.react-flow__attribution {
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+}
+
+.react-flow__attribution a { color: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fl-node,
+  .react-flow__handle.fl-handle--choice { transition: none; }
+}

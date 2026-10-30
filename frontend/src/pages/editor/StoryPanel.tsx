@@ -18,6 +18,8 @@ interface StoryPanelProps {
 }
 
 export function StoryPanel({ story, problems, update, onJump, audio, onAudioChange }: StoryPanelProps) {
+  const errors = problems.filter(p => p.severity === 'error')
+  const warnings = problems.filter(p => p.severity === 'warning')
   const hp = story.settings.starting_hp
   const setHp = (value: number) => update(s => ({ ...s, settings: { ...s.settings, starting_hp: Math.min(10, Math.max(1, value)) } }))
 
@@ -33,26 +35,17 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
         onChange={e => update(s => ({ ...s, title: e.target.value }))}
       />
 
-      {problems.length === 0 ? (
+      {errors.length === 0 ? (
         <p className="ed-ready">Ready to play.</p>
       ) : (
-        <Section title={`Before it can be played (${problems.length})`}>
-          <ul className="ed-problems ed-problems--links">
-            {problems.map(p => (
-              <li key={p.message}>
-                <button
-                  type="button"
-                  onClick={() => onJump(
-                    p.area === 'scene' && p.scene_id ? { kind: 'scene', id: p.scene_id } :
-                    p.area === 'opening' ? { kind: 'opening' } :
-                    p.area === 'characters' ? { kind: 'characters' } : { kind: 'story' }
-                  )}
-                >
-                  {p.message}
-                </button>
-              </li>
-            ))}
-          </ul>
+        <Section title={`Before it can be played (${errors.length})`}>
+          <ProblemLinks problems={errors} story={story} onJump={onJump} />
+        </Section>
+      )}
+      {warnings.length > 0 && (
+        <Section title={`Worth a look (${warnings.length})`}>
+          <p className="ed-muted">These won't stop a game, but they may not be what you meant.</p>
+          <ProblemLinks problems={warnings} story={story} onJump={onJump} quiet />
         </Section>
       )}
 
@@ -97,8 +90,8 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
           </div>
           <p className="ed-muted" style={{ marginTop: 6 }}>
             {story.settings.non_linear
-              ? 'The party picks which scene comes next; the finale unlocks once every other door is open.'
-              : 'Scenes play in order; the last one ends in the final roll.'}
+              ? 'The party picks which door comes next; the finale unlocks once no other door can be opened. A choice can also lead to a room behind a door.'
+              : 'Scenes play down the list unless a choice or a route leads somewhere else; every path ends at a finale or The end.'}
           </p>
         </Field>
       </div>
@@ -118,5 +111,27 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
 
       <SoundSection story={story} audio={audio} onAudioChange={onAudioChange} update={update} />
     </div>
+  )
+}
+
+function ProblemLinks({ problems, story, onJump, quiet }: { problems: StoryProblem[]; story: Story; onJump: (selection: EditorSelection) => void; quiet?: boolean }) {
+  return (
+    <ul className={`ed-problems ed-problems--links ${quiet ? 'ed-problems--quiet' : ''}`}>
+      {problems.map(p => (
+        <li key={p.message}>
+          <button
+            type="button"
+            onClick={() => onJump(
+              p.area === 'scene' && p.scene_id ? { kind: 'scene', id: p.scene_id } :
+              p.area === 'items' ? { kind: 'items', id: p.index !== null ? story.items?.[p.index]?.id : undefined } :
+              p.area === 'opening' ? { kind: 'opening' } :
+              p.area === 'characters' ? { kind: 'characters' } : { kind: 'story' }
+            )}
+          >
+            {p.message}
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }

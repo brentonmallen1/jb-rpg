@@ -128,7 +128,12 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
         "vote": vote_status(state, now),
         # The backpack: each item with the scene it was found in (scenes the table has already played)
         "items_found": [
-            {"name": entry.item_name, "icon": entry.item_icon, "scene_title": _scene_title(story, entry.scene_id)}
+            {
+                "name": entry.item_name,
+                "icon": entry.item_icon,
+                "description": inject_variables(entry.item_description, fields) if entry.item_description else None,
+                "scene_title": _scene_title(story, entry.scene_id),
+            }
             for entry in state.history
             if entry.item_name
         ],
@@ -605,6 +610,7 @@ def make_choice(state: GameState, visual_index: int) -> None:
         choice_index=original_index,
         item_name=choice.item_name if choice.kind == ChoiceKind.ITEM else None,
         item_icon=choice.item_icon if choice.kind == ChoiceKind.ITEM else None,
+        item_description=(choice.item_description or None) if choice.kind == ChoiceKind.ITEM else None,
         damage_amount=choice.amount,
     ))
 

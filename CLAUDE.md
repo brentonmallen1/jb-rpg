@@ -173,6 +173,12 @@ The hero's crest comes from the emblem service, **emblazon** (`EMBLAZON_URL`, de
 
 When the service is down, `emblem_options` is empty and every screen falls back to the built-in crests: `lib/crest.ts` (`crestFor(character, variant)`) seeds from the name and answers, picks emblems by keywords in the answers, and `components/Crest.tsx` draws them in the theme's form; the server keeps only `state.crest` (the variant). Choosing a built-in crest clears `state.emblem`. Shown on the stage's party rail, the phones' reveal, dock and hero sheet, and the keepsake.
 
+## Item icons
+
+`lib/items.ts` holds the icon set (24-unit stroked drawings). An item's icon is the one the story chose (`Choice.item_icon`, picked in the Editor's `ItemIconPicker`; the server only stores the name and copies it to `HistoryEntry.item_icon`, `resolved.items_found[].icon` and `journey[].item_icon`), else one its name calls for by keyword, else the theme's own (`THEME_ITEM_ICON`: pouch, canister, datapad, jar, idol, parcel), so there is always one. `components/ItemIcon.tsx` draws it bare (lists) or framed in the theme's form like its crest (the found-item card, the backpack, the party rail); `ChoiceOutcomeIcon` shows it wherever a choice's outcome is shown.
+
+An item can also have flavour text (`Choice.item_description`, optional, "About the item" in the Editor), copied to `HistoryEntry.item_description` and sent, with `{field_key}` filled in, as `resolved.items_found[].description`. In the phone's backpack an item with a description shows "Read more" and opens across the backpack to show it.
+
 ## Keepsake
 
 When the outcome is revealed, phones ("Your keepsake") and the stage ("The keepsake") open `KeepsakeDialog`: a 540×960 card in the story's theme (crest, outcome, health, level, items, and the journey from `resolved.journey`, sent only at game over). Share (where the device can share files) and Save image render it with `html-to-image` at 2× (1080×1920 PNG).

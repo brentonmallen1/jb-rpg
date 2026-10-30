@@ -9,7 +9,7 @@ import { useWakeLock } from '../hooks/useWakeLock'
 import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
-import type { GameState, ResolvedContent } from '../types'
+import type { FoundItem, GameState, ResolvedContent } from '../types'
 import { Crest, CrestChoices, KeepsakeDialog, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
 import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, D20Icon } from '../components/Icons'
@@ -496,7 +496,8 @@ function HeroSheet({ open, state, resolved, onClose }: { open: boolean; state: G
 
 /** The backpack: every item found, as a card, with where it was found. Each one adds to the final roll. */
 function BackpackSheet({ open, state, resolved, onClose }: { open: boolean; state: GameState; resolved: ResolvedContent; onClose: () => void }) {
-  const found = resolved.items_found ?? state.items.map(name => ({ name, icon: null, scene_title: '' }))
+  const found: FoundItem[] = resolved.items_found ?? state.items.map(name => ({ name, icon: null, scene_title: '' }))
+  const [opened, setOpened] = useState<number | null>(null)  // an item opened to read about it
   return (
     <BottomSheet open={open} label="The backpack" onClose={onClose}>
       <div className="pack__head">
@@ -507,13 +508,27 @@ function BackpackSheet({ open, state, resolved, onClose }: { open: boolean; stat
         <p className="sheet__empty">Nothing yet. Whatever the hero finds goes in here, and each one helps the final roll.</p>
       ) : (
         <ul className="pack">
-          {found.map((item, i) => (
-            <li key={`${item.name}-${i}`} className="pack__item">
-              <ItemIcon name={item.name} icon={item.icon} theme={resolved.theme} size={40} framed />
-              <span className="pack__name">{item.name}</span>
-              {item.scene_title && <span className="pack__where">{item.scene_title}</span>}
-            </li>
-          ))}
+          {found.map((item, i) => {
+            const body = (
+              <>
+                <ItemIcon name={item.name} icon={item.icon} theme={resolved.theme} size={40} framed />
+                <span className="pack__name">{item.name}</span>
+                {item.scene_title && <span className="pack__where">{item.scene_title}</span>}
+              </>
+            )
+            const isOpen = opened === i && !!item.description
+            return (
+              <li key={`${item.name}-${i}`} className={`pack__item ${isOpen ? 'is-open' : ''}`}>
+                {item.description ? (
+                  <button type="button" className="pack__open" aria-expanded={isOpen} onClick={() => setOpened(isOpen ? null : i)}>
+                    {body}
+                    {!isOpen && <span className="pack__more">Read more</span>}
+                  </button>
+                ) : body}
+                {isOpen && <p className="pack__about">{item.description}</p>}
+              </li>
+            )
+          })}
         </ul>
       )}
     </BottomSheet>

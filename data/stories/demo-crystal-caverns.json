@@ -37,7 +37,8 @@
           "display_text": "Do you ask the elder for guidance before answering the cavern's call?",
           "result_text": "You resist the pull long enough to turn to the elder. 'What can you tell me?' She studies your face, then produces a worn parchment from her robes. 'This map was drawn by the last survivor. It won't show you everything—the caverns shift—but it will show you enough.' She presses it into your hands. 'Patience. That's what the caverns test.'",
           "amount": 1,
-          "item_name": "Elder's Map"
+          "item_name": "Elder's Map",
+          "item_description": "Drawn in a shaking hand by the last one to come back. Half the tunnels are crossed out, and one is circled twice."
         },
         {
           "kind": "damage",
@@ -73,7 +74,8 @@
           "display_text": "Do you resist eating and instead collect the glowing spores?",
           "result_text": "Your stomach protests, but you focus on the spores drifting from the mushroom caps. With careful movements, you collect them in an empty vial. They swirl like captive stars, providing their own soft light. Your hunger remains, but you've gained something more valuable than a meal.",
           "amount": 1,
-          "item_name": "Moonspore Vial"
+          "item_name": "Moonspore Vial",
+          "item_description": "The spores drift like captive stars and never quite settle. In the dark, they give off just enough light to see your own hands."
         },
         {
           "kind": "level",
@@ -113,7 +115,8 @@
           "display_text": "Do you search the pillars for supplies left by previous explorers?",
           "result_text": "Others have stood here before, facing this same choice. Among the debris near the pillars, you find a coil of rope—still sturdy, left by someone who planned ahead. You secure it around your waist. A lifeline for whatever comes next, and proof that preparation beats panic.",
           "amount": 1,
-          "item_name": "Climbing Rope"
+          "item_name": "Climbing Rope",
+          "item_description": "Someone coiled this carefully and never came back for it. The knots are good ones."
         },
         {
           "kind": "level",
@@ -153,7 +156,8 @@
           "display_text": "Do you bow and offer something of value as tribute?",
           "result_text": "You bow low, presenting what you can offer. The golem's cracked face shifts—surprise? Its eyes flicker brighter. 'YOUR GIFT IS ACCEPTED.' It steps aside with grinding dignity, and something falls from its palm—a token of blessing, warm with ancient magic. Respect earns respect, even from stone.",
           "amount": 1,
-          "item_name": "Guardian's Blessing"
+          "item_name": "Guardian's Blessing",
+          "item_description": "A shard of the golem's stone, humming faintly. Hold it and the cavern seems to step aside for you."
         },
         {
           "kind": "level",
@@ -193,7 +197,8 @@
           "display_text": "Do you choose the modest crystal that beats in time with your heart?",
           "result_text": "You ignore the large crystal's seductive call and reach for the smaller one. Its warmth matches your heartbeat perfectly. It comes free without resistance, settling into your palm like it was always meant to be there. This is the true treasure—not the flashiest, but the truest.",
           "amount": 1,
-          "item_name": "Heart Crystal"
+          "item_name": "Heart Crystal",
+          "item_description": "Warm, and beating in time with your own heart. It feels less like something you found and more like something that was waiting for {name}."
         },
         {
           "kind": "level",

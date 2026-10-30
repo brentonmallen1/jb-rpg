@@ -69,6 +69,7 @@ class Choice(BaseModel):
     amount: int = 1
     item_name: Optional[str] = None
     item_icon: Optional[str] = Field(None, max_length=32)  # None = picked from the item's name
+    item_description: Optional[str] = Field(None, max_length=600)  # Flavour text, shown when a player opens it in the backpack
 
 
 class Scene(BaseModel):
@@ -127,6 +128,7 @@ class HistoryEntry(BaseModel):
     choice_index: int
     item_name: Optional[str] = None
     item_icon: Optional[str] = None
+    item_description: Optional[str] = None
     damage_amount: int = 1
 
 

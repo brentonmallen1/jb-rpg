@@ -50,7 +50,7 @@ export function ChoiceCards({ choices, problems, theme, onChange }: ChoiceCardsP
                 value={choice.kind}
                 onChange={e => {
                   const kind = e.target.value as ChoiceKind
-                  update(i, { kind, item_name: kind === 'item' ? choice.item_name ?? '' : undefined, item_icon: kind === 'item' ? choice.item_icon : undefined })
+                  update(i, { kind, item_name: kind === 'item' ? choice.item_name ?? '' : undefined, item_icon: kind === 'item' ? choice.item_icon : undefined, item_description: kind === 'item' ? choice.item_description : undefined })
                 }}
               >
                 {KINDS.map(k => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
@@ -85,6 +85,18 @@ export function ChoiceCards({ choices, problems, theme, onChange }: ChoiceCardsP
                 theme={theme}
                 onChange={item_icon => update(i, { item_icon })}
               />
+            )}
+
+            {choice.kind === 'item' && (
+              <Field label="About the item" hint="optional; players read it in the backpack" htmlFor={`choice-${i}-item-description`}>
+                <TextArea
+                  id={`choice-${i}-item-description`}
+                  value={choice.item_description ?? ''}
+                  onChange={e => update(i, { item_description: e.target.value || undefined })}
+                  placeholder="Older than the cave itself, and still warm to the touch."
+                  maxLength={600}
+                />
+              </Field>
             )}
 
             <Field label="What happens" hint="read aloud after the choice" htmlFor={`choice-${i}-result`}>

@@ -44,6 +44,7 @@ export interface Choice {
   amount: number
   item_name?: string
   item_icon?: string | null  // unset: picked from the item's name (lib/items.ts)
+  item_description?: string | null  // flavour text, shown when a player opens it in the backpack
 }
 
 export interface Scene {
@@ -106,6 +107,7 @@ export interface HistoryEntry {
   choice_index: number
   item_name?: string
   item_icon?: string | null
+  item_description?: string | null
   damage_amount: number
 }
 
@@ -216,6 +218,7 @@ export interface FinalRoll {
 export interface FoundItem {
   name: string
   icon: string | null
+  description?: string | null  // the story's flavour text, if it has any
   scene_title: string  // where it was found
 }
 

@@ -378,12 +378,13 @@ button.dock__who:focus-visible,
   color: var(--text-secondary);
 }
 
-/* An item with something to read opens across the backpack */
+/* Each item opens on its own card, over the backpack */
 .pack__open {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+  width: 100%;
   padding: 0;
   border: 0;
   background: none;
@@ -401,20 +402,93 @@ button.dock__who:focus-visible,
   color: var(--accent);
 }
 
-.pack__item.is-open { grid-column: 1 / -1; }
-
-.pack__about {
-  margin: 12px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
-  font-family: var(--font-reading);
-  font-size: 1rem;
-  line-height: 1.55;
+.item-dialog {
+  width: min(92vw, 400px);
+  max-height: 86dvh;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--text-primary);
-  animation: phone-ink 0.6s var(--ease-out-expo) both;
+  overflow: visible;
 }
 
-.effects-off .pack__about { animation: none; }
+.item-dialog::backdrop { background: rgb(3 5 10 / 0.55); }
+
+.item-dialog[open] { animation: item-dialog-in 0.35s var(--ease-out-expo, ease-out) both; }
+
+@keyframes item-dialog-in {
+  from { transform: translateY(24px) scale(0.97); opacity: 0; }
+}
+
+.item-dialog__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-height: 86dvh;
+  overflow-y: auto;
+  padding: 12px 24px 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: 22px;
+  background: linear-gradient(170deg, color-mix(in srgb, var(--accent) 14%, var(--bg-secondary)), var(--bg-secondary) 65%);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.5);
+  text-align: center;
+  overscroll-behavior: contain;
+}
+
+.item-dialog__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.item-dialog__card .sheet__grip { margin-bottom: 18px; }
+
+.item-dialog__name {
+  margin: 14px 0 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  line-height: 1.15;
+}
+
+.item-dialog__where {
+  margin: 6px 0 0;
+  font-family: var(--font-reading);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.item-dialog__about {
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+  font-family: var(--font-reading);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.item-dialog__bonus {
+  margin: 18px 0 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item-dialog[open] { animation: none; }
+}
 
 
 .dock__who .phone-label { font-size: 0.62rem; }
@@ -962,3 +1036,8 @@ button.dealt__card {
   color: var(--text-secondary);
   text-align: center;
 }
+
+.dealt__note { font-style: italic; color: var(--text-secondary); }
+
+/* Doors that can't be chosen now: opened already, or sealed */
+.dealt__card.is-dimmed { opacity: 0.45; border-style: dashed; }

@@ -12,6 +12,7 @@ Role = Literal["storyteller", "player", "observer"]
 # Each connection is a queue of messages; None tells its stream to close
 connections: dict[asyncio.Queue, Role] = {}
 player_ids: dict[asyncio.Queue, str] = {}  # named players' connections (turn-taking modes)
+devices: dict[asyncio.Queue, str] = {}  # which device each connection is from, so a reconnect replaces its old stream
 lock = asyncio.Lock()
 
 
@@ -20,13 +21,14 @@ async def build_payload(for_storyteller: bool = False) -> dict:
     async with lock:
         roles = list(connections.values())
         online = sorted(set(player_ids.values()))
+        player_count = _player_count()
     resolved = engine.build_resolved(state)
     payload = {
         "type": "state",
         "state": public_state(state),
         # Phones get the scene's words with its choices; the storyteller (and the TV) always has them
         "resolved": resolved if for_storyteller else engine.for_players(resolved, state),
-        "player_count": roles.count("player"),
+        "player_count": player_count,
         "storyteller_connected": "storyteller" in roles,
         "players_online": online,
     }
@@ -34,6 +36,15 @@ async def build_payload(for_storyteller: bool = False) -> dict:
         # Private to the storyteller: how the table is voting
         payload["vote_tally"] = engine.vote_tally(state)
     return payload
+
+
+def _player_count() -> int:
+    """Players at the table: one per device (a phone that reconnects isn't counted twice). Call under lock."""
+    seen = set()
+    for queue, role in connections.items():
+        if role == "player":
+            seen.add(devices.get(queue) or id(queue))
+    return len(seen)
 
 
 async def broadcast() -> None:
@@ -55,12 +66,18 @@ async def end_session() -> None:
         await queue.put(None)
 
 
-async def stream(role: Role, player_id: str | None = None):
+async def stream(role: Role, player_id: str | None = None, device: str | None = None):
     queue: asyncio.Queue = asyncio.Queue()
     async with lock:
+        # The same device again (a phone woken from sleep): its old stream may linger unnoticed, so close it
+        stale = [q for q, d in devices.items() if device and d == device]
         connections[queue] = role
         if player_id:
             player_ids[queue] = player_id
+        if device:
+            devices[queue] = device
+    for old in stale:
+        await old.put(None)
     counted = role != "observer"
     try:
         yield f"data: {json.dumps(await build_payload(for_storyteller=role == 'storyteller'))}\n\n"
@@ -83,5 +100,6 @@ async def stream(role: Role, player_id: str | None = None):
         async with lock:
             connections.pop(queue, None)
             player_ids.pop(queue, None)
+            devices.pop(queue, None)
         if counted:
             await broadcast()

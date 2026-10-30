@@ -92,6 +92,74 @@
   background: var(--success);
 }
 
+/* Named players: the count opens a list of who's at the table */
+.players-menu { position: relative; }
+
+.players-menu summary {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.players-menu summary::-webkit-details-marker { display: none; }
+.players-menu summary:hover { color: var(--text-primary); }
+
+.players-menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 220px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.45);
+}
+
+.players-menu__panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.players-menu__panel li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.players-menu__panel li.is-online { color: var(--text-primary); }
+
+.players-menu__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.is-online .players-menu__dot { background: var(--success); opacity: 1; }
+
+.players-menu__away {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.players-menu__note {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .icon-btn {
   display: grid;
   place-items: center;
@@ -791,6 +859,23 @@
 }
 
 .door--played { opacity: 0.6; }
+
+/* The door the decider is pointing at, from their phone */
+.door.is-picked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.door__pick {
+  align-self: flex-start;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: color-mix(in srgb, var(--bg-primary) 92%, black);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
 .door--locked { opacity: 0.4; cursor: not-allowed; }
 
 /* --- Character creation ----------------------------------------------------- */

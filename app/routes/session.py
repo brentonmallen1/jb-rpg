@@ -6,7 +6,7 @@ import secrets
 import time
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -38,8 +38,10 @@ async def events(
     token: Optional[str] = None,
     s: Optional[str] = None,
     p: Optional[str] = None,
+    d: Optional[str] = Query(None, max_length=64),
 ):
-    """SSE stream. Storytellers pass ?token=, players pass ?s=<session_id> (and ?p=<player token> once named)."""
+    """SSE stream. Storytellers pass ?token=, players pass ?s=<session_id> (and ?p=<player token> once named).
+    ?d= is the device's own id, so a phone that reconnects replaces its old stream instead of counting twice."""
     state = storage.load_state()
     if auth.is_storyteller(state, token):
         role = "storyteller"
@@ -52,7 +54,7 @@ async def events(
 
     player = auth.player_for_token(state, p) if role == "player" else None
     return StreamingResponse(
-        sse.stream(role, player.id if player else None),
+        sse.stream(role, player.id if player else None, d),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
@@ -342,6 +344,28 @@ async def propose(request: ProposeRequest, x_player_token: Optional[str] = Heade
     if state is None:
         raise HTTPException(status_code=404, detail="No active session")
     engine.propose(state, require_player(state, x_player_token), request.choice_index)
+    await commit(state)
+    return {"status": "ok"}
+
+
+@router.post("/state/deal-doors")
+async def deal_doors(state: GameState = Depends(auth.verify_storyteller)):
+    """Non-linear stories: show the doors on the phones."""
+    engine.deal_doors(state)
+    return await commit(state)
+
+
+class ProposeDoorRequest(BaseModel):
+    scene_id: Optional[str] = Field(None, max_length=200)  # None withdraws the pick
+
+
+@router.post("/state/propose-door")
+async def propose_door(request: ProposeDoorRequest, x_player_token: Optional[str] = Header(None)):
+    """Non-linear stories: the player whose turn it is points at a door; the storyteller opens it."""
+    state = storage.load_state()
+    if state is None:
+        raise HTTPException(status_code=404, detail="No active session")
+    engine.propose_door(state, require_player(state, x_player_token), request.scene_id)
     await commit(state)
     return {"status": "ok"}
 

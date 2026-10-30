@@ -338,6 +338,8 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         vote_checks(browser)
         flashing_checks(browser)
         roll_checks(browser)
+        backpack_checks(browser)
+        door_checks(browser)
         login_checks(browser)
         browser.close()
 
@@ -410,6 +412,17 @@ def turn_checks(browser) -> None:
         phone.click("text=Join the table")
         phone.wait_for_selector("text=Creating your hero", timeout=10000)
         phones[name] = phone
+
+    # A phone that reloads (as after waking from sleep) is still one player
+    teller.wait_for_selector(".players-menu summary:has-text('2 players')", timeout=10000)
+    phones["Bea"].reload()
+    phones["Bea"].wait_for_selector("text=Creating your hero", timeout=10000)
+    teller.wait_for_timeout(1500)
+    check("A phone that reloads isn't counted twice", "2 players" in teller.locator(".players-menu summary").inner_text())
+    teller.click(".players-menu summary")
+    names = teller.locator(".players-menu__panel li").all_inner_texts()
+    check("The player count opens the players' names", any("Wren" in n for n in names) and any("Bea" in n for n in names), str(names))
+    teller.click(".players-menu summary")
 
     for answer in ["Bartholomew", "the Salt Marshes", "a lantern"]:
         teller.fill("#madlib-input", answer)
@@ -561,6 +574,86 @@ def roll_checks(browser) -> None:
     roll_line = phone.locator(".keepsake__roll-line")
     roll_line.wait_for(timeout=5000)
     check("The keepsake remembers the roll", roll_line.inner_text() == f"Rolled {rolled[0]}, with 1 to add", roll_line.inner_text())
+
+
+def backpack_checks(browser) -> None:
+    """An item in the backpack opens on its own card; closing it leaves the backpack open."""
+    story = call("/api/stories", {"title": "Pockets"})
+    room = lambda i, choices: {"id": f"r{i}", "title": f"Room {i}", "base_text": "A room.", "choices": choices}
+    story["scenes"] = [
+        room(1, [{"kind": "item", "display_text": "Take it?", "result_text": "Taken.", "amount": 1,
+                  "item_name": "Brass Key", "item_description": "It opens nothing you have seen yet."}]),
+        room(2, [{"kind": "level", "display_text": "Go on?", "result_text": "On.", "amount": 1}]),
+    ]
+    call(f"/api/stories/{story['id']}", story, method="PUT")
+    started = call("/api/state/start", {"story_id": story["id"], "force": True})
+    call("/api/state/choice", {"choice_index": 0}, started["token"])
+
+    phone = browser.new_context(viewport={"width": 390, "height": 844}, has_touch=True).new_page()
+    phone.goto(f"{B}/player/{started['state']['session_id']}")
+    phone.wait_for_selector("[aria-label^='The backpack']", timeout=10000)
+    phone.wait_for_timeout(4000)  # let the found-item card finish
+    phone.click("[aria-label^='The backpack']")
+    phone.click(".pack__open")
+    phone.wait_for_selector(".item-dialog[open]", timeout=5000)
+    check("An item opens on its own card", "It opens nothing you have seen yet." in phone.locator(".item-dialog__about").inner_text())
+    phone.click(".item-dialog__close")
+    phone.wait_for_timeout(300)
+    check("The X goes back to the backpack", phone.locator(".item-dialog[open]").count() == 0 and phone.locator(".sheet[open]").count() == 1)
+    phone.click(".pack__open")
+    phone.mouse.click(10, 10)  # outside the card
+    phone.wait_for_timeout(300)
+    check("A tap outside goes back to the backpack", phone.locator(".item-dialog[open]").count() == 0 and phone.locator(".sheet[open]").count() == 1)
+    phone.click(".pack__open")
+    phone.keyboard.press("Escape")
+    phone.wait_for_timeout(300)
+    check("Escape goes back to the backpack", phone.locator(".item-dialog[open]").count() == 0 and phone.locator(".sheet[open]").count() == 1)
+    phone.click(".pack__open")
+    box = phone.locator(".item-dialog__card").bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + 40
+    phone.locator(".item-dialog__card").dispatch_event("touchstart", {"touches": [{"identifier": 1, "clientX": x, "clientY": y}]})
+    phone.locator(".item-dialog__card").dispatch_event("touchmove", {"touches": [{"identifier": 1, "clientX": x, "clientY": y + 160}]})
+    phone.locator(".item-dialog__card").dispatch_event("touchend", {"touches": []})
+    phone.wait_for_timeout(300)
+    check("A swipe down goes back to the backpack", phone.locator(".item-dialog[open]").count() == 0 and phone.locator(".sheet[open]").count() == 1)
+
+
+def door_checks(browser) -> None:
+    """Taking turns in a story of doors: the player whose turn it is points at a door from their phone."""
+    story = call("/api/stories", {"title": "Hallways"})
+    room = lambda i: {"id": f"h{i}", "title": f"Hall {i}", "base_text": "A hall.", "choices": [
+        {"kind": "level", "display_text": "On?", "result_text": "On.", "amount": 1}]}
+    story["scenes"] = [room(1), room(2), room(3)]
+    story["settings"] = {**story.get("settings", {}), "non_linear": True}
+    call(f"/api/stories/{story['id']}", story, method="PUT")
+    started = call("/api/state/start", {"story_id": story["id"], "force": True, "turn_mode": "rotate"})
+    token, session_id = started["token"], started["state"]["session_id"]
+
+    phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+    phone.goto(f"{B}/player/{session_id}")
+    phone.fill("input[aria-label='Your name']", "Wren")
+    phone.click("text=Join the table")
+    phone.wait_for_selector(".turn-banner--mine", timeout=10000)
+    call("/api/state/choice", {"choice_index": 0}, token)  # the first hall: on to the doors
+
+    teller = signed_in_context(browser, viewport={"width": 1280, "height": 900})
+    teller.add_init_script(f"sessionStorage.setItem('jb_rpg_session_token', {json.dumps(token)})")
+    stage = teller.new_page()
+    stage.goto(B + "/run")
+    stage.wait_for_selector("text=Which door next?", timeout=10000)
+    check("The stage says who chooses the door", "Wren decides the next door" in stage.locator(".turn-line").inner_text())
+
+    check("The doors wait for the storyteller to deal them", phone.locator(".dealt__card").count() == 0)
+    stage.click("text=Deal the doors to the table")
+    phone.wait_for_selector("button.dealt__card", timeout=10000)
+    check("Dealt, the decider's phone shows every door", phone.locator(".dealt__card").count() == 3 and phone.locator("button.dealt__card").count() == 2)
+    check("The door already opened is dimmed", "Hall 1" in phone.locator(".dealt__card.is-dimmed").inner_text())
+    phone.locator("button.dealt__card").nth(1).click()
+    stage.wait_for_selector(".door.is-picked", timeout=10000)
+    check("The decider's door shows on the stage", "Hall 3" in stage.locator(".door.is-picked").inner_text())
+    stage.click(".door.is-picked")
+    phone.wait_for_selector(".turn-banner--mine", timeout=10000)
+    check("The one who chose the door decides the room behind it", call("/api/state", token=token, method="GET")["state"]["current_scene_id"] == "h3")
 
 
 if __name__ == "__main__":

@@ -160,7 +160,7 @@ export default function Run() {
           ? <OpeningScene scene={story.opening_scene} sceneText={resolved.scene_text ?? ''} run={run} />
           : null
       case 'awaiting_scene_selection':
-        return <SceneSelect state={state} story={story} run={run} />
+        return resolved ? <SceneSelect state={state} resolved={resolved} story={story} run={run} /> : null
       case 'running':
         return resolved ? (
           <SceneView key={state.current_scene_id} state={state} resolved={resolved} story={story} run={run} pending={pending} voteTally={voteTally} />
@@ -218,9 +218,38 @@ export default function Run() {
         )}
 
         <div className="stage__tools">
-          <span className={`stage__players storyteller-only ${playerCount > 0 ? 'stage__players--present' : ''}`} aria-live="polite">
-            {playerCount} {playerCount === 1 ? 'player' : 'players'}
-          </span>
+          {state.players.length > 0 ? (
+            // Players who joined by name: who's at the table, and who's dropped off
+            <details className="players-menu storyteller-only">
+              <summary className={`stage__players ${playerCount > 0 ? 'stage__players--present' : ''}`} aria-live="polite" title="Who's at the table">
+                {playerCount} {playerCount === 1 ? 'player' : 'players'}
+              </summary>
+              <div className="players-menu__panel">
+                <span className="stage-label">At the table</span>
+                <ul>
+                  {state.players.map(p => {
+                    const online = playersOnline.includes(p.id)
+                    return (
+                      <li key={p.id} className={online ? 'is-online' : ''}>
+                        <span className="players-menu__dot" aria-hidden="true" />
+                        {p.name}
+                        {!online && <span className="players-menu__away">away</span>}
+                      </li>
+                    )
+                  })}
+                </ul>
+                {playerCount > playersOnline.length && (
+                  <p className="players-menu__note">
+                    {playerCount - playersOnline.length === 1 ? 'And 1 more screen' : `And ${playerCount - playersOnline.length} more screens`} without a name
+                  </p>
+                )}
+              </div>
+            </details>
+          ) : (
+            <span className={`stage__players storyteller-only ${playerCount > 0 ? 'stage__players--present' : ''}`} aria-live="polite">
+              {playerCount} {playerCount === 1 ? 'player' : 'players'}
+            </span>
+          )}
           {hasSound(story) && (
             <button className="icon-btn" onClick={sound.toggle} aria-pressed={sound.enabled} aria-label={sound.enabled ? 'Turn sound off' : 'Turn sound on'} title={sound.enabled ? 'Sound on' : 'Sound off'}>
               {sound.enabled ? <SoundOnIcon /> : <SoundOffIcon />}

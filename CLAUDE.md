@@ -109,6 +109,8 @@ Four layers, all lightweight (no user accounts):
 3. **Player session id** — players join via `/player/{session_id}`; SSE and `GET /api/state` take it as `?s=`. `GET /api/session/check?s=` validates it without revealing the id. Never expose `session_id` from a public endpoint.
 4. **Player token** — only in turn-taking games: a phone joins by name (`POST /api/session/join`) and gets a token (hash stored on the `Player`; `X-Player-Token` header, SSE `?p=`). It lets that player propose a choice when it's their turn. Token hashes never leave the server (`public_state` excludes them).
 
+Player count is one per device: each phone tab sends its own id on SSE (`?d=`, kept in `sessionStorage`), and a new stream from the same id closes the old one (a locked phone's stream can linger unnoticed). When players joined by name, the stage's player count opens who's at the table (online or away).
+
 On `/restart`, the server sends `session_ended` and closes every SSE stream so clients re-authenticate.
 
 Always run uvicorn with `--timeout-graceful-shutdown` (the justfile and Dockerfile do): SSE streams never close on their own, so without it a stopped or reloading server lingers and keeps feeding clients.
@@ -177,7 +179,7 @@ When the service is down, `emblem_options` is empty and every screen falls back 
 
 `lib/items.ts` holds the icon set (24-unit stroked drawings). An item's icon is the one the story chose (`Choice.item_icon`, picked in the Editor's `ItemIconPicker`; the server only stores the name and copies it to `HistoryEntry.item_icon`, `resolved.items_found[].icon` and `journey[].item_icon`), else one its name calls for by keyword, else the theme's own (`THEME_ITEM_ICON`: pouch, canister, datapad, jar, idol, parcel), so there is always one. `components/ItemIcon.tsx` draws it bare (lists) or framed in the theme's form like its crest (the found-item card, the backpack, the party rail); `ChoiceOutcomeIcon` shows it wherever a choice's outcome is shown.
 
-An item can also have flavour text (`Choice.item_description`, optional, "About the item" in the Editor), copied to `HistoryEntry.item_description` and sent, with `{field_key}` filled in, as `resolved.items_found[].description`. In the phone's backpack an item with a description shows "Read more" and opens across the backpack to show it.
+An item can also have flavour text (`Choice.item_description`, optional, "About the item" in the Editor), copied to `HistoryEntry.item_description` and sent, with `{field_key}` filled in, as `resolved.items_found[].description`. In the phone's backpack every item opens on its own card (`ItemDialog`, a `<dialog>` over the backpack sheet: icon, name, where it was found, its description); the X, a tap outside, Escape or a swipe down closes the card and leaves the backpack open.
 
 ## Keepsake
 
@@ -186,6 +188,8 @@ When the outcome is revealed, phones ("Your keepsake") and the stage ("The keeps
 ## Turns
 
 Chosen when a game starts (`turn_mode` on `/api/state/start`, picked in the Library's Play dialog): `storyteller` (default: the table talks, the storyteller chooses; no names), `rotate` (players take turns in join order; the turn is `players[len(history) % n]`, so Back rewinds it), or `pick` (the storyteller chooses a player each scene via `/api/state/decider`). `resolved.decider` exists only during a running scene. The decider's phone can propose a choice (`state.proposal`, a visual index); the storyteller still confirms. Scene changes clear the decider pick and proposal.
+
+Non-linear stories (`settings.non_linear`, the "choose a door" stories) take turns at the doors too: `resolved.decider` also exists in `awaiting_scene_selection`. The storyteller deals the doors to the phones (`POST /api/state/deal-doors`, `state.doors_dealt`, button or `S`); phones get `resolved.doors` (every door with `played`, `sealed`, `open`) only once dealt, with doors that can't be chosen dimmed. The decider's phone points at an open door (`POST /api/state/propose-door`, `state.door_proposal`, shown on the stage as "Wren's pick"); the storyteller still opens it, and the same decider (kept across `select_scene` in pick mode; the rotation already lands on them) decides the room behind it.
 
 `vote` mode: dealing the choices (`reveal-choices?show_to_players=true`) opens a vote for the players at the table at that moment (`vote_eligible`; late joiners wait for the next scene), with a deadline from `story.settings.vote_seconds` (0 = none). One vote per player (`/api/state/vote`); voting again replaces it, until the vote closes (deadline, or every vote in). `state.votes` is private: everyone gets counts and time via `resolved.vote`; only storyteller connections get `vote_tally` (counts per visual index + leaders; several leaders = a tie). The vote never makes the choice: the storyteller confirms or overrides, and presentation mode hides the tally.
 

@@ -236,3 +236,28 @@ def test_no_login_is_generated_when_auth_is_disabled(client, monkeypatch):
     auth.ensure_admin_credentials()
     assert config.ADMIN_USER == ""
     assert not (storage.STATE_FILE.parent / "admin.json").exists()
+
+
+def test_a_phone_that_reconnects_counts_once(client):
+    """A locked phone's stream can linger; the same device connecting again replaces it."""
+    from app import sse
+
+    start(client, make_story(client)["id"])
+
+    async def scenario():
+        asleep = sse.stream("player", device="phone-1")
+        await asleep.__anext__()
+        awake = sse.stream("player", device="phone-1")
+        first = json.loads((await awake.__anext__())[len("data: "):])
+        assert first["player_count"] == 1
+        # The old stream is told to close
+        rest = [m async for m in asleep]
+        assert all("session_ended" not in m for m in rest)
+        other = sse.stream("player", device="phone-2")
+        assert json.loads((await other.__anext__())[len("data: "):])["player_count"] == 2
+        await sse.end_session()
+        [m async for m in awake]
+        [m async for m in other]
+
+    asyncio.run(scenario())
+    assert sse.connections == {} and sse.devices == {}

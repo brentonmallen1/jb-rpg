@@ -7,6 +7,7 @@ import type { GameState, ResolvedContent, Story, VoteTally } from '../../types'
 import { BackIcon, EyeOffIcon } from '../../components/Icons'
 import { outcomeLabel } from '../../lib/outcomes'
 import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
+import { TurnLine } from './TurnLine'
 import { recap, sceneName } from '../../lib/story'
 import { FinaleRoll } from './FinaleRoll'
 
@@ -86,31 +87,7 @@ export function SceneView({ state, resolved, story, run, pending, voteTally }: S
         </div>
       )}
 
-      {['rotate', 'pick'].includes(state.turn_mode) && !scene.is_finale && (
-        <div className="turn-line">
-          {decider ? (
-            <span className="turn-line__who"><strong>{decider.name}</strong> decides this one</span>
-          ) : state.turn_mode === 'pick' ? (
-            <span className="turn-line__who">Who decides this one?</span>
-          ) : (
-            <span className="turn-line__who">Waiting for players to join by name</span>
-          )}
-          {state.turn_mode === 'pick' && state.players.length > 0 && (
-            <div className="turn-line__pick storyteller-only" role="group" aria-label="Choose who decides">
-              {state.players.map(p => (
-                <button
-                  key={p.id}
-                  className="chip-btn"
-                  aria-pressed={decider?.id === p.id}
-                  onClick={() => run(() => api.setDecider(decider?.id === p.id ? null : p.id), 'Failed to choose who decides')}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {!scene.is_finale && <TurnLine state={state} decider={decider} run={run} />}
 
       {scene.is_finale ? (
         <>

@@ -129,6 +129,8 @@ export const makeChoice = (choiceIndex: number) => post<GameState>('/api/state/c
 export const goBack = () => post<GameState>('/api/state/back')
 export const selectScene = (sceneId: string, revisit = false) =>
   post<GameState>('/api/state/select-scene', { scene_id: sceneId, revisit })
+// Non-linear stories: show the doors on the phones
+export const dealDoors = () => post<GameState>('/api/state/deal-doors')
 export const finish = (outcome: 'victory' | 'defeat') => post<GameState>('/api/state/finish', { outcome })
 export const revealOutcome = () => post<GameState>('/api/state/reveal-outcome')
 // Real dice: the storyteller enters each roll (and can take back a typo)
@@ -168,6 +170,9 @@ export const castVote = (token: string, choiceIndex: number) =>
   asPlayer<{ status: string }>('/api/state/vote', token, { method: 'POST', body: JSON.stringify({ choice_index: choiceIndex }) })
 export const proposeChoice = (token: string, choiceIndex: number | null) =>
   asPlayer<{ status: string }>('/api/state/propose', token, { method: 'POST', body: JSON.stringify({ choice_index: choiceIndex }) })
+// Non-linear stories: the decider points at the next door (null withdraws it)
+export const proposeDoor = (token: string, sceneId: string | null) =>
+  asPlayer<{ status: string }>('/api/state/propose-door', token, { method: 'POST', body: JSON.stringify({ scene_id: sceneId }) })
 
 // Export story as JSON file download
 export function downloadStoryAsJson(story: Story): void {

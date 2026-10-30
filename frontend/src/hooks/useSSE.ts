@@ -25,6 +25,25 @@ interface UseSSEReturn {
   voteTally: VoteTally | null  // storyteller connections only
 }
 
+const DEVICE_KEY = 'jb_rpg_device'
+
+/**
+ * This screen's own id, so a phone that reconnects (woken from sleep, reloaded) replaces its old
+ * stream instead of being counted twice. Per tab, so two tabs never close each other's stream.
+ */
+function deviceId(): string {
+  try {
+    let id = sessionStorage.getItem(DEVICE_KEY)
+    if (!id) {
+      id = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      sessionStorage.setItem(DEVICE_KEY, id)
+    }
+    return id
+  } catch {
+    return ''
+  }
+}
+
 export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   const { token, sessionId, playerToken, enabled = true } = options
 
@@ -60,6 +79,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
       if (token) params.set('token', token)
       if (sessionId) params.set('s', sessionId)
       if (playerToken) params.set('p', playerToken)
+      if (sessionId && !token) params.set('d', deviceId())
       const query = params.toString()
       es = new EventSource(query ? `/api/events?${query}` : '/api/events')
 

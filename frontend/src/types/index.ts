@@ -166,6 +166,8 @@ export interface GameState {
   players: PlayerRef[]
   decider_id?: string | null
   proposal?: number | null  // visual index the decider is leaning towards
+  doors_dealt?: boolean  // non-linear stories: the storyteller has shown the doors on the phones
+  door_proposal?: string | null  // non-linear stories: the door (scene id) the decider is leaning towards
   no_flashing: boolean  // the table asked for calm effects: every screen caps at "subtle"
   crest: number  // which of the hero's generated crests the table chose (drawn from the answers)
   emblem: Emblem | null  // or an emblem from the emblem service, which wins over crest
@@ -186,7 +188,8 @@ export interface ResolvedContent {
   finale: boolean  // The final d20 roll is underway (until the outcome is revealed)
   final_roll?: FinalRoll  // at the finale, and after it
   max_hp: number
-  decider: PlayerRef | null  // who makes this scene's choice (null = the storyteller)
+  decider: PlayerRef | null  // who makes this scene's choice, or picks the next door (null = the storyteller)
+  doors?: Door[] | null  // non-linear stories, choosing the next door: the doors that can be opened
   vote: VoteStatus | null  // voting games, once the choices are dealt
   mood?: string | null  // the scene's chosen backdrop mood (null = automatic)
   mood_seed?: number  // stable per scene, picks the automatic mood
@@ -263,4 +266,14 @@ export interface Emblem {
   version: number
   description: string
   svg: string
+}
+
+/** A door the table can open next (non-linear stories) */
+export interface Door {
+  id: string
+  title: string
+  last: boolean  // the finale's door
+  played: boolean  // opened already
+  sealed: boolean  // the last door, until every other is opened
+  open: boolean  // can be chosen now
 }

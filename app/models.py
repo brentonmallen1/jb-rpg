@@ -178,6 +178,8 @@ class GameState(BaseModel):
     players: list[Player] = []
     decider_id: Optional[str] = None  # "pick" mode: chosen per scene
     proposal: Optional[int] = None  # Visual index of the choice the decider is leaning towards
+    doors_dealt: bool = False  # Non-linear stories: the storyteller has shown the doors on the phones
+    door_proposal: Optional[str] = None  # Non-linear stories: the scene id of the door the decider is leaning towards
     # Voting games: who may vote this scene (players at the table when the choices were dealt)
     vote_eligible: list[str] = []
     vote_deadline: Optional[float] = None  # epoch seconds; None = no time limit

@@ -123,8 +123,9 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
         # Players never see progress; this is how they learn the end has arrived
         # (until the outcome is revealed: a roll can decide it before the storyteller tells it)
         "finale": state.status == SessionStatus.GAME_OVER and not state.outcome_revealed,
-        # Only during a scene: the turn begins when the scene does
-        "decider": _player_ref(current_decider(state)) if state.status == SessionStatus.RUNNING else None,
+        # During a scene, or choosing the next door: the turn begins when the scene (or the door) does
+        "decider": _player_ref(current_decider(state)) if state.status in (SessionStatus.RUNNING, SessionStatus.AWAITING_SCENE_SELECTION) else None,
+        "doors": open_doors(state) if state.status == SessionStatus.AWAITING_SCENE_SELECTION else None,
         "vote": vote_status(state, now),
         # The backpack: each item with the scene it was found in (scenes the table has already played)
         "items_found": [
@@ -208,6 +209,8 @@ def _scene_title(story: Story, scene_id: str) -> str:
 def for_players(resolved: dict | None, state: GameState | None) -> dict | None:
     """What phones get: a scene's words arrive with its choices (revealed on the stage or dealt),
     once the storyteller has told it."""
+    if resolved and state is not None and state.status == SessionStatus.AWAITING_SCENE_SELECTION and not state.doors_dealt:
+        return {**resolved, "doors": None}  # the doors reach the phones once the storyteller deals them
     told = state is not None and (state.choices_revealed or bool(state.shuffled_indices))
     if not resolved or state is None or state.status != SessionStatus.RUNNING or told:
         return resolved
@@ -345,6 +348,8 @@ def _enter_scene(state: GameState, scene_id: str) -> None:
     state.shuffled_indices = []
     state.decider_id = None
     state.proposal = None
+    state.door_proposal = None
+    state.doors_dealt = False
     _clear_vote(state)
 
 
@@ -444,6 +449,7 @@ def remove_player(state: GameState, player_id: str) -> None:
     if state.decider_id == player_id:
         state.decider_id = None
         state.proposal = None
+        state.door_proposal = None
 
 
 def set_decider(state: GameState, player_id: str | None) -> None:
@@ -453,6 +459,7 @@ def set_decider(state: GameState, player_id: str | None) -> None:
         raise GameError(404, "No such player")
     state.decider_id = player_id
     state.proposal = None
+    state.door_proposal = None
 
 
 def propose(state: GameState, player: Player, visual_index: int | None) -> None:
@@ -466,6 +473,44 @@ def propose(state: GameState, player: Player, visual_index: int | None) -> None:
     if visual_index is not None and not 0 <= visual_index < len(state.shuffled_indices):
         raise GameError(422, "Invalid choice index")
     state.proposal = visual_index
+
+
+def open_doors(state: GameState) -> list[dict]:
+    """Non-linear stories, choosing the next door: every door, and whether it can be opened now
+    (opened ones are played; the last door is sealed until every other is opened)."""
+    story = state.story
+    played = {h.scene_id for h in state.history}
+    rest_played = all(s.is_finale or s.id in played for s in story.scenes)
+    return [
+        {
+            "id": s.id,
+            "title": s.display_name or s.title,
+            "last": bool(s.is_finale),
+            "played": s.id in played,
+            "sealed": bool(s.is_finale) and not rest_played,
+            "open": s.id not in played and (not s.is_finale or rest_played),
+        }
+        for s in story.scenes
+    ]
+
+
+def deal_doors(state: GameState) -> None:
+    """Show the doors on the phones, so the table (and whoever's turn it is) can choose."""
+    require_status(state, SessionStatus.AWAITING_SCENE_SELECTION)
+    state.doors_dealt = True
+
+
+def propose_door(state: GameState, player: Player, scene_id: str | None) -> None:
+    """The decider leans towards a door (the storyteller still opens it). None withdraws it."""
+    require_status(state, SessionStatus.AWAITING_SCENE_SELECTION)
+    decider = current_decider(state)
+    if decider is None or decider.id != player.id:
+        raise GameError(403, "It isn't your turn to decide")
+    if not state.doors_dealt:
+        raise GameError(409, "The doors haven't been dealt yet")
+    if scene_id is not None and scene_id not in {d["id"] for d in open_doors(state) if d["open"]}:
+        raise GameError(422, "That door can't be opened")
+    state.door_proposal = scene_id
 
 
 def submit_madlib(state: GameState, answer: str) -> None:
@@ -639,6 +684,8 @@ def make_choice(state: GameState, visual_index: int) -> None:
     state.shuffled_indices = []
     state.decider_id = None
     state.proposal = None
+    state.door_proposal = None
+    state.doors_dealt = False
     _clear_vote(state)
 
 
@@ -673,7 +720,10 @@ def select_scene(state: GameState, scene_id: str, revisit: bool) -> None:
         state.history = [h for h in state.history if h.scene_id != scene_id]
         _restore_from_history(state)
 
+    # Whoever the storyteller picked to choose the door decides what happens behind it
+    decider_id = state.decider_id
     _enter_scene(state, scene_id)
+    state.decider_id = decider_id
     state.status = SessionStatus.RUNNING
 
 

@@ -618,6 +618,9 @@
 
 .cx-sentence__tail { margin-left: -6px; }
 
+/* The words read like the story; the fields in them are the editor's, as in routes and locks */
+.cx-sentence .ed-condition { font-family: var(--font-body); font-size: 0.95rem; }
+
 .cx-sentence__remove { margin-left: auto; }
 
 .cx__add {
@@ -1167,9 +1170,7 @@
 }
 
 .ed-condition > .combo { flex: 1 1 200px; }
-.ed-condition .combo__input,
-.cx-sentence .combo__input { min-height: 34px; padding-block: 5px; }
-.cx-sentence > .combo { flex: 1 1 200px; }
+.ed-condition .combo__input { min-height: 34px; padding-block: 5px; }
 
 .ed-routes__add { align-self: flex-start; }
 

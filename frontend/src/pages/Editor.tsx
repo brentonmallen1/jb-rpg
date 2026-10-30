@@ -168,8 +168,12 @@ export default function Editor() {
     field.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' })
     ;(field.querySelector<HTMLElement>('textarea') ?? field.querySelector<HTMLElement>('input, select'))?.focus({ preventScroll: true })
     field.classList.add('is-pointed')
-    const done = setTimeout(() => field.classList.remove('is-pointed'), 1800)
-    return () => clearTimeout(done)
+    const fade = () => field.classList.remove('is-pointed')
+    const done = setTimeout(fade, 1800)
+    return () => {
+      clearTimeout(done)
+      fade()
+    }
   }, [selection])
 
   function select(next: EditorSelection) {

@@ -17,6 +17,7 @@ import { ScenePanel } from './editor/ScenePanel'
 import { ItemsPanel } from './editor/ItemsPanel'
 import { PreviewPane } from './editor/PreviewPane'
 import { SuggestionsContext } from './editor/suggest'
+import { FlowView } from './editor/FlowView'
 import '../styles/stage.css'
 import '../styles/phone.css'
 import '../styles/pages/library.css'
@@ -24,6 +25,18 @@ import '../styles/pages/editor.css'
 
 const SAVE_LABEL = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved changes' } as const
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+type EditorView = 'text' | 'flow'
+const VIEW_KEY = 'jb_rpg_editor_view'
+
+/** Text or Flow, remembered per device */
+function readView(): EditorView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'flow' ? 'flow' : 'text'
+  } catch {
+    return 'text'
+  }
+}
 
 function readSamples(storyId: string): Record<string, string> {
   try {
@@ -48,6 +61,9 @@ export default function Editor() {
   const [replaceMessage, setReplaceMessage] = useState<string | null>(null)
   const [navOpen, setNavOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [view, setView] = useState<EditorView>(readView)
+  // Flow view: the selected node's panel opens beside the canvas
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [audio, setAudio] = useState<AudioFile[]>([])
   const refreshAudio = useCallback(() => {
     api.listAudio(storyId).then(setAudio).catch(() => setAudio([]))
@@ -146,6 +162,16 @@ export default function Editor() {
   function select(next: EditorSelection) {
     setSelection(next)
     setNavOpen(false)
+    setDrawerOpen(true)
+  }
+
+  function changeView(next: EditorView) {
+    setView(next)
+    try {
+      localStorage.setItem(VIEW_KEY, next)
+    } catch {
+      // per-device convenience only
+    }
   }
 
   function rememberTextField(e: React.FocusEvent) {
@@ -226,6 +252,10 @@ export default function Editor() {
           <button className="icon-btn editor__nav-toggle" onClick={() => setNavOpen(!navOpen)} aria-expanded={navOpen} aria-label="Story sections">☰</button>
           <span className="stage__story-title">{story.title || 'Untitled story'}</span>
           <span className={`editor__save editor__save--${saveStatus}`} role="status">{SAVE_LABEL[saveStatus]}</span>
+          <div className="ed-segmented ed-segmented--small editor__view" role="radiogroup" aria-label="Edit as">
+            <button type="button" role="radio" aria-checked={view === 'text'} onClick={() => changeView('text')}>Text</button>
+            <button type="button" role="radio" aria-checked={view === 'flow'} onClick={() => changeView('flow')}>Flow</button>
+          </div>
         </div>
         <div className="stage__tools">
           <NowPlaying />
@@ -246,43 +276,75 @@ export default function Editor() {
         </div>
       </header>
 
-      <div className="editor__layout">
-        <div className={`editor__nav ${navOpen ? 'is-open' : ''}`}>
-          <EditorNav
-            story={story}
-            selection={selection}
-            problems={problems}
-            onSelect={select}
-            onAddScene={() => {
-              const scene = newScene(story.scenes.length + 1)
-              update(s => ({ ...s, scenes: [...s.scenes, scene] }))
-              select({ kind: 'scene', id: scene.id })
-            }}
-            onAddOpening={() => {
-              update(s => ({ ...s, opening_scene: { title: 'Prologue', base_text: '', choices: [], conditional_text: [] } }))
-              select({ kind: 'opening' })
-            }}
-            onMoveScene={(id, to) => update(s => moveSceneTo(s, id, to))}
-          />
-        </div>
-
-        <main className="editor__main" onFocusCapture={rememberTextField}>
-          {error && (
-            <div className="stage-error" role="alert">
-              <span>{error}</span>
-              <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
-            </div>
+      {view === 'flow' ? (
+        <div className={`editor__layout editor__layout--flow ${drawerOpen ? 'has-drawer' : ''}`}>
+          <FlowView story={story} problems={problems} selection={selection} update={update} onSelect={select} />
+          {drawerOpen && (
+            <aside className="editor__drawer" aria-label="Edit the selection" onFocusCapture={rememberTextField}>
+              <div className="editor__drawer-bar">
+                <div className="ed-segmented ed-segmented--small" role="group" aria-label="Story sections">
+                  <button type="button" aria-pressed={selection.kind === 'story'} onClick={() => select({ kind: 'story' })}>Story</button>
+                  <button type="button" aria-pressed={selection.kind === 'characters'} onClick={() => select({ kind: 'characters' })}>Characters</button>
+                  <button type="button" aria-pressed={selection.kind === 'items'} onClick={() => select({ kind: 'items' })}>Items</button>
+                </div>
+                <button type="button" className="s-btn s-btn--ghost" onClick={() => setDrawerOpen(false)}>Close</button>
+              </div>
+              {error && (
+                <div className="stage-error" role="alert">
+                  <span>{error}</span>
+                  <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
+                </div>
+              )}
+              <SuggestionsContext.Provider value={suggestions}>
+                {renderPanel()}
+              </SuggestionsContext.Provider>
+            </aside>
           )}
-          {/* Typing "{" in any text offers the hero's answers */}
-          <SuggestionsContext.Provider value={suggestions}>
-            {renderPanel()}
-          </SuggestionsContext.Provider>
-        </main>
-
-        <div className={`editor__preview ${previewOpen ? 'is-open' : ''}`}>
-          <PreviewPane story={story} selection={selection} samples={samples} colorMode={colorMode} />
+          {!drawerOpen && (
+            <button type="button" className="s-btn s-btn--ghost editor__drawer-open" onClick={() => setDrawerOpen(true)}>
+              Story, characters and items
+            </button>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="editor__layout">
+          <div className={`editor__nav ${navOpen ? 'is-open' : ''}`}>
+            <EditorNav
+              story={story}
+              selection={selection}
+              problems={problems}
+              onSelect={select}
+              onAddScene={() => {
+                const scene = newScene(story.scenes.length + 1)
+                update(s => ({ ...s, scenes: [...s.scenes, scene] }))
+                select({ kind: 'scene', id: scene.id })
+              }}
+              onAddOpening={() => {
+                update(s => ({ ...s, opening_scene: { title: 'Prologue', base_text: '', choices: [], conditional_text: [] } }))
+                select({ kind: 'opening' })
+              }}
+              onMoveScene={(id, to) => update(s => moveSceneTo(s, id, to))}
+            />
+          </div>
+
+          <main className="editor__main" onFocusCapture={rememberTextField}>
+            {error && (
+              <div className="stage-error" role="alert">
+                <span>{error}</span>
+                <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
+              </div>
+            )}
+            {/* Typing "{" in any text offers the hero's answers */}
+            <SuggestionsContext.Provider value={suggestions}>
+              {renderPanel()}
+            </SuggestionsContext.Provider>
+          </main>
+
+          <div className={`editor__preview ${previewOpen ? 'is-open' : ''}`}>
+            <PreviewPane story={story} selection={selection} samples={samples} colorMode={colorMode} />
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}

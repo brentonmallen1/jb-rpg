@@ -354,6 +354,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
             check("The player is told the session ended", False)
 
         editor_checks(browser)
+        flow_checks(browser)
         turn_checks(browser)
         vote_checks(browser)
         flashing_checks(browser)
@@ -466,6 +467,61 @@ def editor_checks(browser) -> None:
     page.wait_for_url(B + "/run", timeout=10000)
     page.wait_for_selector("#madlib-input", timeout=10000)
     check("Playtest starts a game of the draft", True)
+
+
+def flow_checks(browser) -> None:
+    """The Flow view: the story as a diagram; drawing, deleting and moving lines and nodes edits the story."""
+    page = signed_in_context(browser, viewport={"width": 1440, "height": 900}).new_page()
+    page.goto(f"{B}/editor/{STORY}")
+    page.wait_for_selector(".ed-panel", timeout=15000)
+    page.click(".editor__view button:has-text('Flow')")
+    page.wait_for_selector(".fl-scene", timeout=10000)
+    scenes = call(f"/api/stories/{STORY}", method="GET")["scenes"]
+    check("The Flow view draws every scene, and The end", page.locator(".fl-scene").count() == len(scenes) and page.locator(".fl-end").count() == 1)
+
+    def node(scene_id):
+        return page.locator(f".react-flow__node[data-id='{scene_id}']")
+
+    # Draw a line from the Village Gate's first choice to the Crystal Heart
+    gate, heart = scenes[0]["id"], "scene_crystal_heart"
+    node(gate).hover()
+    page.drag_and_drop(f".react-flow__node[data-id='{gate}'] .react-flow__handle[data-handleid='c0']", f".react-flow__node[data-id='{heart}'] .react-flow__handle[data-handleid='in']")
+    page.wait_for_timeout(2500)
+    first = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]
+    check("Drawing a line from a choice sets where it leads", first["choices"][0].get("next_scene_id") == heart)
+
+    page.locator(f".react-flow__edge[data-id='choice:{gate}:0'] .react-flow__edge-interaction").dispatch_event("click")
+    page.keyboard.press("Backspace")
+    page.wait_for_timeout(2500)
+    first = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]
+    check("Deleting the line sends the choice back to the default", first["choices"][0].get("next_scene_id") is None)
+
+    # Moving a node remembers where it was put
+    box = node(heart).bounding_box()
+    page.mouse.move(box["x"] + 60, box["y"] + 12)
+    page.mouse.down()
+    page.mouse.move(box["x"] + 60, box["y"] + 132, steps=8)
+    page.mouse.up()
+    page.wait_for_timeout(2500)
+    check("Dragging a node saves its place", heart in (call(f"/api/stories/{STORY}", method="GET").get("layout") or {}))
+
+    # Let go of a line on empty canvas: a new scene, already linked
+    count = len(call(f"/api/stories/{STORY}", method="GET")["scenes"])
+    node(gate).hover()
+    handle = page.locator(f".react-flow__node[data-id='{gate}'] .react-flow__handle[data-handleid='c1']").bounding_box()
+    page.mouse.move(handle["x"] + handle["width"] / 2, handle["y"] + handle["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(handle["x"] + 120, handle["y"] + 260, steps=10)
+    page.mouse.up()
+    page.wait_for_timeout(2500)
+    saved = call(f"/api/stories/{STORY}", method="GET")
+    made = saved["scenes"][-1]
+    check("Letting a line go on the canvas makes a linked scene", len(saved["scenes"]) == count + 1 and saved["scenes"][0]["choices"][1].get("next_scene_id") == made["id"])
+    check("The new scene opens in the panel", page.locator(".editor__drawer .ed-title-input").input_value() == made["title"])
+    page.keyboard.press("Meta+z" if sys.platform == "darwin" else "Control+z")
+    page.wait_for_timeout(2500)
+    check("Undo takes it back", len(call(f"/api/stories/{STORY}", method="GET")["scenes"]) == count)
+    page.click(".editor__view button:has-text('Text')")
 
 
 def turn_checks(browser) -> None:

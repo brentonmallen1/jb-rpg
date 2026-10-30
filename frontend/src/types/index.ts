@@ -201,14 +201,16 @@ export interface GameState {
   emblem: Emblem | null  // or an emblem from the emblem service, which wins over crest
   crest_round: number | null  // which three crests the table is choosing from (null until the stage asks)
   emblem_options: Emblem[]  // those three from the emblem service; empty = the built-in crests of crest_round
-  roll_offered: boolean  // the storyteller sent the digital d20 to the phones (otherwise: real dice)
+  roll_offered: boolean  // the storyteller chose the digital d20 (otherwise: real dice)
   final_rolls: number[]  // the digital d20s rolled at the finale, in order
+  roller_id: string | null  // who holds the digital d20 (games with names); null = the storyteller rolls
+  last_roll_at: number | null  // epoch seconds of the last digital roll
 }
 
 // Resolved content sent from backend
 export interface ResolvedContent {
-  scene_text: string | null  // null on phones until the choices are dealt
-  scene_text_pending?: boolean  // phones: the storyteller is telling this scene; its words come with the choices
+  scene_text: string | null
+  scene_text_pending?: boolean  // phones: the storyteller is still telling this scene (a player can read along)
   character_description?: string
   story_title: string
   theme: ThemeName
@@ -243,7 +245,8 @@ export interface FinalRoll {
   bonus: number  // one per item
   attempts: number  // one per level
   target: number  // roll + bonus must reach it
-  offered: boolean  // the phones may roll
+  offered: boolean  // the digital d20 is in play (otherwise: real dice)
+  roller: PlayerRef | null  // the player holding it; null = the storyteller rolls
 }
 
 export interface FoundItem {

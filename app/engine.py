@@ -168,6 +168,7 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
             "attempts": state.level,
             "target": ROLL_TARGET,
             "offered": state.roll_offered,
+            "roller": _player_ref(roller(state)),
         }
 
     if state.status == SessionStatus.GAME_OVER:
@@ -228,8 +229,9 @@ def _scene_title(story: Story, scene_id: str) -> str:
 
 
 def for_players(resolved: dict | None, state: GameState | None) -> dict | None:
-    """What phones get: a scene's words arrive with its choices (revealed on the stage or dealt),
-    once the storyteller has told it."""
+    """What phones get. While the storyteller tells a scene (until its choices are revealed on the
+    stage or dealt), `scene_text_pending` says so: phones show the story being told, and a player
+    can choose to read along."""
     if resolved and state is not None and state.status == SessionStatus.AWAITING_SCENE_SELECTION and not state.doors_dealt:
         return {**resolved, "doors": None}  # the doors reach the phones once the storyteller deals them
     told = state is not None and (state.choices_revealed or bool(state.shuffled_indices))
@@ -238,7 +240,7 @@ def for_players(resolved: dict | None, state: GameState | None) -> dict | None:
     scene = get_scene(state.story, state.current_scene_id) if state.story else None
     if scene is None or not scene.choices or not resolved.get("scene_text"):
         return resolved
-    return {**resolved, "scene_text": None, "scene_text_pending": True}
+    return {**resolved, "scene_text_pending": True}
 
 
 # ---------------------------------------------------------------------------
@@ -583,6 +585,8 @@ def _enter_scene(state: GameState, scene_id: str) -> None:
     state.current_scene_id = scene_id
     state.roll_offered = False
     state.final_rolls = []
+    state.roller_id = None
+    state.last_roll_at = None
     state.choices_revealed = False
     state.shuffled_indices = []
     state.decider_id = None
@@ -689,6 +693,8 @@ def remove_player(state: GameState, player_id: str) -> None:
         state.decider_id = None
         state.proposal = None
         state.door_proposal = None
+    if state.roller_id == player_id:
+        state.roller_id = None
 
 
 def set_decider(state: GameState, player_id: str | None) -> None:
@@ -990,6 +996,7 @@ def select_scene(state: GameState, scene_id: str, revisit: bool) -> None:
 
 
 ROLL_TARGET = 20
+ROLL_PAUSE = 3.0  # seconds between digital rolls, so each one lands on every screen before the next
 
 
 def awaiting_roll(state: GameState) -> bool:
@@ -1004,17 +1011,35 @@ def awaiting_roll(state: GameState) -> bool:
     return False
 
 
-def roll(state: GameState, attempt: int, rng=lambda: secrets.randbelow(20) + 1) -> int:
+def roller(state: GameState) -> Player | None:
+    """The player holding the digital d20. None: only the storyteller can roll it."""
+    return next((p for p in state.players if p.id == state.roller_id), None)
+
+
+def roll(
+    state: GameState,
+    attempt: int,
+    player: Player | None = None,
+    rng=lambda: secrets.randbelow(20) + 1,
+    now: float | None = None,
+) -> int:
     """Roll the d20 for one attempt (one per level, each plus a bonus per item). 20 or more wins;
     running out of attempts loses. The outcome waits for the storyteller to reveal it.
-    `attempt` is the attempt the roller saw, so two phones tapping at once can't spend two."""
+    `player` is the phone that tapped (None: the storyteller); only the player holding the die may roll.
+    `attempt` is the attempt the roller saw, so a second tap can't spend another."""
     if not awaiting_roll(state):
         raise GameError(409, "There's nothing to roll for")
     if not state.roll_offered:
         raise GameError(409, "The storyteller hasn't offered the digital roll")
+    if player is not None and state.roller_id != player.id:
+        raise GameError(403, "The die is in someone else's hands")
     if attempt != len(state.final_rolls):
         raise GameError(409, "That roll has already been made")
+    now = time.time() if now is None else now
+    if state.last_roll_at is not None and 0 <= now - state.last_roll_at < ROLL_PAUSE:
+        raise GameError(409, "The die is still rolling")
     value = rng()
+    state.last_roll_at = now
     _apply_roll(state, value)
     return value
 
@@ -1061,6 +1086,20 @@ def offer_roll(state: GameState, offered: bool) -> None:
     if not offered and state.final_rolls:
         raise GameError(409, "The dice are already rolling")
     state.roll_offered = offered
+    # Games with names hand the die to whoever's turn it is; the storyteller can pass it on
+    decider = current_decider(state) if offered else None
+    state.roller_id = decider.id if decider else None
+
+
+def set_roller(state: GameState, player_id: str | None) -> None:
+    """The storyteller hands the digital d20 to a player (None takes it back to the stage)."""
+    if not awaiting_roll(state) or not state.roll_offered:
+        raise GameError(409, "The digital d20 isn't in play")
+    if state.turn_mode == "storyteller":
+        raise GameError(409, "Nobody joined by name, so the storyteller rolls")
+    if player_id is not None and not any(p.id == player_id for p in state.players):
+        raise GameError(404, "No such player")
+    state.roller_id = player_id
 
 
 def finish(state: GameState, outcome: Literal["victory", "defeat"]) -> None:

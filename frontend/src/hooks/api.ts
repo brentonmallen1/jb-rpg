@@ -139,8 +139,10 @@ export const revealOutcome = () => post<GameState>('/api/state/reveal-outcome')
 export const recordRoll = (attempt: number, value: number) => post<GameState>('/api/state/record-roll', { attempt, value })
 export const undoRoll = () => post<GameState>('/api/state/undo-roll')
 export const offerRoll = (offered: boolean) => post<GameState>('/api/state/offer-roll', { offered })
-// The digital d20: the server rolls. `attempt` is how many rolls the roller had seen; phones send their session id
-export const roll = (attempt: number, sessionId?: string) => post<GameState>('/api/state/roll', { attempt, s: sessionId })
+// The digital d20: the server rolls. `attempt` is how many rolls the roller had seen
+export const roll = (attempt: number) => post<GameState>('/api/state/roll', { attempt })
+// Hand the digital d20 to a player (null takes it back to the stage)
+export const setRoller = (playerId: string | null) => post<GameState>('/api/state/roller', { player_id: playerId })
 
 // Turns: who makes each choice
 export const setDecider = (playerId: string | null) => post<GameState>('/api/state/decider', { player_id: playerId })
@@ -170,6 +172,9 @@ export const joinSession = (sessionId: string, name: string) =>
 export const whoAmI = (token: string) => asPlayer<PlayerRef>('/api/session/me', token)
 export const castVote = (token: string, choiceIndex: number) =>
   asPlayer<{ status: string }>('/api/state/vote', token, { method: 'POST', body: JSON.stringify({ choice_index: choiceIndex }) })
+// The player holding the digital d20 rolls it
+export const rollAsPlayer = (token: string, attempt: number) =>
+  asPlayer<GameState>('/api/state/roll', token, { method: 'POST', body: JSON.stringify({ attempt }) })
 export const proposeChoice = (token: string, choiceIndex: number | null) =>
   asPlayer<{ status: string }>('/api/state/propose', token, { method: 'POST', body: JSON.stringify({ choice_index: choiceIndex }) })
 // Non-linear stories: the decider points at the next door (null withdraws it)

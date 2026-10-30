@@ -194,7 +194,7 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         player.goto(f"{B}/player/{session_id}")
         player.wait_for_selector("text=Creating your hero", timeout=15000)
         check("Player sees the madlib question", player.locator(".phone-question").count() == 1)
-        check("Player wears the story's theme", player.evaluate("document.documentElement.classList.contains('deep_space')"))
+        check("Player wears the story's theme", player.evaluate("document.documentElement.classList.contains('fantasy')"))
         teller.wait_for_timeout(800)
         count = teller.locator(".stage__players").inner_text().strip()
         check("Storyteller counts exactly one player", count == "1 player", count)
@@ -239,6 +239,13 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
 
         player.wait_for_selector(".telling", timeout=5000)
         check("While the scene is told the phone shows it being told, not its words", player.locator(".read-along").count() == 0)
+        player.click(".telling__read")
+        player.wait_for_selector(".read-along .telling--inline", state="attached", timeout=5000)
+        check("Read along shows the words as the scene is told, the pen writing at their end",
+              player.locator(".read-along__text").inner_text().strip() != "")
+        player.click("text=Just listen")
+        player.wait_for_selector(".telling__lines", timeout=5000)
+        check("Just listen goes back to the story being told", player.locator(".read-along").count() == 0)
         teller.keyboard.press("r")
         teller.wait_for_selector(".choice-card")
         player.wait_for_selector(".read-along", timeout=5000)
@@ -665,24 +672,33 @@ def flashing_checks(browser) -> None:
 
 
 def roll_checks(browser) -> None:
-    """The final roll: real dice by default; the storyteller can send the app's d20 to the phones."""
+    """The final roll: real dice by default; the storyteller can hand the app's d20 to one player."""
     story = call("/api/stories", {"title": "One Last Roll"})
     story["scenes"] = [{
         "id": "only", "title": "The Only Room", "base_text": "A door.",
         "choices": [{"kind": "item", "display_text": "Take it?", "result_text": "Taken.", "amount": 1, "item_name": "Brass Key"}],
     }]
     call(f"/api/stories/{story['id']}", story, method="PUT")
-    started = call("/api/state/start", {"story_id": story["id"], "force": True})
+    started = call("/api/state/start", {"story_id": story["id"], "force": True, "turn_mode": "rotate"})
     token, session_id = started["token"], started["state"]["session_id"]
-    call("/api/state/choice", {"choice_index": 0}, token)  # the last scene: the finale
+
+    phones = {}
+    for name in ["Wren", "Ash"]:
+        phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+        phone.goto(f"{B}/player/{session_id}")
+        phone.wait_for_selector("text=What should we call you?", timeout=10000)
+        phone.fill("input[aria-label='Your name']", name)
+        phone.click("text=Join the table")
+        phone.wait_for_selector("text=What should we call you?", state="detached", timeout=10000)
+        phones[name] = phone
+    call("/api/state/choice", {"choice_index": 0}, token)  # the last scene: the finale (one choice made: Ash's turn)
 
     teller = signed_in_context(browser, viewport={"width": 1280, "height": 900})
     teller.add_init_script(f"sessionStorage.setItem('jb_rpg_session_token', {json.dumps(token)})")
     stage = teller.new_page()
     stage.goto(B + "/run")
     stage.wait_for_selector(".rolls__input", timeout=10000)
-    phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
-    phone.goto(f"{B}/player/{session_id}")
+    phone = phones["Wren"]
     phone.wait_for_selector(".phone-roll", timeout=10000)
     check("Real dice by default: the phone has no Roll button", phone.locator(".phone-roll__button").count() == 0)
 
@@ -695,8 +711,15 @@ def roll_checks(browser) -> None:
     check("A mistyped roll can be taken back", call("/api/state", token=token, method="GET")["state"]["final_rolls"] == [])
 
     stage.click("text=Roll on the phones instead")
+    phones["Ash"].wait_for_selector(".phone-roll__button", timeout=10000)
+    check("The d20 goes to the player whose turn it is", True)
+    phone.wait_for_selector("text=holds the die", timeout=10000)
+    check("Everyone else sees who holds the die, with no Roll button",
+          phone.locator(".phone-roll__button").count() == 0 and "Ash" in phone.locator(".phone-roll").inner_text())
+    stage.click(".turn-line__pick button:text-is('Wren')")
     phone.wait_for_selector(".phone-roll__button", timeout=10000)
-    check("Sending the d20 gives the phones a Roll button", True)
+    phones["Ash"].wait_for_selector(".phone-roll__button", state="detached", timeout=10000)
+    check("The storyteller can hand the die to someone else", True)
     phone.click(".phone-roll__button")
     phone.wait_for_selector(".dice-card", timeout=10000)
     check("The roll lands on the phones", True)

@@ -1,7 +1,7 @@
 {
   "id": "demo-crystal-caverns",
   "title": "The Crystal Caverns",
-  "theme": "deep_space",
+  "theme": "fantasy",
   "settings": {
     "starting_hp": 3,
     "non_linear": false

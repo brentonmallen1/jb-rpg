@@ -265,6 +265,8 @@ class GameState(BaseModel):
     emblem_options: list[Emblem] = []  # Those three from the emblem service; empty = the built-in crests of crest_round
     roll_offered: bool = False  # The storyteller sent the digital d20 to the phones (otherwise the table rolls real dice)
     final_rolls: list[int] = []  # The digital d20s rolled at the finale, in order (the app rolls; a player taps)
+    roller_id: Optional[str] = None  # Who holds the digital d20 in games with names; None = the storyteller rolls
+    last_roll_at: Optional[float] = None  # epoch seconds of the last digital roll, so each one lands before the next
     # Private: never sent to clients (see public_state)
     story: Optional[Story] = None  # Snapshot taken at /start, so editing a story can't break a game
     token_hash: str = ""  # sha256 of the storyteller token, so sessions survive restarts

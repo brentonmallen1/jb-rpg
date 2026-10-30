@@ -1,16 +1,23 @@
-"""The final roll: the app rolls the d20 when a player taps; each attempt is a level, each item adds one."""
+"""The final roll: the app rolls the d20 when the storyteller (or the player holding the die) taps;
+each attempt is a level, each item adds one."""
 
 import pytest
 
 from app import engine
 from app.engine import GameError
 
-from .conftest import start
-from .test_turns import SCENES, choice
+from .test_turns import choice, join
 
 
-def at_finale(client, items=0, levels=0):
-    """A linear story whose last scene has been played, with the given items and extra levels."""
+@pytest.fixture(autouse=True)
+def no_pause(monkeypatch):
+    """Rolls in these tests come back to back; the pause between them has its own test."""
+    monkeypatch.setattr(engine, "ROLL_PAUSE", 0)
+
+
+def at_finale(client, items=0, levels=0, mode="storyteller", names=()):
+    """A linear story whose last scene has been played, with the given items and extra levels.
+    Returns the players' tokens by name (games with names)."""
     scenes = [
         {"id": f"s{i}", "title": f"S{i}", "base_text": "Text.", "choices": [choice("item", f"i{i}"), choice("level", f"l{i}")]}
         for i in range(items + levels)
@@ -18,11 +25,13 @@ def at_finale(client, items=0, levels=0):
     story = client.post("/api/stories", json={"title": "Roll"}).json()
     story["scenes"] = scenes
     client.put(f"/api/stories/{story['id']}", json=story)
-    started = start(client, story["id"])
+    started = client.post("/api/state/start", json={"story_id": story["id"], "turn_mode": mode}).json()
+    client.headers["X-Session-Token"] = started["token"]
+    tokens = {name: join(client, started["state"]["session_id"], name).json()["token"] for name in names}
     for i in range(items + levels):
         client.post("/api/state/choice", json={"choice_index": 0 if i < items else 1})
     client.post("/api/state/offer-roll", json={"offered": True})
-    return started
+    return tokens
 
 
 def rolling(monkeypatch, *values):
@@ -30,24 +39,83 @@ def rolling(monkeypatch, *values):
     monkeypatch.setattr(engine.secrets, "randbelow", lambda n: values.pop(0) - 1)
 
 
-def test_a_player_rolls_and_the_dice_decide(client, monkeypatch):
+def as_phone(client, sid, attempt, token=None):
+    headers = {"X-Session-Token": ""} | ({"X-Player-Token": token} if token else {})
+    return client.post("/api/state/roll", json={"attempt": attempt, "s": sid}, headers=headers)
+
+
+def test_the_storyteller_rolls_and_the_dice_decide(client, monkeypatch):
     at_finale(client, items=2, levels=1)  # bonus 2, two attempts
-    sid = client.get("/api/state").json()["state"]["session_id"]
-    assert client.get("/api/state").json()["resolved"]["final_roll"] == {"rolls": [], "bonus": 2, "attempts": 2, "target": 20, "offered": True}
+    expected = {"rolls": [], "bonus": 2, "attempts": 2, "target": 20, "offered": True, "roller": None}
+    assert client.get("/api/state").json()["resolved"]["final_roll"] == expected
 
     rolling(monkeypatch, 14, 19)
-    state = client.post("/api/state/roll", json={"attempt": 0, "s": sid}, headers={"X-Session-Token": ""}).json()
+    state = client.post("/api/state/roll", json={"attempt": 0}).json()
     assert state["final_rolls"] == [14] and state["outcome"] is None  # 16: short, one attempt left
 
-    state = client.post("/api/state/roll", json={"attempt": 1, "s": sid}, headers={"X-Session-Token": ""}).json()
+    state = client.post("/api/state/roll", json={"attempt": 1}).json()
     assert state["final_rolls"] == [14, 19]
     assert state["outcome"] == "victory" and state["outcome_revealed"] is False  # the storyteller tells it
     assert client.get("/api/state").json()["resolved"]["finale"] is True
 
-    assert client.post("/api/state/roll", json={"attempt": 2, "s": sid}).status_code == 409  # decided
+    assert client.post("/api/state/roll", json={"attempt": 2}).status_code == 409  # decided
     client.post("/api/state/reveal-outcome")
     body = client.get("/api/state").json()
     assert body["state"]["outcome_revealed"] and body["resolved"]["final_roll"]["rolls"] == [14, 19]
+
+
+def test_without_names_no_phone_can_roll(client):
+    at_finale(client, items=1, levels=1)
+    sid = client.get("/api/state").json()["state"]["session_id"]
+    assert as_phone(client, sid, 0).status_code == 403  # the session link alone isn't the die
+    assert client.post("/api/state/roller", json={"player_id": None}).status_code == 409  # nobody to hand it to
+
+
+def test_the_die_goes_to_whoever_s_turn_it_is(client, monkeypatch):
+    tokens = at_finale(client, items=1, levels=2, mode="rotate", names=("Wren", "Ash"))
+    body = client.get("/api/state").json()
+    sid = body["state"]["session_id"]
+    holder = body["resolved"]["final_roll"]["roller"]
+    assert holder["name"] == "Ash"  # three choices made: the turn has come round to the second player
+
+    rolling(monkeypatch, 3, 4, 5)
+    assert as_phone(client, sid, 0, tokens["Wren"]).status_code == 403  # not in her hands
+    assert as_phone(client, sid, 0, tokens["Ash"]).json()["final_rolls"] == [3]
+
+    wren = next(p["id"] for p in body["state"]["players"] if p["name"] == "Wren")
+    client.post("/api/state/roller", json={"player_id": wren})  # the storyteller passes it on
+    assert as_phone(client, sid, 1, tokens["Ash"]).status_code == 403
+    assert as_phone(client, sid, 1, tokens["Wren"]).json()["final_rolls"] == [3, 4]
+    assert client.post("/api/state/roll", json={"attempt": 2}).json()["final_rolls"] == [3, 4, 5]  # the stage can always roll
+
+
+def test_picking_who_rolls(client):
+    tokens = at_finale(client, items=1, mode="pick", names=("Wren",))
+    body = client.get("/api/state").json()
+    assert body["resolved"]["final_roll"]["roller"] is None  # the storyteller hands it to someone
+    sid = body["state"]["session_id"]
+    assert as_phone(client, sid, 0, tokens["Wren"]).status_code == 403
+    assert client.post("/api/state/roller", json={"player_id": "nobody"}).status_code == 404
+
+    wren = body["state"]["players"][0]["id"]
+    client.post("/api/state/roller", json={"player_id": wren})
+    client.delete(f"/api/state/players/{wren}")  # she left the table: the die comes back to the stage
+    assert client.get("/api/state").json()["state"]["roller_id"] is None
+
+
+def test_each_roll_lands_before_the_next(monkeypatch):
+    from app.models import GameState, Story
+
+    monkeypatch.setattr(engine, "ROLL_PAUSE", 3.0)
+    story = Story(id="f", title="F", madlib_template={"prompt": "", "fields": []}, scenes=[{"id": "end", "title": "End", "base_text": "", "is_finale": True}])
+    state = GameState(story_id="f", current_scene_id="end", hp=3, level=3, status="running", story=story)
+    engine.offer_roll(state, True)
+    engine.roll(state, 0, rng=lambda: 2, now=100.0)
+    with pytest.raises(GameError) as err:
+        engine.roll(state, 1, rng=lambda: 2, now=101.0)
+    assert err.value.status_code == 409 and state.final_rolls == [2]
+    engine.roll(state, 1, rng=lambda: 2, now=103.5)
+    assert state.final_rolls == [2, 2]
 
 
 def test_running_out_of_attempts_is_defeat(client, monkeypatch):
@@ -68,7 +136,7 @@ def test_two_taps_at_once_spend_one_attempt(client, monkeypatch):
 def test_only_the_table_may_roll(client):
     at_finale(client, items=1)
     client.headers.pop("X-Session-Token")
-    assert client.post("/api/state/roll", json={"attempt": 0, "s": "nope"}).status_code == 403
+    assert client.post("/api/state/roll", json={"attempt": 0}, headers={"X-Player-Token": "nope"}).status_code == 403
 
 
 def test_no_roll_before_the_finale_and_back_forgets_the_rolls(client, monkeypatch):

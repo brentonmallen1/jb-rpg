@@ -9,8 +9,10 @@ import { useWakeLock } from '../hooks/useWakeLock'
 import { useTextSize } from '../hooks/useTextSize'
 import { usePlayerIdentity, type PlayerIdentity } from '../hooks/usePlayerIdentity'
 import { formatClock, useCountdown } from '../hooks/useCountdown'
+import { useReadAlong } from '../hooks/useReadAlong'
+import { useRollPause } from '../hooks/useRollPause'
 import type { FoundItem, GameState, ResolvedContent } from '../types'
-import { Crest, CrestChoices, KeepsakeDialog, StoryBeingTold, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
+import { Crest, CrestChoices, KeepsakeDialog, StoryBeingTold, TellingPen, RulesModal, HealthMeter, MomentLayer, CriticalPulse, Atmosphere, CorruptText } from '../components'
 import { HEALTH_LABEL, moodFor } from '../lib/themes'
 import { ArrowDownIcon, BackpackIcon, BookIcon, ChevronUpIcon, CloseIcon, D20Icon } from '../components/Icons'
 import { ItemIcon } from '../components/ItemIcon'
@@ -209,6 +211,7 @@ interface GameScreenProps {
 
 function GameScreen({ state, resolved, corruption, level, me, sessionId, onShowHero, onShowPack }: GameScreenProps) {
   const myTurn = !!me && resolved.decider?.id === me.id
+  const { readAlong, setReadAlong } = useReadAlong()
   const [pickError, setPickError] = useState<string | null>(null)
   async function pick(index: number) {
     if (!me) return
@@ -300,12 +303,20 @@ function GameScreen({ state, resolved, corruption, level, me, sessionId, onShowH
         </h1>
       </div>
 
-      {!resolved.finale && !choosingDoor && (resolved.scene_text_pending
-        ? <StoryBeingTold theme={resolved.theme} level={level} />
-        : resolved.scene_text && <SceneText text={warp(resolved.scene_text)} sceneKey={resolved.scene_title ?? ''} />)}
+      {!resolved.finale && !choosingDoor && (resolved.scene_text_pending && !readAlong
+        ? <StoryBeingTold theme={resolved.theme} level={level} onReadAlong={() => setReadAlong(true)} />
+        : resolved.scene_text && (
+          <SceneText
+            text={warp(resolved.scene_text)}
+            sceneKey={resolved.scene_title ?? ''}
+            open={readAlong}
+            onOpen={setReadAlong}
+            pen={resolved.scene_text_pending ? <TellingPen theme={resolved.theme} level={level} /> : null}
+          />
+        ))}
 
       {resolved.finale ? (
-        <PhoneRoll state={state} resolved={resolved} sessionId={sessionId} />
+        <PhoneRoll state={state} resolved={resolved} me={me} />
       ) : (
         <>
           {['rotate', 'pick'].includes(state.turn_mode) && (state.status === 'running' || choosingDoor) && (
@@ -381,10 +392,17 @@ function GameScreen({ state, resolved, corruption, level, me, sessionId, onShowH
 
 /**
  * The scene's text, for reading along while the storyteller reads it aloud: the opening lines,
- * fading out, until the player opens the rest. Stays open from scene to scene once opened.
+ * fading out, until the player opens the rest. Reading along is remembered on this phone, and
+ * while the scene is still being told the words come in full with the pen writing at their end.
  */
-function SceneText({ text, sceneKey }: { text: ReactNode; sceneKey: string }) {
-  const [open, setOpen] = useState(false)
+function SceneText({ text, sceneKey, open, onOpen, pen }: {
+  text: ReactNode
+  sceneKey: string
+  open: boolean
+  onOpen: (open: boolean) => void
+  /** The storyteller is still telling it: the pen at the end of the words */
+  pen: ReactNode
+}) {
   // Short scenes are shown whole, with nothing to open
   const [long, setLong] = useState(true)
   const ref = useRef<HTMLDivElement>(null)
@@ -403,11 +421,17 @@ function SceneText({ text, sceneKey }: { text: ReactNode; sceneKey: string }) {
     return () => observer.disconnect()
   }, [sceneKey])
 
+  const telling = !!pen
   return (
-    <section className={`read-along ${open || !long ? 'is-open' : ''}`} aria-label="The scene">
-      <div ref={ref} className="read-along__text phone-text is-clamped" id="scene-text">{text}</div>
-      {long && (
-        <button type="button" className="read-along__toggle" aria-expanded={open} aria-controls="scene-text" onClick={() => setOpen(!open)}>
+    <section className={`read-along ${open || telling || !long ? 'is-open' : ''}`} aria-label="The scene">
+      <div ref={ref} className="read-along__text phone-text is-clamped" id="scene-text">{text}{pen}</div>
+      {telling ? (
+        <button type="button" className="read-along__toggle" onClick={() => onOpen(false)}>
+          <BookIcon size={16} />
+          Just listen
+        </button>
+      ) : long && (
+        <button type="button" className="read-along__toggle" aria-expanded={open} aria-controls="scene-text" onClick={() => onOpen(!open)}>
           <BookIcon size={16} />
           {open ? 'Show less' : 'Read along'}
         </button>
@@ -620,8 +644,8 @@ function ItemDialog({ item, theme, onClose }: { item: FoundItem | null; theme: R
   )
 }
 
-/** The final roll on a phone: real dice at the table, or (once the storyteller sends it) the app's d20 to tap. */
-function PhoneRoll({ state, resolved, sessionId }: { state: GameState; resolved: ResolvedContent; sessionId?: string }) {
+/** The final roll on a phone: real dice at the table, or the app's d20, which only the player holding it can roll. */
+function PhoneRoll({ state, resolved, me }: { state: GameState; resolved: ResolvedContent; me: PlayerIdentity | null }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const roll = resolved.final_roll
@@ -630,14 +654,18 @@ function PhoneRoll({ state, resolved, sessionId }: { state: GameState; resolved:
   const attempts = roll?.attempts ?? state.level
   const decided = !!state.outcome
   const best = rolls.length ? Math.max(...rolls) + bonus : null
+  const holder = roll?.roller ?? null
+  const mine = !!me && holder?.id === me.id
+  const landing = useRollPause(rolls.length)
 
   async function tap() {
+    if (!me) return
     setBusy(true)
     setError(null)
     try {
-      await api.roll(rolls.length, sessionId)
+      await api.rollAsPlayer(me.token, rolls.length)
     } catch (err) {
-      // Someone else's tap got there first: their roll is already on its way
+      // A second tap, or the last roll still landing: nothing to fix
       if (!(err instanceof api.ApiError && err.status === 409)) setError('The die slipped. Try again.')
     } finally {
       setBusy(false)
@@ -661,13 +689,17 @@ function PhoneRoll({ state, resolved, sessionId }: { state: GameState; resolved:
         <p className="phone-text" style={{ textAlign: 'center' }}>The dice have spoken. The storyteller will tell you what happens.</p>
       ) : !roll?.offered ? (
         <p className="phone-text" style={{ textAlign: 'center' }}>Roll a real d20 and add your bonus.</p>
-      ) : (
+      ) : mine ? (
         <>
-          <button type="button" className="join__button phone-roll__button" onClick={tap} disabled={busy}>
-            {busy ? 'Rolling…' : rolls.length ? 'Roll again' : 'Roll the d20'}
+          <button type="button" className="join__button phone-roll__button" onClick={tap} disabled={busy || landing}>
+            {busy ? 'Rolling…' : landing ? 'The die is landing…' : rolls.length ? 'Roll again' : 'Roll the d20'}
           </button>
-          <p className="phone-roll__hint">Anyone at the table can roll.</p>
+          <p className="phone-roll__hint">The die is in your hands.</p>
         </>
+      ) : (
+        <p className="phone-text" style={{ textAlign: 'center' }}>
+          {holder ? <><strong>{holder.name}</strong> holds the die.</> : 'The storyteller holds the die.'}
+        </p>
       )}
       {error && <p className="phone-roll__hint" role="alert">{error}</p>}
     </div>

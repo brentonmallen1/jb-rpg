@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import * as api from '../../hooks/api'
 import { useHotkeys } from '../../hooks/useHotkeys'
+import { useRollPause } from '../../hooks/useRollPause'
 import type { RunAction } from '../../hooks/useAsyncAction'
 import type { GameState, ResolvedContent } from '../../types'
 import { D20Icon } from '../../components/Icons'
@@ -16,7 +17,8 @@ const ORDINAL = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth']
 
 /**
  * The d20 roll. Real dice: the table rolls and the storyteller enters each roll as it lands.
- * Or the storyteller sends the digital d20 to the phones: a player taps and the app rolls.
+ * Or the app's d20: the storyteller rolls it here, or (when players joined by name) hands it to
+ * one player, whose phone alone can roll it. Each roll lands on every screen before the next.
  * Either way the rolls decide the outcome and go on the keepsake; the storyteller tells it.
  */
 export function FinaleRoll({ state, resolved, run }: FinaleRollProps) {
@@ -26,6 +28,9 @@ export function FinaleRoll({ state, resolved, run }: FinaleRollProps) {
   const bonus = state.items.length
   const attempts = state.level
   const digital = state.roll_offered
+  const named = state.turn_mode !== 'storyteller'
+  const holder = resolved?.final_roll?.roller ?? null
+  const landing = useRollPause(rolls.length)
   // The rolls have decided; the storyteller tells it
   const decided = rolls.length > 0 && state.outcome && !state.outcome_revealed ? state.outcome : null
   const reading = decided ?? pendingOutcome
@@ -136,22 +141,45 @@ export function FinaleRoll({ state, resolved, run }: FinaleRollProps) {
           </div>
         </div>
       ) : digital ? (
-        <div className="action-row">
-          <span className="stage-hint" style={{ marginLeft: 0 }}>The phones have the d20: a player taps Roll.</span>
-          <button className="s-btn s-btn--ghost" onClick={() => run(() => api.roll(rolls.length), 'Could not roll')}>Roll here</button>
-          {rolls.length === 0 && (
-            <button className="s-btn s-btn--ghost" onClick={() => run(() => api.offerRoll(false), 'Could not change the roll')}>
-              Use real dice instead
-            </button>
+        <>
+          {named && state.players.length > 0 && (
+            <div className="turn-line">
+              <span className="turn-line__who">{holder ? <><strong>{holder.name}</strong> holds the die</> : 'Who rolls?'}</span>
+              <div className="turn-line__pick storyteller-only" role="group" aria-label="Hand the die to">
+                {state.players.map(p => (
+                  <button
+                    key={p.id}
+                    className="chip-btn"
+                    aria-pressed={holder?.id === p.id}
+                    onClick={() => run(() => api.setRoller(holder?.id === p.id ? null : p.id), 'Could not hand over the die')}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
-        </div>
+          <div className="action-row">
+            <span className="stage-hint" style={{ marginLeft: 0 }}>
+              {holder ? `${holder.name} taps Roll on their phone.` : named ? 'Hand the die to a player, or roll it here.' : "The app's d20: roll it here."}
+            </span>
+            <button className={`s-btn ${holder ? 's-btn--ghost' : ''}`} disabled={landing} onClick={() => run(() => api.roll(rolls.length), 'Could not roll')}>
+              {landing ? 'Landing…' : 'Roll here'}
+            </button>
+            {rolls.length === 0 && (
+              <button className="s-btn s-btn--ghost" onClick={() => run(() => api.offerRoll(false), 'Could not change the roll')}>
+                Use real dice instead
+              </button>
+            )}
+          </div>
+        </>
       ) : (
         <div className="action-row">
           <span className="stage-hint" style={{ marginLeft: 0 }}>Real dice: enter each roll as it lands.</span>
           {undo}
           {rolls.length === 0 && (
             <button className="s-btn s-btn--ghost" onClick={() => run(() => api.offerRoll(true), 'Could not send the roll')}>
-              Roll on the phones instead
+              {named ? 'Roll on the phones instead' : "Roll the app's d20 instead"}
             </button>
           )}
           <span className="rolls__skip">

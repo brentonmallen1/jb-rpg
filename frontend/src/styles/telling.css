@@ -29,6 +29,29 @@
 .telling__line:nth-child(3) { top: 3.25rem; width: 97%; animation-delay: 0.8s; }
 .telling__line:nth-child(4) { top: 4.875rem; width: 58%; animation-delay: 1.2s; }
 
+/* Read along: offered under the lines while the scene is told */
+.telling__read {
+  align-self: flex-start;
+  margin-top: 14px;
+}
+
+/* Reading along: the pen keeps writing just after the last word until the choices come.
+   No height, centred on the line, so its origin sits where it does after the blurred lines. */
+.telling--inline {
+  display: inline-block;
+  position: relative;
+  width: 2.8em;
+  height: 0;
+  margin: 0;
+  vertical-align: middle;
+}
+
+.telling--inline .telling__pen {
+  left: 1.1em;
+  top: 0.3em;
+  transform: scale(0.9);
+}
+
 /* The pen waits just after the last line */
 .telling__pen {
   position: absolute;

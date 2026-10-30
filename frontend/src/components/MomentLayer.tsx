@@ -52,6 +52,7 @@ export function MomentLayer({ moment, theme, level, onDone, viewerId }: MomentLa
     moment.type === 'character_revealed' ? moment.name :
     moment.type === 'level_up' ? `Level ${moment.level}` :
     moment.type === 'hp_lost' ? (moment.hp === 1 ? 'One left' : moment.hp === 0 ? '' : `${moment.hp} left`) :
+    moment.type === 'finale' ? 'The dice decide how it ends' :
     ''
 
   // Outside #root, so shaking the app doesn't move the overlay

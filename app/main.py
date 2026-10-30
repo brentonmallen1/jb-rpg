@@ -44,16 +44,40 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Only this server's own scripts run; images, fonts and sound come from here (or are drawn as data:/blob:
+# URLs: crests, the keepsake image, uploaded audio). Inline styles are React's style props.
+CONTENT_SECURITY_POLICY = "; ".join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "media-src 'self' data: blob:",
+    "connect-src 'self' data: blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+
+# Nothing here needs these (the wake lock and the clipboard stay allowed)
+PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+        response.headers["Permissions-Policy"] = PERMISSIONS_POLICY
         return response
 
 
-app = FastAPI(title="J&B's RPG", lifespan=lifespan)
+# The interactive API docs are a map of every endpoint: only for local development
+_docs = {} if config.AUTH_DISABLED else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="J&B's RPG", lifespan=lifespan, **_docs)
 
 app.add_middleware(
     CORSMiddleware,

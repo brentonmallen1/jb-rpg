@@ -419,3 +419,26 @@ def test_the_drowned_bell_plays_down_each_branch():
     state = begin(1)
     walk(state, 1, 0, 2)
     assert state.status == SessionStatus.GAME_OVER and state.outcome is None
+
+
+def test_back_at_the_doors_the_prologues_lines_are_read_again():
+    """In a door story the prologue is read once, before any room; its lines that look back on a room
+    are read when the party returns to the doors (on the stage, not the phones)."""
+    s = story(
+        scene("a", choice("item", item="rope")), scene("b"),
+        non_linear=True,
+        opening_scene={"title": "The Hub", "base_text": "A round room.", "choices": [], "conditional_text": [
+            {"condition": {"type": "scene_outcome", "scene_id": "a", "outcome": "item"}, "text": "Door A hangs open."},
+            {"condition": held("rope"), "text": "The rope is coiled at your hip."},
+            {"condition": {"type": "scene_outcome", "scene_id": "b", "outcome": "level"}, "text": "Door B hums."},
+        ]},
+    )
+    state = play(s)
+    engine.opening_choice(state, None)
+    assert state.status == SessionStatus.AWAITING_SCENE_SELECTION
+    assert engine.build_resolved(state)["doors_text"] is None  # nothing played yet: the prologue was just read
+    engine.select_scene(state, "a", False)
+    choose(state, 0)
+    resolved = engine.build_resolved(state)
+    assert resolved["doors_text"] == "Door A hangs open. The rope is coiled at your hip."
+    assert engine.for_players(resolved, state)["doors_text"] is None

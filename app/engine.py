@@ -127,6 +127,17 @@ def resolve_scene_text(scene: Scene, state: GameState) -> str:
     return text
 
 
+def doors_text(state: GameState) -> str | None:
+    """Door stories, back at the doors after a room: the prologue's lines that change and now hold
+    (the prologue itself is read once, before any room). Storyteller and TV only."""
+    story = state.story
+    if state.status != SessionStatus.AWAITING_SCENE_SELECTION or not state.history or not story.opening_scene:
+        return None
+    fields = state.character.fields if state.character else None
+    lines = [inject_variables(ct.text, fields) for ct in story.opening_scene.conditional_text if evaluate_condition(ct.condition, state)]
+    return " ".join(lines) or None
+
+
 def build_resolved(state: GameState | None, now: float | None = None) -> dict | None:
     """Server-side content for clients. This is everything players ever see of the story."""
     if state is None or state.story is None:
@@ -147,6 +158,7 @@ def build_resolved(state: GameState | None, now: float | None = None) -> dict | 
         # During a scene, or choosing the next door: the turn begins when the scene (or the door) does
         "decider": _player_ref(current_decider(state)) if state.status in (SessionStatus.RUNNING, SessionStatus.AWAITING_SCENE_SELECTION) else None,
         "doors": open_doors(state) if state.status == SessionStatus.AWAITING_SCENE_SELECTION else None,
+        "doors_text": doors_text(state),
         "vote": vote_status(state, now),
         # The backpack: each item with the scene it was found in (scenes the table has already played)
         "items_found": [
@@ -232,8 +244,9 @@ def for_players(resolved: dict | None, state: GameState | None) -> dict | None:
     """What phones get. While the storyteller tells a scene (until its choices are revealed on the
     stage or dealt), `scene_text_pending` says so: phones show the story being told, and a player
     can choose to read along."""
-    if resolved and state is not None and state.status == SessionStatus.AWAITING_SCENE_SELECTION and not state.doors_dealt:
-        return {**resolved, "doors": None}  # the doors reach the phones once the storyteller deals them
+    if resolved and state is not None and state.status == SessionStatus.AWAITING_SCENE_SELECTION:
+        # The doors reach the phones once the storyteller deals them; the words read at the doors stay on the stage
+        return {**resolved, "doors": resolved["doors"] if state.doors_dealt else None, "doors_text": None}
     told = state is not None and (state.choices_revealed or bool(state.shuffled_indices))
     if not resolved or state is None or state.status != SessionStatus.RUNNING or told:
         return resolved

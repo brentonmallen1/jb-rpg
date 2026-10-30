@@ -35,6 +35,7 @@ export function SceneSelect({ state, resolved, story, run }: SceneSelectProps) {
       )}
       <div className="eyebrow ink">The way forward</div>
       <h1 className="stage-title ink">Which door next?</h1>
+      {resolved.doors_text && <p className="scene-text ink ink--late">{resolved.doors_text}</p>}
       <TurnLine state={state} decider={resolved.decider} run={run} what="the next door" />
       <div className="action-row" style={{ marginTop: 12 }}>
         {state.doors_dealt ? (

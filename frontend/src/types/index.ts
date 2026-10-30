@@ -220,6 +220,7 @@ export interface ResolvedContent {
   max_hp: number
   decider: PlayerRef | null  // who makes this scene's choice, or picks the next door (null = the storyteller)
   doors?: Door[] | null  // non-linear stories, choosing the next door: the doors that can be opened
+  doors_text?: string | null  // back at the doors after a room: the prologue's lines that now hold (stage and TV only)
   vote: VoteStatus | null  // voting games, once the choices are dealt
   mood?: string | null  // the scene's chosen backdrop mood (null = automatic)
   mood_seed?: number  // stable per scene, picks the automatic mood

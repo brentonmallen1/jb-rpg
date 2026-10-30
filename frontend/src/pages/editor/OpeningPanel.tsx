@@ -96,6 +96,12 @@ export function OpeningPanel({ story, opening, problems, update, textTarget }: O
       </Section>
 
       <Section title="Text that changes">
+        {story.settings.non_linear && (
+          <p className="ed-muted">
+            In a story of doors, these lines are read again each time the party comes back to the doors (those that hold then),
+            so they can look back on the rooms already played.
+          </p>
+        )}
         <ConditionsEditor
           conditions={opening.conditional_text}
           story={story}

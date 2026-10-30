@@ -1,27 +1,49 @@
 import type { EffectsLevel } from '../hooks/useEffectsLevel'
 import type { ThemeName } from '../types'
+import { BookIcon } from './Icons'
 import '../styles/telling.css'
 
 /**
  * On phones, while the storyteller tells a scene: its words are still blurred, and a small
- * themed "pen" waits at the end of them so the screen is plainly alive. The words arrive
- * with the choices. Full effects animate the pen; gentle keeps only slow fades; off holds still.
+ * themed "pen" waits at the end of them so the screen is plainly alive. A player can read
+ * along instead (the words, with the pen still writing at their end); otherwise the words
+ * arrive with the choices. Full effects animate the pen; gentle keeps only slow fades; off holds still.
  */
-export function StoryBeingTold({ theme, level }: { theme: ThemeName; level: EffectsLevel }) {
+export function StoryBeingTold({ theme, level, onReadAlong }: { theme: ThemeName; level: EffectsLevel; onReadAlong?: () => void }) {
   return (
-    <div className={`telling telling--${level}`} role="status">
-      <span className="visually-hidden">The storyteller is telling this scene. Its words arrive with the choices.</span>
-      <div className="telling__lines" aria-hidden="true">
-        <span className="telling__line" />
-        <span className="telling__line" />
-        <span className="telling__line" />
-        <span className="telling__line" />
-        <span className="telling__pen">
-          <span className="telling__glow" />
-          <Pen theme={theme} />
-        </span>
+    <>
+      <div className={`telling telling--${level}`} role="status">
+        <span className="visually-hidden">The storyteller is telling this scene.</span>
+        <div className="telling__lines" aria-hidden="true">
+          <span className="telling__line" />
+          <span className="telling__line" />
+          <span className="telling__line" />
+          <span className="telling__line" />
+          <span className="telling__pen">
+            <span className="telling__glow" />
+            <Pen theme={theme} />
+          </span>
+        </div>
       </div>
-    </div>
+      {onReadAlong && (
+        <button type="button" className="read-along__toggle telling__read" onClick={onReadAlong}>
+          <BookIcon size={16} />
+          Read along
+        </button>
+      )}
+    </>
+  )
+}
+
+/** The pen alone, writing at the end of the words while a player reads along as the scene is told. */
+export function TellingPen({ theme, level }: { theme: ThemeName; level: EffectsLevel }) {
+  return (
+    <span className={`telling telling--${level} telling--inline`} aria-hidden="true">
+      <span className="telling__pen">
+        <span className="telling__glow" />
+        <Pen theme={theme} />
+      </span>
+    </span>
   )
 }
 

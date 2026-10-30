@@ -56,7 +56,7 @@ async def events(
     return StreamingResponse(
         sse.stream(role, player.id if player else None, d),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+        headers={"Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
 
 
@@ -251,18 +251,37 @@ async def offer_roll(request: OfferRollRequest, state: GameState = Depends(auth.
 
 class RollRequest(BaseModel):
     attempt: int  # how many rolls the roller had seen
-    s: Optional[str] = None  # a player's session id (the storyteller sends its token instead)
 
 
 @router.post("/state/roll")
-async def roll(request: RollRequest, x_session_token: Optional[str] = Header(None)):
-    """The digital d20, once the storyteller offers it: any player at the table (or the storyteller) taps, the server rolls."""
+async def roll(
+    request: RollRequest,
+    x_session_token: Optional[str] = Header(None),
+    x_player_token: Optional[str] = Header(None),
+):
+    """The digital d20, once the storyteller offers it: the player holding the die (their own token)
+    or the storyteller taps, and the server rolls."""
     state = storage.load_state()
     if state is None:
         raise HTTPException(status_code=404, detail="No active session")
-    if not (auth.is_player(state, request.s) or auth.is_storyteller(state, x_session_token)):
-        raise HTTPException(status_code=403, detail="Invalid session")
-    engine.roll(state, request.attempt)
+    if auth.is_storyteller(state, x_session_token):
+        player = None
+    else:
+        player = auth.player_for_token(state, x_player_token)
+        if player is None:
+            raise HTTPException(status_code=403, detail="Only the player holding the die can roll")
+    engine.roll(state, request.attempt, player)
+    return await commit(state)
+
+
+class RollerRequest(BaseModel):
+    player_id: Optional[str] = None
+
+
+@router.post("/state/roller")
+async def set_roller(request: RollerRequest, state: GameState = Depends(auth.verify_storyteller)):
+    """Hand the digital d20 to a player, or take it back to the stage."""
+    engine.set_roller(state, request.player_id)
     return await commit(state)
 
 

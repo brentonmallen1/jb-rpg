@@ -112,10 +112,10 @@ const DEFAULT_COPY: Record<MomentType, string> = {
 // Each theme names its own beats
 const THEME_COPY: Record<ThemeName, MomentCopy> = {
   fantasy: { hp_lost: 'A lantern flickers out', item_gained: 'Added to your satchel', level_up: 'Your legend grows', finale: 'The final trial' },
-  cyberpunk: { hp_lost: 'Integrity breach', item_gained: 'Asset acquired', level_up: 'Clearance raised', finale: '// Final sequence', dice_rolled: '// Roll resolved' },
-  deep_space: { hp_lost: 'Hull breach', item_gained: 'Salvage recovered', level_up: 'Promoted', finale: 'Final approach', dice_rolled: 'Telemetry acquired' },
-  horror: { hp_lost: 'A chill runs through you', item_gained: 'Something to hold on to', level_up: 'You steel yourself', finale: 'The last door', dice_rolled: 'Fate answers', defeat: 'Taken', victory: 'You survived' },
-  insanity: { hp_lost: 'Your mind slips', item_gained: 'Something to keep your mind clear', level_up: 'Your mind sharpens', finale: 'It sees you now', dice_rolled: 'The bones fall', defeat: 'Lost to the dark', victory: 'You remember who you are' },
+  cyberpunk: { hp_lost: 'Integrity breach', item_gained: 'Asset acquired', level_up: 'Clearance raised', finale: '// Endgame', dice_rolled: '// Roll resolved' },
+  deep_space: { hp_lost: 'Hull breach', item_gained: 'Salvage recovered', level_up: 'Promoted', finale: 'Point of no return', dice_rolled: 'Signal received' },
+  horror: { hp_lost: 'A chill runs through you', item_gained: 'Something to hold on to', level_up: 'You steel yourself', finale: 'Nowhere left to run', dice_rolled: 'Fate answers', defeat: 'Taken', victory: 'You survived' },
+  insanity: { hp_lost: 'Your mind slips', item_gained: 'Something to keep your mind clear', level_up: 'Your mind sharpens', finale: 'The veil tears', dice_rolled: 'The bones fall', defeat: 'Lost to the dark', victory: 'You remember who you are' },
   modern: { item_gained: 'Added to your bag', level_up: 'Level up' },
 }
 

@@ -31,8 +31,8 @@
 .moment__scrim {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
-  backdrop-filter: blur(4px);
+  /* No backdrop blur: it would be redone every frame over the moving backdrop */
+  background: color-mix(in srgb, var(--bg-primary) 80%, transparent);
   opacity: 0;
   animation: moment-fade var(--moment-duration) ease both;
 }

@@ -35,6 +35,8 @@ async def build_payload(for_storyteller: bool = False) -> dict:
     if for_storyteller and state is not None:
         # Private to the storyteller: how the table is voting
         payload["vote_tally"] = engine.vote_tally(state)
+        # And how far the story may still go, in branching stories (players never learn this)
+        payload["path_progress"] = engine.path_progress(state)
     return payload
 
 

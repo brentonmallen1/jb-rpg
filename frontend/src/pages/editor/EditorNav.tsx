@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import type { Scene, Story, StoryProblem } from '../../types'
+import { sceneBranches, storyItems } from '../../lib/storyEdit'
+import { BranchIcon } from '../../components/Icons'
 
 export type EditorSelection =
   | { kind: 'story' }
   | { kind: 'characters' }
   | { kind: 'opening' }
+  | { kind: 'items'; id?: string }
   | { kind: 'scene'; id: string }
 
 interface EditorNavProps {
@@ -19,7 +22,9 @@ interface EditorNavProps {
 
 /** Is a scene written enough to play? (Problems come from the server; this adds "unwritten".) */
 function sceneStatus(scene: Scene, problems: StoryProblem[]): { tone: 'problem' | 'draft' | 'ready'; label: string } {
-  if (problems.some(p => p.scene_id === scene.id)) return { tone: 'problem', label: 'Needs fixing before play' }
+  const own = problems.filter(p => p.scene_id === scene.id)
+  if (own.some(p => p.severity === 'error')) return { tone: 'problem', label: 'Needs fixing before play' }
+  if (own.length) return { tone: 'draft', label: own[0].message }
   const unwritten = !scene.base_text.trim() ||
     (scene.is_finale ? !scene.victory_text?.trim() || !scene.defeat_text?.trim()
       : scene.choices.some(c => !c.display_text.trim() || !c.result_text.trim()))
@@ -31,17 +36,22 @@ export function EditorNav({ story, selection, problems, onSelect, onAddScene, on
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const is = (s: EditorSelection) =>
     s.kind === selection.kind && (s.kind !== 'scene' || (selection.kind === 'scene' && s.id === selection.id))
+  const errors = problems.filter(p => p.severity === 'error')
   const areaProblems = (area: StoryProblem['area']) => problems.filter(p => p.area === area).length
 
   return (
     <nav className="ed-nav" aria-label="Story sections">
       <button className={`ed-nav__item ${is({ kind: 'story' }) ? 'is-active' : ''}`} onClick={() => onSelect({ kind: 'story' })}>
         <span>Story</span>
-        {problems.length > 0 && <span className="ed-badge" title={`${problems.length} to fix before playing`}>{problems.length}</span>}
+        {errors.length > 0 && <span className="ed-badge" title={`${errors.length} to fix before playing`}>{errors.length}</span>}
       </button>
       <button className={`ed-nav__item ${is({ kind: 'characters' }) ? 'is-active' : ''}`} onClick={() => onSelect({ kind: 'characters' })}>
         <span>Characters</span>
         <span className="ed-nav__meta">{areaProblems('characters') > 0 ? <span className="ed-dot ed-dot--problem" /> : `${story.madlib_template.fields.length} questions`}</span>
+      </button>
+      <button className={`ed-nav__item ${is({ kind: 'items' }) ? 'is-active' : ''}`} onClick={() => onSelect({ kind: 'items' })}>
+        <span>Items</span>
+        <span className="ed-nav__meta">{areaProblems('items') > 0 ? <span className="ed-dot ed-dot--problem" title="An item needs a look" /> : storyItems(story).length}</span>
       </button>
       {story.opening_scene ? (
         <button className={`ed-nav__item ${is({ kind: 'opening' }) ? 'is-active' : ''}`} onClick={() => onSelect({ kind: 'opening' })}>
@@ -95,6 +105,7 @@ export function EditorNav({ story, selection, problems, onSelect, onAddScene, on
               >
                 <span className={`ed-dot ed-dot--${status.tone}`} title={status.label} aria-label={status.label} />
                 <span className="ed-scene__title">{i + 1}. {scene.title || 'Untitled'}</span>
+                {sceneBranches(scene) && <BranchIcon size={14} className="ed-scene__branch" label="Branches" />}
                 {scene.is_finale && <span className="ed-nav__meta">finale</span>}
               </button>
               <span className="ed-scene__move">

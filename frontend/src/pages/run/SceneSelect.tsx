@@ -9,6 +9,7 @@ import { LockIcon } from '../../components/Icons'
 import { outcomeLabel } from '../../lib/outcomes'
 import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
 import { recap, sceneName } from '../../lib/story'
+import { describeCondition } from '../../lib/storyEdit'
 
 interface SceneSelectProps {
   state: GameState
@@ -21,8 +22,6 @@ interface SceneSelectProps {
 export function SceneSelect({ state, resolved, story, run }: SceneSelectProps) {
   const [pendingRevisit, setPendingRevisit] = useState<{ sceneId: string; title: string; outcome: string } | null>(null)
 
-  const playedIds = new Set(state.history.map(h => h.scene_id))
-  const allNonFinalesPlayed = story.scenes.filter(s => !s.is_finale).every(s => playedIds.has(s.id))
   const previously = recap(story, state.history.at(-1))
   useHotkeys({ s: state.doors_dealt ? undefined : () => run(api.dealDoors, 'Could not deal the doors') })
 
@@ -48,10 +47,14 @@ export function SceneSelect({ state, resolved, story, run }: SceneSelectProps) {
       </div>
 
       <div className="door-grid">
-        {story.scenes.map(scene => {
+        {(resolved.doors ?? []).flatMap(door => {
+          const scene = story.scenes.find(s => s.id === door.id)
+          return scene ? [{ door, scene }] : []
+        }).map(({ door, scene }) => {
+          // What the table chose there, as history recorded it
           const historyEntry = state.history.find(h => h.scene_id === scene.id)
-          const choiceMade = historyEntry ? scene.choices[historyEntry.choice_index] : null
-          const locked = !!scene.is_finale && !allNonFinalesPlayed
+          const choiceMade = historyEntry ? { kind: historyEntry.outcome, item_name: historyEntry.item_name, item_icon: historyEntry.item_icon } : null
+          const locked = door.locked || door.sealed
           const picked = state.door_proposal === scene.id
 
           function handleClick() {
@@ -73,7 +76,8 @@ export function SceneSelect({ state, resolved, story, run }: SceneSelectProps) {
               <span className="door__name">{sceneName(scene)}</span>
               {picked && resolved.decider && <span className="door__pick">{resolved.decider.name}'s pick</span>}
               <span className="door__meta">
-                {locked && <><LockIcon size={14} /> Sealed until every other door is opened</>}
+                {door.sealed && <><LockIcon size={14} /> Sealed until every other door is opened</>}
+                {door.locked && <><LockIcon size={14} /> Locked until {(scene.requires ?? []).map(c => describeCondition(story, c)).join(' and ')}</>}
                 {!locked && choiceMade && (
                   <><ChoiceOutcomeIcon choice={choiceMade} theme={story.theme} size={14} className={`outcome--${choiceMade.kind}`} /> Played · {outcomeLabel(choiceMade)} · revisit</>
                 )}

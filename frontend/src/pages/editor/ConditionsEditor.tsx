@@ -1,20 +1,25 @@
 import { useState } from 'react'
-import type { ChoiceKind, Condition, ConditionalText, Scene, StoryProblem } from '../../types'
+import type { ChoiceKind, Condition, ConditionalText, Story, StoryProblem } from '../../types'
 import { newCondition } from '../../lib/storyEdit'
 import { OUTCOME_ICON } from '../../lib/outcomes'
 import { CloseIcon } from '../../components/Icons'
 import { TextArea } from './fields'
+import { ItemPicker } from './pickers'
 
 interface ConditionsEditorProps {
   conditions: ConditionalText[]
-  scenes: Scene[]
+  story: Story
+  update: (change: (story: Story) => Story) => void
   /** The scene being edited (it can't depend on its own outcome) */
   currentSceneId?: string
   problems: StoryProblem[]
   onChange: (conditions: ConditionalText[]) => void
+  /** Write a line in the larger window */
+  onWrite?: (index: number) => void
 }
 
 const STATS = [
+  { value: 'item_held', label: 'they hold' },
   { value: 'hp', label: "the hero's health" },
   { value: 'level', label: "the hero's level" },
   { value: 'items', label: 'the number of items carried' },
@@ -39,7 +44,8 @@ type Indexed = { ct: ConditionalText; index: number }
  * that scene, one slot per outcome (an empty slot adds nothing); health, items and level
  * conditions read as sentences.
  */
-export function ConditionsEditor({ conditions, scenes, currentSceneId, problems, onChange }: ConditionsEditorProps) {
+export function ConditionsEditor({ conditions, story, update, currentSceneId, problems, onChange, onWrite }: ConditionsEditorProps) {
+  const scenes = story.scenes
   const [open, setOpen] = useState<Set<string>>(new Set())
   // Scenes picked from "Add text for after…" that have no text yet
   const [added, setAdded] = useState<string[]>([])
@@ -82,6 +88,9 @@ export function ConditionsEditor({ conditions, scenes, currentSceneId, problems,
 
   const setStat = (entry: Indexed, patch: Partial<Condition>) =>
     replace(entry.index, { ...entry.ct, condition: { ...entry.ct.condition, ...patch } })
+  // Holding an item names the item; the others compare a number
+  const setType = (entry: Indexed, type: Condition['type']) =>
+    replace(entry.index, { ...entry.ct, condition: type === 'item_held' ? { type } : { type, op: entry.ct.condition.op ?? 'lte', value: entry.ct.condition.value ?? 1 } })
 
   const empty = conditions.length === 0 && added.length === 0
 
@@ -90,7 +99,7 @@ export function ConditionsEditor({ conditions, scenes, currentSceneId, problems,
       {empty && (
         <p className="ed-muted cx__intro">
           Lines that only appear in some games: after an earlier scene, depending on how it went,
-          or when the hero’s health, items or level reach a number. They’re added after the scene’s text.
+          when the hero holds a particular item, or when their health, items or level reach a number. They’re added after the scene’s text.
         </p>
       )}
 
@@ -143,6 +152,7 @@ export function ConditionsEditor({ conditions, scenes, currentSceneId, problems,
                               value={entry?.ct.text ?? ''}
                               placeholder="Nothing extra."
                               onChange={e => setOutcomeText(sceneId, o.kind, entry, e.target.value)}
+                              onExpand={entry && onWrite ? () => onWrite(entry.index) : undefined}
                             />
                             {problem && <p className="ed-error" role="alert">{problem.message}</p>}
                           </div>
@@ -168,20 +178,26 @@ export function ConditionsEditor({ conditions, scenes, currentSceneId, problems,
               <section key={entry.index} className={`cx-group is-open ${problem ? 'has-problem' : ''}`}>
                 <div className="cx-group__head cx-sentence">
                   <span>When</span>
-                  <select className="ed-inline-select" aria-label="What to check" value={c.type} onChange={e => setStat(entry, { type: e.target.value as Condition['type'] })}>
+                  <select className="ed-inline-select" aria-label="What to check" value={c.type} onChange={e => setType(entry, e.target.value as Condition['type'])}>
                     {STATS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
-                  <select className="ed-inline-select" aria-label="Comparison" value={c.op ?? 'lte'} onChange={e => setStat(entry, { op: e.target.value as Condition['op'] })}>
-                    {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                  <input
-                    className="ed-inline-number"
-                    type="number"
-                    min={0}
-                    aria-label="Number"
-                    value={c.value ?? ''}
-                    onChange={e => setStat(entry, { value: e.target.value === '' ? undefined : Number(e.target.value) })}
-                  />
+                  {c.type === 'item_held' ? (
+                    <ItemPicker story={story} value={c.item_id} onChange={item_id => setStat(entry, { item_id })} update={update} aria-label="The item" />
+                  ) : (
+                    <>
+                      <select className="ed-inline-select" aria-label="Comparison" value={c.op ?? 'lte'} onChange={e => setStat(entry, { op: e.target.value as Condition['op'] })}>
+                        {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                      <input
+                        className="ed-inline-number"
+                        type="number"
+                        min={0}
+                        aria-label="Number"
+                        value={c.value ?? ''}
+                        onChange={e => setStat(entry, { value: e.target.value === '' ? undefined : Number(e.target.value) })}
+                      />
+                    </>
+                  )}
                   <span className="cx-sentence__tail">, add:</span>
                   <button type="button" className="icon-btn cx-sentence__remove" aria-label="Remove this line" onClick={() => remove(entry.index)}>
                     <CloseIcon size={16} />
@@ -194,6 +210,7 @@ export function ConditionsEditor({ conditions, scenes, currentSceneId, problems,
                     value={entry.ct.text}
                     onChange={e => replace(entry.index, { ...entry.ct, text: e.target.value })}
                     placeholder="Added after the scene’s text when this is true…"
+                    onExpand={onWrite ? () => onWrite(entry.index) : undefined}
                   />
                   {problem && <p className="ed-error" role="alert">{problem.message}</p>}
                 </div>
@@ -221,7 +238,7 @@ export function ConditionsEditor({ conditions, scenes, currentSceneId, problems,
           </select>
         )}
         <button type="button" className="s-btn s-btn--ghost" onClick={() => onChange([...conditions, newCondition()])}>
-          + Depending on health, items or level
+          + Depending on the hero, or what they carry
         </button>
       </div>
     </div>

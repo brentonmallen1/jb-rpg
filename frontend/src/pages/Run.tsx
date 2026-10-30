@@ -7,7 +7,7 @@ import { useHotkeys } from '../hooks/useHotkeys'
 import { playSting, useAmbience, useSoundEnabled } from '../hooks/useSoundscape'
 import { useMoments } from '../hooks/useMoments'
 import { capLevel } from '../hooks/useEffectsLevel'
-import type { GameState, PlayerRef, Story } from '../types'
+import type { GameState, PathProgress, PlayerRef, Story } from '../types'
 import { Modal, ConfirmDialog, RulesModal, PageMessage, MomentLayer, Atmosphere } from '../components'
 import { BookIcon, CloseIcon, FlashIcon, FlashOffIcon, LinkIcon, LockIcon, MoonIcon, PresentIcon, SoundOffIcon, SoundOnIcon, SunIcon } from '../components/Icons'
 import { storyProgress } from '../lib/story'
@@ -35,6 +35,12 @@ function ambienceFor(story: Story | null, state: GameState | null): string | nul
   return name ? api.audioUrl(story.id, name) : null
 }
 
+/** "3 played · 2–4 to go" (branching stories, storyteller only) */
+function progressWords({ played, to_go: [fewest, most] }: PathProgress): string {
+  const toGo = fewest === most ? `${fewest} to go` : `${fewest}–${most} to go`
+  return most === 0 ? `${played} played` : `${played} played · ${toGo}`
+}
+
 function hasSound(story: Story | null): boolean {
   return !!story && (!!story.sound?.ambience || Object.keys(story.sound?.stings ?? {}).length > 0 || story.scenes.some(s => s.ambience && s.ambience !== 'none'))
 }
@@ -60,7 +66,7 @@ export default function Run() {
   const navigate = useNavigate()
   const {
     state, resolved, playerCount, toggleColorMode, colorMode, setTheme,
-    endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere, playersOnline, voteTally,
+    endSession, resumeSession, isInitializing, isStoryteller, isValidatingToken, sessionElsewhere, playersOnline, voteTally, pathProgress,
   } = useGame()
   const { run, pending, error, clearError } = useAsyncAction()
   const { current: moment, done: momentDone } = useMoments(state, resolved)
@@ -203,11 +209,22 @@ export default function Run() {
         <div className="stage__story">
           <span className="stage__story-title">{story?.title ?? 'Loading…'}</span>
           {showProgress && (
-            <span className="stage-label storyteller-only">Scene {Math.max(sceneNumber, 1)} of {steps.length}</span>
+            <span className="stage-label storyteller-only">
+              {pathProgress ? progressWords(pathProgress) : `Scene ${Math.max(sceneNumber, 1)} of ${steps.length}`}
+            </span>
           )}
         </div>
 
-        {showProgress && (
+        {showProgress && pathProgress && (
+          // A branching story: what's been played, this scene, and the paths ahead (the dashed ones only on longer paths)
+          <ol className="progress-rail storyteller-only" aria-label="Story progress">
+            {Array.from({ length: pathProgress.played }, (_, i) => <li key={`p${i}`} className="is-played" />)}
+            {state.status === 'running' && <li className="is-current" />}
+            {Array.from({ length: Math.max(pathProgress.to_go[0] - (state.status === 'running' ? 1 : 0), 0) }, (_, i) => <li key={`u${i}`} className="is-upcoming" />)}
+            {Array.from({ length: pathProgress.to_go[1] - pathProgress.to_go[0] }, (_, i) => <li key={`m${i}`} className="is-maybe" />)}
+          </ol>
+        )}
+        {showProgress && !pathProgress && (
           <ol className="progress-rail storyteller-only" aria-label="Story progress">
             {steps.map(step => step.finale && step.status === 'upcoming' ? (
               <li key={step.id} className="is-finale" title={`${step.name} (finale)`}><LockIcon size={14} label="Finale" /></li>

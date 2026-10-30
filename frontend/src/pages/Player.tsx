@@ -317,7 +317,7 @@ function GameScreen({ state, resolved, corruption, level, me, sessionId, onShowH
               <span className="phone-label">{myTurn ? 'Tap the door you choose' : 'The doors'}</span>
               {resolved.doors.map((door, i) => {
                 const picked = state.door_proposal === door.id
-                const note = door.played ? 'opened' : door.sealed ? 'sealed until the others are opened' : door.last ? 'the last door' : ''
+                const note = door.played ? 'opened' : door.locked ? 'locked' : door.sealed ? 'sealed until the others are opened' : door.last ? 'the last door' : ''
                 const content = (
                   <>
                     <span className="dealt__numeral">{ROMAN[i] ?? i + 1}</span>

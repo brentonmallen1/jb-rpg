@@ -144,10 +144,10 @@ def test_problems_are_reported_but_saving_still_works(client):
     ])
     problems = client.get(f"/api/stories/{story['id']}/problems").json()["problems"]
     text = " ".join(p["message"] for p in problems)
-    item = next(p for p in problems if p["field"] == "item_name")
+    item = next(p for p in problems if p["field"] == "item_id")
     assert (item["area"], item["scene_id"], item["index"]) == ("scene", "b", 0)
     assert "'A' has no choices" in text
-    assert "no item name" in text
+    assert "an item choice has no item" in text
     assert "no longer exists ('ghost')" in text
     assert "hero's health needs a comparison" in text
 

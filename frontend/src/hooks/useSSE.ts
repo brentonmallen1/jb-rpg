@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { SSEPayload, GameState, ResolvedContent, VoteTally } from '../types'
+import type { SSEPayload, GameState, PathProgress, ResolvedContent, VoteTally } from '../types'
 import { checkSession } from './api'
 
 // The server pings every 20s; silence for longer than this means a dead stream
@@ -23,6 +23,7 @@ interface UseSSEReturn {
   sessionElsewhere: boolean  // a session is running that this client can't join (no token or link)
   playersOnline: string[]
   voteTally: VoteTally | null  // storyteller connections only
+  pathProgress: PathProgress | null  // storyteller connections only, branching stories
 }
 
 const DEVICE_KEY = 'jb_rpg_device'
@@ -56,6 +57,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
   const [sessionElsewhere, setSessionElsewhere] = useState(false)
   const [playersOnline, setPlayersOnline] = useState<string[]>([])
   const [voteTally, setVoteTally] = useState<VoteTally | null>(null)
+  const [pathProgress, setPathProgress] = useState<PathProgress | null>(null)
 
   useEffect(() => {
     if (!enabled) return
@@ -108,6 +110,7 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
             setStorytellerConnected(data.storyteller_connected)
             setPlayersOnline(data.players_online ?? [])
             setVoteTally(data.vote_tally ?? null)
+            setPathProgress(data.path_progress ?? null)
           }
         } catch (e) {
           console.error('SSE parse error:', e)
@@ -163,5 +166,6 @@ export function useSSE(options: UseSSEOptions = {}): UseSSEReturn {
     sessionElsewhere,
     playersOnline,
     voteTally,
+    pathProgress,
   }
 }

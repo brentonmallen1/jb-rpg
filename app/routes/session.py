@@ -84,6 +84,7 @@ async def get_state(
     }
     if storyteller:
         response["vote_tally"] = payload.get("vote_tally")
+        response["path_progress"] = payload.get("path_progress")
     return response
 
 

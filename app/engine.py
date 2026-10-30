@@ -13,6 +13,7 @@ import zlib
 from typing import Literal
 
 from .models import (
+    END,
     Character,
     ChoiceKind,
     Condition,
@@ -20,6 +21,7 @@ from .models import (
     Emblem,
     GameState,
     HistoryEntry,
+    ItemDef,
     Player,
     Scene,
     SessionStatus,
@@ -52,9 +54,10 @@ def inject_variables(
         key = match.group(1)
 
         if key.startswith("item_text:"):
-            item_name = key[len("item_text:"):]
-            if state and item_name in state.items and item_texts and item_name in item_texts:
-                item_entry = item_texts[item_name]
+            # Named in the text (so it reads well), keyed by the item's id in item_texts
+            item = find_item(state.story, key[len("item_text:"):]) if state and state.story else None
+            item_entry = (item_texts or {}).get(item.id) if item else None
+            if item_entry and holds_item(state, item.id):
                 if outcome and outcome in item_entry:
                     return item_entry[outcome]
                 # Fall back to whichever outcome text exists
@@ -69,12 +72,30 @@ def inject_variables(
     return re.sub(r"\{([\w\s:'\-]+)\}", replace, text)
 
 
+def find_item(story: Story, ref: str) -> ItemDef | None:
+    """An item from the story's catalogue, by id or by name."""
+    return next((i for i in story.items if i.id == ref), None) or next((i for i in story.items if i.name == ref), None)
+
+
+def holds_item(state: GameState, item_id: str) -> bool:
+    """Has the hero found this item, anywhere so far? (History, so Back takes it away again.)"""
+    item = find_item(state.story, item_id) if state.story else None
+    return any(
+        entry.item_id == item_id or (entry.item_id is None and item is not None and entry.item_name == item.name)
+        for entry in state.history
+        if entry.outcome == ChoiceKind.ITEM
+    )
+
+
 def evaluate_condition(condition: Condition, state: GameState) -> bool:
     if condition.type == ConditionType.SCENE_OUTCOME:
         for entry in state.history:
             if entry.scene_id == condition.scene_id:
                 return entry.outcome.value == condition.outcome
         return False
+
+    if condition.type == ConditionType.ITEM_HELD:
+        return bool(condition.item_id) and holds_item(state, condition.item_id)
 
     if condition.type == ConditionType.HP:
         actual = state.hp
@@ -229,17 +250,159 @@ def get_scene(story: Story, scene_id: str) -> Scene | None:
     return next((s for s in story.scenes if s.id == scene_id), None)
 
 
+# ---------------------------------------------------------------------------
+# Paths: where each scene can lead
+# ---------------------------------------------------------------------------
+
+DOORS = "doors"  # Door stories: back to choosing the next door (never stored in a story)
+
+
+def linked_scene_ids(story: Story) -> set[str]:
+    """Scenes that a choice, route or "after this scene" leads to."""
+    linked = set()
+    for scene in story.scenes:
+        linked.update(c.next_scene_id for c in scene.choices if c.next_scene_id)
+        linked.update(r.target for r in scene.routes if r.target)
+        if scene.next:
+            linked.add(scene.next)
+    return linked
+
+
+def door_scenes(story: Story) -> list[Scene]:
+    """Door stories: the scenes the table chooses between. A scene something leads to is a room
+    behind a door, not a door."""
+    linked = linked_scene_ids(story)
+    return [s for s in story.scenes if s.id not in linked]
+
+
+def default_next(story: Story, scene: Scene) -> str:
+    """Where a scene goes when nothing says otherwise: back to the doors, or the next scene in the list."""
+    if story.settings.non_linear:
+        return DOORS
+    ids = [s.id for s in story.scenes]
+    i = ids.index(scene.id)
+    return ids[i + 1] if i + 1 < len(ids) else END
+
+
+def scene_exits(story: Story, scene: Scene) -> list[str]:
+    """Everywhere a scene can lead: scene ids, END, or DOORS."""
+    if scene.is_finale or not scene.choices:
+        return [END]
+    exits = [c.next_scene_id for c in scene.choices if c.next_scene_id]
+    if any(not c.next_scene_id for c in scene.choices):
+        exits += [r.target for r in scene.routes if r.target]
+        exits.append(scene.next or default_next(story, scene))
+    return list(dict.fromkeys(exits))
+
+
+def story_starts(story: Story) -> list[str]:
+    """Where play can begin, after the opening scene if there is one."""
+    if not story.scenes:
+        return []
+    opening = story.opening_scene
+    if opening is None:
+        return [story.scenes[0].id]
+    if not opening.choices:
+        return [DOORS if story.settings.non_linear else story.scenes[0].id]
+    return list(dict.fromkeys(c.target_scene_id or DOORS for c in opening.choices))
+
+
+def reachable_scene_ids(story: Story) -> set[str]:
+    seen: set[str] = set()
+    todo = story_starts(story)
+    while todo:
+        node = todo.pop()
+        if node in seen or node == END:
+            continue
+        seen.add(node)
+        if node == DOORS:
+            todo += [s.id for s in door_scenes(story)]
+        elif (scene := get_scene(story, node)) is not None:
+            todo += scene_exits(story, scene)
+    return {n for n in seen if n != DOORS}
+
+
+def scene_loops(story: Story) -> list[list[str]]:
+    """Paths that lead back to a scene already played on the way (each loop once, as scene ids)."""
+    graph = {
+        s.id: [t for t in scene_exits(story, s) if t not in (END, DOORS, s.id) and get_scene(story, t)]
+        for s in story.scenes
+    }
+    loops, state, stack = [], {}, []
+
+    def visit(node: str) -> None:
+        state[node] = "open"
+        stack.append(node)
+        for nxt in graph.get(node, []):
+            if state.get(nxt) == "open":
+                loops.append(stack[stack.index(nxt):] + [nxt])
+            elif nxt not in state:
+                visit(nxt)
+        stack.pop()
+        state[node] = "done"
+
+    for sid in graph:
+        if sid not in state:
+            visit(sid)
+    return loops
+
+
+def scenes_to_go(story: Story, scene_id: str) -> tuple[int, int] | None:
+    """The fewest and most scenes left to play from here (this one included), down every path.
+    None in door stories, where the table chooses the order."""
+    if story.settings.non_linear or get_scene(story, scene_id) is None:
+        return None
+    memo: dict[str, tuple[int, int]] = {}
+
+    def walk(sid: str, path: frozenset) -> tuple[int, int]:
+        if sid in memo:
+            return memo[sid]
+        scene = get_scene(story, sid)
+        ahead = [walk(t, path | {sid}) for t in scene_exits(story, scene) if t not in path and get_scene(story, t)]
+        ends = any(t == END for t in scene_exits(story, scene)) or not ahead
+        lo = 0 if ends else min(a for a, _ in ahead)
+        hi = max((b for _, b in ahead), default=0)
+        memo[sid] = (1 + lo, 1 + hi)
+        return memo[sid]
+
+    return walk(scene_id, frozenset())
+
+
+def is_branching(story: Story) -> bool:
+    """Does anything in the story say where it leads (rather than going down the list)?"""
+    return any(s.next or s.routes or any(c.next_scene_id for c in s.choices) for s in story.scenes)
+
+
+def path_progress(state: GameState) -> dict | None:
+    """Storyteller only, in branching stories (where "scene 3 of 6" means nothing): scenes played,
+    and the fewest and most that may be left, this one included."""
+    story = state.story
+    if story is None or story.settings.non_linear or not is_branching(story):
+        return None
+    if state.status == SessionStatus.GAME_OVER:
+        to_go = (0, 0)
+    elif state.status == SessionStatus.RUNNING:
+        to_go = scenes_to_go(story, state.current_scene_id) or (0, 0)
+    else:
+        spans = [scenes_to_go(story, sid) for sid in story_starts(story) if sid != DOORS]
+        spans = [s for s in spans if s] or [(0, 0)]
+        to_go = (min(a for a, _ in spans), max(b for _, b in spans))
+    return {"played": len(state.history), "to_go": list(to_go)}
+
+
 def story_problems(story: Story) -> list[dict]:
-    """Everything that would break a game of this story. Empty means ready to play.
+    """Everything that would break a game of this story, and a few things that would only surprise.
+    Empty means ready to play.
 
     Each problem says where it is, so the editor can point at it:
-    {"message", "area": story|characters|opening|scene, "scene_id", "field", "index"}.
-    Saving never enforces these (the editor autosaves half-finished work); starting a game does.
+    {"message", "area": story|characters|opening|scene|items, "scene_id", "field", "index", "severity"}.
+    Saving never enforces these (the editor autosaves half-finished work); starting a game refuses
+    errors and lets warnings (a scene nothing leads to, an item nothing gives) through.
     """
     problems: list[dict] = []
 
-    def add(message: str, area: str, scene_id: str | None = None, field: str | None = None, index: int | None = None):
-        problems.append({"message": message, "area": area, "scene_id": scene_id, "field": field, "index": index})
+    def add(message: str, area: str, scene_id: str | None = None, field: str | None = None, index: int | None = None, warning: bool = False):
+        problems.append({"message": message, "area": area, "scene_id": scene_id, "field": field, "index": index, "severity": "warning" if warning else "error"})
 
     if not story.scenes:
         add("The story has no scenes.", "story")
@@ -248,7 +411,10 @@ def story_problems(story: Story) -> list[dict]:
     for scene in story.scenes:
         if scene.id in seen:
             add(f"Scene id '{scene.id}' is used more than once.", "scene", scene.id)
+        if scene.id in (END, DOORS):
+            add(f"A scene can't use the id '{scene.id}'.", "scene", scene.id)
         seen.add(scene.id)
+    titles = {s.id: s.title or s.id for s in story.scenes}
 
     keys = [f.key for f in story.madlib_template.fields]
     if any(not k.strip() for k in keys):
@@ -256,32 +422,105 @@ def story_problems(story: Story) -> list[dict]:
     if len(set(keys)) != len(keys):
         add("Two character creation questions share the same key.", "characters")
 
+    item_ids = {item.id for item in story.items}
+    names: set[str] = set()
+    for i, item in enumerate(story.items):
+        name = item.name.strip()
+        if not name:
+            add("An item has no name.", "items", None, "name", i)
+        elif name.lower() in names:
+            add(f"Two items are both called '{name}'.", "items", None, "name", i)
+        names.add(name.lower())
+
+    def condition_problem(c: Condition, noun: str) -> str | None:
+        if c.type == ConditionType.SCENE_OUTCOME:
+            if not c.scene_id or not c.outcome:
+                return f"{noun} that depends on an earlier scene needs the scene and how it went"
+            if c.scene_id not in seen:
+                return f"{noun} depends on a scene that no longer exists ('{c.scene_id}')"
+        elif c.type == ConditionType.ITEM_HELD:
+            if not c.item_id:
+                return f"{noun} that depends on an item needs the item"
+            if c.item_id not in item_ids:
+                return f"{noun} depends on an item that no longer exists"
+        elif not c.op or c.value is None:
+            stat = {"hp": "health", "items": "number of items", "level": "level"}[c.type.value]
+            return f"{noun} that depends on the hero's {stat} needs a comparison and a number"
+        return None
+
     def check_conditions(where: str, area: str, scene_id: str | None, conditional_text):
         for i, ct in enumerate(conditional_text):
-            c = ct.condition
-            if c.type == ConditionType.SCENE_OUTCOME:
-                if not c.scene_id or not c.outcome:
-                    add(f"{where}: a line that depends on an earlier scene needs the scene and how it went.", area, scene_id, "conditional_text", i)
-                elif c.scene_id not in seen:
-                    add(f"{where}: a line depends on a scene that no longer exists ('{c.scene_id}').", area, scene_id, "conditional_text", i)
-            elif not c.op or c.value is None:
-                stat = {"hp": "health", "items": "number of items", "level": "level"}[c.type.value]
-                add(f"{where}: a line that depends on the hero's {stat} needs a comparison and a number.", area, scene_id, "conditional_text", i)
+            if (problem := condition_problem(ct.condition, "a line")):
+                add(f"{where}: {problem}.", area, scene_id, "conditional_text", i)
 
+    def check_target(where: str, scene: Scene, target: str | None, what: str, field: str, index: int | None = None):
+        if not target or target == END:
+            return
+        if target == scene.id:
+            add(f"{where}: {what} leads back to this same scene.", "scene", scene.id, field, index)
+        elif target not in seen:
+            add(f"{where}: {what} leads to a scene that doesn't exist ('{target}').", "scene", scene.id, field, index)
+
+    given: set[str] = set()
+    checked: dict[str, str] = {}  # item id -> where it's checked first
     for scene in story.scenes:
         where = f"Scene '{scene.title or scene.id}'"
         if not scene.is_finale and not scene.choices:
             add(f"{where} has no choices. Add some, or mark it as the finale.", "scene", scene.id, "choices")
         for i, choice in enumerate(scene.choices):
-            if choice.kind == ChoiceKind.ITEM and not (choice.item_name or "").strip():
-                add(f"{where}: an item choice has no item name.", "scene", scene.id, "item_name", i)
+            if choice.kind == ChoiceKind.ITEM:
+                if not choice.item_id:
+                    add(f"{where}: an item choice has no item.", "scene", scene.id, "item_id", i)
+                elif choice.item_id not in item_ids:
+                    add(f"{where}: an item choice gives an item that no longer exists.", "scene", scene.id, "item_id", i)
+                else:
+                    given.add(choice.item_id)
+            check_target(where, scene, choice.next_scene_id, "a choice", "next_scene_id", i)
         check_conditions(where, "scene", scene.id, scene.conditional_text)
+        for i, route in enumerate(scene.routes):
+            if not route.target:
+                add(f"{where}: a route has nowhere to go.", "scene", scene.id, "routes", i)
+            check_target(where, scene, route.target, "a route", "routes", i)
+            if (problem := condition_problem(route.condition, "a route")):
+                add(f"{where}: {problem}.", "scene", scene.id, "routes", i)
+        check_target(where, scene, scene.next, "what comes after it", "next")
+        for i, c in enumerate(scene.requires):
+            if (problem := condition_problem(c, "a lock")):
+                add(f"{where}: {problem}.", "scene", scene.id, "requires", i)
+        for i, ct in enumerate(scene.conditional_text):
+            if ct.condition.type == ConditionType.ITEM_HELD and ct.condition.item_id:
+                checked.setdefault(ct.condition.item_id, where)
+        for c in [r.condition for r in scene.routes] + list(scene.requires):
+            if c.type == ConditionType.ITEM_HELD and c.item_id:
+                checked.setdefault(c.item_id, where)
+        for key in scene.item_texts:
+            if key in item_ids:
+                checked.setdefault(key, where)
+            else:
+                add(f"{where}: there's finale text for an item that isn't in the story ('{key}').", "scene", scene.id, "item_texts", warning=True)
 
     if story.opening_scene:
         for i, choice in enumerate(story.opening_scene.choices):
             if choice.target_scene_id and choice.target_scene_id not in seen:
                 add(f"Opening scene: a choice leads to a scene that doesn't exist ('{choice.target_scene_id}').", "opening", None, "target_scene_id", i)
         check_conditions("Opening scene", "opening", None, story.opening_scene.conditional_text)
+        for ct in story.opening_scene.conditional_text:
+            if ct.condition.type == ConditionType.ITEM_HELD and ct.condition.item_id:
+                checked.setdefault(ct.condition.item_id, "Opening scene")
+
+    for i, item in enumerate(story.items):
+        if item.id in checked and item.id not in given:
+            add(f"{checked[item.id]} checks for '{item.name or item.id}', but no choice gives it.", "items", None, "id", i, warning=True)
+
+    for loop in scene_loops(story):
+        path = " → ".join(titles[sid] for sid in loop)
+        add(f"These scenes go round in a loop: {path}. A path has to reach an end.", "scene", loop[0], "next")
+
+    if story.scenes:
+        reachable = reachable_scene_ids(story)
+        for scene in story.scenes:
+            if scene.id not in reachable:
+                add(f"Scene '{scene.title or scene.id}': no path leads here.", "scene", scene.id, None, warning=True)
 
     return problems
 
@@ -298,7 +537,7 @@ def require_status(state: GameState, *allowed: SessionStatus) -> None:
 
 
 def new_session(story: Story, turn_mode: str = "storyteller", no_flashing: bool = False) -> GameState:
-    problems = story_problems(story)
+    problems = [p for p in story_problems(story) if p["severity"] == "error"]
     if problems:
         raise GameError(422, "This story isn't ready to play: " + " ".join(p["message"] for p in problems))
 
@@ -476,21 +715,25 @@ def propose(state: GameState, player: Player, visual_index: int | None) -> None:
 
 
 def open_doors(state: GameState) -> list[dict]:
-    """Non-linear stories, choosing the next door: every door, and whether it can be opened now
-    (opened ones are played; the last door is sealed until every other is opened)."""
+    """Non-linear stories, choosing the next door: every door, and whether it can be opened now.
+    Opened ones are played; a door with a lock stays locked until its conditions hold; the last
+    door is sealed while any other door can still be opened."""
     story = state.story
     played = {h.scene_id for h in state.history}
-    rest_played = all(s.is_finale or s.id in played for s in story.scenes)
+    doors = door_scenes(story)
+    locked = {s.id for s in doors if not all(evaluate_condition(c, state) for c in s.requires)}
+    others_open = any(not s.is_finale and s.id not in played and s.id not in locked for s in doors)
     return [
         {
             "id": s.id,
             "title": s.display_name or s.title,
             "last": bool(s.is_finale),
             "played": s.id in played,
-            "sealed": bool(s.is_finale) and not rest_played,
-            "open": s.id not in played and (not s.is_finale or rest_played),
+            "locked": s.id in locked and s.id not in played,
+            "sealed": bool(s.is_finale) and others_open,
+            "open": s.id not in played and s.id not in locked and not (s.is_finale and others_open),
         }
-        for s in story.scenes
+        for s in doors
     ]
 
 
@@ -639,23 +882,26 @@ def make_choice(state: GameState, visual_index: int) -> None:
         original_index = state.shuffled_indices[visual_index]
     choice = scene.choices[original_index]
 
-    if choice.kind == ChoiceKind.ITEM and not choice.item_name:
-        raise GameError(422, "Item choice must have item_name")
+    item = find_item(story, choice.item_id) if choice.kind == ChoiceKind.ITEM and choice.item_id else None
+    if choice.kind == ChoiceKind.ITEM and item is None:
+        raise GameError(422, "Item choice must give an item from the story")
 
     if choice.kind == ChoiceKind.DAMAGE:
         state.hp -= choice.amount
     elif choice.kind == ChoiceKind.ITEM:
-        state.items.append(choice.item_name)
+        state.items.append(item.name)
     elif choice.kind == ChoiceKind.LEVEL:
         state.level += 1
 
+    # History keeps the item as it was found, so the backpack, Back and the keepsake never re-read the story
     state.history.append(HistoryEntry(
         scene_id=state.current_scene_id,
         outcome=choice.kind,
         choice_index=original_index,
-        item_name=choice.item_name if choice.kind == ChoiceKind.ITEM else None,
-        item_icon=choice.item_icon if choice.kind == ChoiceKind.ITEM else None,
-        item_description=(choice.item_description or None) if choice.kind == ChoiceKind.ITEM else None,
+        item_id=item.id if item else None,
+        item_name=item.name if item else None,
+        item_icon=item.icon if item else None,
+        item_description=(item.description or None) if item else None,
         damage_amount=choice.amount,
         decided_by=decider.id if (decider := current_decider(state)) else None,
     ))
@@ -666,21 +912,16 @@ def make_choice(state: GameState, visual_index: int) -> None:
         state.outcome = "defeat"
         state.outcome_revealed = True
     else:
-        played = {h.scene_id for h in state.history}
-        scene_ids = [s.id for s in story.scenes]
-        if all(sid in played for sid in scene_ids):
+        target = next_target(state, scene, choice)
+        if target == DOORS and any(d["open"] for d in open_doors(state)):
+            state.status = SessionStatus.AWAITING_SCENE_SELECTION
+        elif target not in (END, DOORS):
+            _enter_scene(state, target)
+            return
+        else:
+            # The end of a path, or no door left to open
             state.status = SessionStatus.GAME_OVER
             state.outcome = None  # awaiting the physical dice roll
-        elif story.settings.non_linear:
-            state.status = SessionStatus.AWAITING_SCENE_SELECTION
-        else:
-            current = scene_ids.index(state.current_scene_id)
-            if current == len(scene_ids) - 1:
-                state.status = SessionStatus.GAME_OVER
-                state.outcome = None  # awaiting the physical dice roll
-            else:
-                _enter_scene(state, scene_ids[current + 1])
-                return
     state.choices_revealed = False
     state.shuffled_indices = []
     state.decider_id = None
@@ -688,6 +929,20 @@ def make_choice(state: GameState, visual_index: int) -> None:
     state.door_proposal = None
     state.doors_dealt = False
     _clear_vote(state)
+
+
+def next_target(state: GameState, scene: Scene, choice) -> str:
+    """Where the story goes after this choice (already applied to the state): the choice's own path,
+    else the first route whose condition holds, else where the scene goes next, else the next
+    scene in the list (or back to the doors). A scene id, END or DOORS."""
+    story = state.story
+    target = choice.next_scene_id
+    if not target:
+        target = next((r.target for r in scene.routes if r.target and evaluate_condition(r.condition, state)), None)
+    target = target or scene.next or default_next(story, scene)
+    if target in (END, DOORS) or get_scene(story, target) is not None:
+        return target
+    return default_next(story, scene)  # a link to a scene that's gone (story_problems stops this at /start)
 
 
 def go_back(state: GameState) -> None:
@@ -710,9 +965,15 @@ def select_scene(state: GameState, scene_id: str, revisit: bool) -> None:
     if scene is None:
         raise GameError(400, f"Scene not found: {scene_id}")
 
-    played = {h.scene_id for h in state.history}
-    if scene.is_finale and any(not s.is_finale and s.id not in played for s in story.scenes):
+    door = next((d for d in open_doors(state) if d["id"] == scene_id), None)
+    if door is None:
+        raise GameError(400, f"That scene isn't a door: {scene_id}")
+    if door["sealed"]:
         raise GameError(400, "Complete all scenes before accessing the finale")
+    if door["locked"]:
+        raise GameError(400, "That door is locked")
+
+    played = {h.scene_id for h in state.history}
 
     if scene_id in played:
         if not revisit:

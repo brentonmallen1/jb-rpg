@@ -8,13 +8,15 @@ import { loadAllThemes } from '../hooks/useTheme'
 import type { AudioFile, Story, StoryProblem } from '../types'
 import { ConfirmDialog, Modal, NowPlaying, PageMessage } from '../components'
 import { BackIcon, EyeIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
-import { moveSceneTo, newScene } from '../lib/storyEdit'
+import { deleteScene, moveSceneTo, newScene } from '../lib/storyEdit'
 import { EditorNav, type EditorSelection } from './editor/EditorNav'
 import { StoryPanel } from './editor/StoryPanel'
 import { CharactersPanel } from './editor/CharactersPanel'
 import { OpeningPanel } from './editor/OpeningPanel'
 import { ScenePanel } from './editor/ScenePanel'
+import { ItemsPanel } from './editor/ItemsPanel'
 import { PreviewPane } from './editor/PreviewPane'
+import { SuggestionsContext } from './editor/suggest'
 import '../styles/stage.css'
 import '../styles/phone.css'
 import '../styles/pages/library.css'
@@ -182,11 +184,16 @@ export default function Editor() {
   if (!story) return <PageMessage message="Loading…" />
 
   const selectedScene = selection.kind === 'scene' ? story.scenes.find(s => s.id === selection.id) : undefined
+  const errors = problems.filter(p => p.severity === 'error')
+  const suggestions = story.madlib_template.fields.filter(f => f.key.trim()).map(f => ({ token: `{${f.key}}`, hint: f.label }))
 
   function renderPanel() {
     if (!story) return null
     if (selection.kind === 'characters') {
       return <CharactersPanel story={story} problems={problems} samples={samples} onSamples={changeSamples} update={update} />
+    }
+    if (selection.kind === 'items') {
+      return <ItemsPanel story={story} itemId={selection.id} problems={problems} update={update} onSelect={select} />
     }
     if (selection.kind === 'opening' && story.opening_scene) {
       return <OpeningPanel story={story} opening={story.opening_scene} problems={problems} update={update} textTarget={textTarget} />
@@ -202,6 +209,7 @@ export default function Editor() {
           textTarget={textTarget}
           audio={audio}
           onDelete={() => setDeleteTarget(selectedScene.id)}
+          onOpenItem={id => select({ kind: 'items', id })}
         />
       )
     }
@@ -229,9 +237,9 @@ export default function Editor() {
           <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
             {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
-          {problems.length > 0 && (
+          {errors.length > 0 && (
             <button className="s-btn s-btn--ghost editor__problems" onClick={() => select({ kind: 'story' })}>
-              {problems.length} to fix
+              {errors.length} to fix
             </button>
           )}
           <button className="s-btn" onClick={() => playtest()}>Playtest</button>
@@ -265,7 +273,10 @@ export default function Editor() {
               <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
             </div>
           )}
-          {renderPanel()}
+          {/* Typing "{" in any text offers the hero's answers */}
+          <SuggestionsContext.Provider value={suggestions}>
+            {renderPanel()}
+          </SuggestionsContext.Provider>
         </main>
 
         <div className={`editor__preview ${previewOpen ? 'is-open' : ''}`}>
@@ -280,12 +291,12 @@ export default function Editor() {
           setDeleteTarget(null)
           if (!id) return
           const remaining = story.scenes.filter(s => s.id !== id)
-          update(s => ({ ...s, scenes: s.scenes.filter(sc => sc.id !== id) }))
+          update(s => deleteScene(s, id))
           select(remaining[0] ? { kind: 'scene', id: remaining[0].id } : { kind: 'story' })
         }}
         onCancel={() => setDeleteTarget(null)}
         title="Delete this scene?"
-        message={`“${story.scenes.find(s => s.id === deleteTarget)?.title}” will be removed. You can undo this with ${isMac ? '⌘' : 'Ctrl+'}Z.`}
+        message={`“${story.scenes.find(s => s.id === deleteTarget)?.title}” will be removed, and anything that led to it will go where the story goes by default. You can undo this with ${isMac ? '⌘' : 'Ctrl+'}Z.`}
         confirmText="Delete"
         variant="danger"
       />

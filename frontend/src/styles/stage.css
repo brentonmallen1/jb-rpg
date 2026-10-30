@@ -219,6 +219,12 @@
   box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
+/* Branching stories: scenes only some paths go through */
+.progress-rail .is-maybe {
+  background: none;
+  border: 1px dashed var(--line);
+}
+
 .progress-rail .is-finale {
   width: auto;
   height: auto;

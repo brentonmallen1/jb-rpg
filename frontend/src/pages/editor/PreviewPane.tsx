@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { GameState, Scene, Story } from '../../types'
 import { Atmosphere, HealthMeter } from '../../components'
 import { D20Icon } from '../../components/Icons'
-import { fillSample } from '../../lib/storyEdit'
+import { choiceWithItem, fillSample } from '../../lib/storyEdit'
 import { outcomeLabel } from '../../lib/outcomes'
 import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
 import { HEALTH_LABEL, moodFor, moodSeed } from '../../lib/themes'
@@ -131,7 +131,7 @@ function StagePreview({ story, selection, scene, fill, characterName, withItems 
       </>
     )
   } else if (scene) {
-    const items = { texts: scene.item_texts, collected: withItems }
+    const items = { story, texts: scene.item_texts, collected: withItems }
     main = (
       <>
         {scene.display_name && <div className="eyebrow">{fill(scene.display_name)}</div>}
@@ -152,7 +152,8 @@ function StagePreview({ story, selection, scene, fill, characterName, withItems 
           </>
         ) : (
           <div className="choice-list">
-            {scene.choices.map((c, i) => {
+            {scene.choices.map((choice, i) => {
+              const c = choiceWithItem(story, choice)
               return (
                 <div key={i} className="choice-card" style={{ '--i': i } as React.CSSProperties}>
                   <span className="keycap">{i + 1}</span>

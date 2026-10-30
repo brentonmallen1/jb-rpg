@@ -380,14 +380,74 @@ def editor_checks(browser) -> None:
     saved = call(f"/api/stories/{STORY}", method="GET")
     check("Editor autosaves", "ZEBRA" in saved["scenes"][0]["base_text"])
 
-    item = page.locator(".ed-choice--item input[id$='-item']").first
-    name = item.input_value()
-    item.fill("")
+    # An item choice picks its item from the story's catalogue
+    item = page.locator(".ed-choice--item input[role='combobox'][id$='-item']").first
+    number = int(item.get_attribute("id").split("-")[1]) + 1
+    outcome = f"select[aria-label='Outcome of choice {number}']"
+    page.select_option(outcome, "level")
+    page.select_option(outcome, "item")
     page.wait_for_selector(".ed-choice--item .ed-error", timeout=8000)
-    check("A missing item name is flagged on its field", True)
-    item.fill(name)
+    check("A missing item is flagged on its field", True)
+    item.click()
+    page.keyboard.type("elder")
+    page.wait_for_selector(".combo__option.is-active:has-text(\"Elder's Map\")", timeout=3000)
+    page.keyboard.press("Enter")
     page.wait_for_selector(".editor__problems", state="detached", timeout=8000)
-    check("The problem clears once fixed", True)
+    check("The problem clears once an item is picked", item.input_value() == "Elder's Map")
+
+    # A choice can lead anywhere; the picker searches scenes by title
+    leads = page.locator("input[role='combobox'][id='choice-0-next']")
+    leads.click()
+    page.keyboard.type("crystal heart")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(2500)
+    first = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]
+    check("A choice's path saves", first["choices"][0].get("next_scene_id") == "scene_crystal_heart")
+    check("The scene list marks a scene that branches", page.locator(".ed-scene__branch").count() == 1)
+    leads.click()
+    page.keyboard.press("Home")
+    page.locator(".combo__option").first.click()
+    page.wait_for_timeout(2500)
+    first = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]
+    check("Back to where the scene goes", first["choices"][0].get("next_scene_id") is None)
+
+    # Items live in one place: renaming one follows it into the finale's text
+    page.click(".ed-nav__item:has-text('Items')")
+    page.click(".ed-items__row:has-text('Climbing Rope')")
+    page.fill("#item-name", "Climbing Rope of Ages")
+    page.wait_for_timeout(2500)
+    finale = call(f"/api/stories/{STORY}", method="GET")["scenes"][-1]
+    check("Renaming an item renames it in the finale text", "{item_text:Climbing Rope of Ages}" in finale["victory_text"])
+    check("The item shows where it's given and checked", page.locator(".ed-uses__row").count() >= 2)
+    page.fill("#item-name", "Climbing Rope")
+    page.wait_for_timeout(2500)
+    page.click(".ed-nav__item:has-text('The Village Gate')")
+    page.wait_for_selector("#scene-text", timeout=5000)
+
+    # Typing "{" offers the hero's answers
+    before = scene_text.input_value().count(" {name}")
+    scene_text.click()
+    page.keyboard.press("End")
+    page.keyboard.type(" {na")
+    page.wait_for_selector(".suggest li.is-active:has-text('{name}')", timeout=3000)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(300)
+    check("Typing { offers the hero's answers", scene_text.input_value().count(" {name}") == before + 1)
+
+    # Long text opens in a larger window, with the scene's other texts beside it
+    page.locator(".ed-textwrap:has(#scene-text) .ed-expand").click()
+    page.wait_for_selector("dialog.writer[open]", timeout=3000)
+    check("The writing window lists the scene's texts", page.locator(".writer__text").count() >= 4)
+    page.locator("#writer-text").press("End")
+    page.keyboard.type(" OWL")
+    page.wait_for_timeout(2500)
+    saved_text = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]["base_text"]
+    check("Writing in the window saves the story", " OWL" in saved_text)
+    page.keyboard.press("Alt+ArrowDown")
+    check("Alt+Down moves to the next text", page.locator(".writer__text.is-current").count() == 1 and page.locator(".writer__text").first.get_attribute("aria-current") is None)
+    page.keyboard.press("Escape")
+    page.wait_for_selector("dialog.writer[open]", state="detached", timeout=3000)
+    check("Escape closes the window", "OWL" in scene_text.input_value())
 
     def chasm_lines():
         saved = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]["conditional_text"]

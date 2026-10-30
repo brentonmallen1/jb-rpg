@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { Story, StoryProblem } from '../../types'
+import { ITEM_DRAG } from '../../lib/storyGraph'
 import { addItem, deleteItem, findItem, itemUses, newItemId, patchItem, renameItem, storyItems, type ItemUse } from '../../lib/storyEdit'
 import { ConfirmDialog } from '../../components'
 import { ItemIcon } from '../../components/ItemIcon'
 import { CloseIcon } from '../../components/Icons'
 import { Field, Section, TextArea, TextInput } from './fields'
 import { ItemIconPicker } from './ItemIconPicker'
+import { WritingDialog, type WritingEntry } from './WritingDialog'
 import type { EditorSelection } from './EditorNav'
 
 interface ItemsPanelProps {
@@ -15,14 +17,17 @@ interface ItemsPanelProps {
   problems: StoryProblem[]
   update: (change: (story: Story) => Story) => void
   onSelect: (selection: EditorSelection) => void
+  /** In the Flow view, items can be dragged onto a choice (to give it) or a route (to check for it) */
+  dragToCanvas?: boolean
 }
 
 const USE_LABEL: Record<ItemUse['what'], string> = { choice: 'Choice', line: 'Text', route: 'Route', lock: 'Lock', finale: 'Finale text' }
 
 /** Every item the story can give, in one place: choices give them; lines, routes, locks and finale texts check for them. */
-export function ItemsPanel({ story, itemId, problems, update, onSelect }: ItemsPanelProps) {
+export function ItemsPanel({ story, itemId, problems, update, onSelect, dragToCanvas }: ItemsPanelProps) {
   const [query, setQuery] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [writing, setWriting] = useState<string | null>(null)
   const items = storyItems(story)
   const item = findItem(story, itemId) ?? items[0]
   const q = query.trim().toLowerCase()
@@ -38,7 +43,17 @@ export function ItemsPanel({ story, itemId, problems, update, onSelect }: ItemsP
   }
 
   const uses = item ? itemUses(story, item.id) : null
-  const jump = (use: ItemUse) => onSelect(use.scene ? { kind: 'scene', id: use.scene.id } : { kind: 'opening' })
+  const jump = (use: ItemUse) => onSelect(use.scene ? { kind: 'scene', id: use.scene.id, focus: use.focus } : { kind: 'opening', focus: use.focus })
+  // The writing window holds every item's description, so they can be written side by side
+  const descriptions: WritingEntry[] = items.map(i => ({
+    id: i.id,
+    group: 'About the items',
+    label: i.name || 'Unnamed item',
+    sub: 'players read it in the backpack',
+    value: i.description ?? '',
+    maxLength: 600,
+    onChange: text => update(s => patchItem(s, i.id, { description: text || null })),
+  }))
 
   return (
     <div className="ed-panel ed-items">
@@ -49,6 +64,7 @@ export function ItemsPanel({ story, itemId, problems, update, onSelect }: ItemsP
       <p className="ed-muted">
         Every item this story can give. Choices give them; routes, locked doors, finale texts and lines that change check for them.
         Renaming one renames it everywhere.
+        {dragToCanvas && ' Drag one onto a choice to give it, or onto a route to check for it.'}
       </p>
 
       {items.length === 0 ? (
@@ -79,6 +95,14 @@ export function ItemsPanel({ story, itemId, problems, update, onSelect }: ItemsP
                       className={`ed-items__row ${i.id === item?.id ? 'is-active' : ''}`}
                       aria-current={i.id === item?.id || undefined}
                       onClick={() => onSelect({ kind: 'items', id: i.id })}
+                      draggable={dragToCanvas}
+                      onDragStart={e => {
+                        e.dataTransfer.setData(ITEM_DRAG, i.id)
+                        e.dataTransfer.setData('text/plain', i.name)
+                        e.dataTransfer.effectAllowed = 'copy'
+                        document.body.classList.add('is-dragging-item')
+                      }}
+                      onDragEnd={() => document.body.classList.remove('is-dragging-item')}
                     >
                       <ItemIcon name={i.name} icon={i.icon} theme={story.theme} size={20} className="outcome--item" />
                       <span className="ed-items__row-text">
@@ -129,6 +153,7 @@ export function ItemsPanel({ story, itemId, problems, update, onSelect }: ItemsP
                   onChange={e => update(s => patchItem(s, item.id, { description: e.target.value || null }))}
                   placeholder="Older than the cave itself, and still warm to the touch."
                   maxLength={600}
+                  onExpand={() => setWriting(item.id)}
                 />
               </Field>
 
@@ -146,6 +171,8 @@ export function ItemsPanel({ story, itemId, problems, update, onSelect }: ItemsP
           )}
         </div>
       )}
+
+      <WritingDialog title="Items" entries={descriptions} openId={writing} onClose={() => setWriting(null)} />
 
       <ConfirmDialog
         isOpen={confirmDelete && !!item}

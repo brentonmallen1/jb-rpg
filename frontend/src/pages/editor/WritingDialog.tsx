@@ -10,6 +10,7 @@ export interface WritingEntry {
   value: string
   onChange: (text: string) => void
   placeholder?: string
+  maxLength?: number
 }
 
 interface WritingDialogProps {
@@ -36,6 +37,7 @@ function aloud(words: number): string {
  */
 export function WritingDialog({ title, entries, openId, onClose }: WritingDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null)
+  const opener = useRef<HTMLElement | null>(null)
   const [currentId, setCurrentId] = useState(openId)
   const [openedWith, setOpenedWith] = useState(openId)
   if (openId !== openedWith) {
@@ -47,8 +49,16 @@ export function WritingDialog({ title, entries, openId, onClose }: WritingDialog
   useEffect(() => {
     const el = dialog.current
     if (!el) return
-    if (openId && !el.open) el.showModal()
-    if (!openId && el.open) el.close()
+    if (openId && !el.open) {
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      el.showModal()
+    }
+    if (!openId && el.open) {
+      el.close()
+      // Back to the field the window was opened from, not its expand button
+      const field = opener.current?.closest('.ed-textwrap')?.querySelector<HTMLElement>('textarea, input') ?? opener.current
+      field?.focus()
+    }
   }, [openId])
 
   const index = Math.max(0, entries.findIndex(e => e.id === currentId))
@@ -85,7 +95,7 @@ export function WritingDialog({ title, entries, openId, onClose }: WritingDialog
           </header>
 
           <div className="writer__body">
-            <nav className="writer__rail" aria-label="This scene's texts">
+            <nav className="writer__rail" aria-label={`${title}: its texts`}>
               {entries.map((e, i) => (
                 <div key={e.id} className="writer__rail-item">
                   {e.group !== entries[i - 1]?.group && <span className="writer__group">{e.group}</span>}
@@ -115,6 +125,7 @@ export function WritingDialog({ title, entries, openId, onClose }: WritingDialog
                   className="writer__textarea"
                   value={entry.value}
                   placeholder={entry.placeholder}
+                  maxLength={entry.maxLength}
                   onChange={e => entry.onChange(e.target.value)}
                   autoFocus
                 />

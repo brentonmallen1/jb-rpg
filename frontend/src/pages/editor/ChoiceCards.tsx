@@ -50,7 +50,7 @@ export function ChoiceCards({ story, scene, problems, update, onOpenItem, onWrit
         const linkProblem = problems.find(p => p.field === 'next_scene_id' && p.index === i)
         const item = findItem(story, choice.item_id)
         return (
-          <article key={i} className={`ed-choice ed-choice--${choice.kind}`}>
+          <article key={i} className={`ed-choice ed-choice--${choice.kind}`} data-focus={`choice-${i}`}>
             <header className="ed-choice__head">
               <span className={`ed-choice__kind outcome--${choice.kind}`}>
                 <Icon size={16} /> {KIND_LABEL[choice.kind]}

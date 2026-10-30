@@ -23,6 +23,9 @@ SIGN_IN_IDLE_HOURS = float(os.getenv("SIGN_IN_IDLE_HOURS", "48"))
 TRUST_PROXY = os.getenv("TRUST_PROXY", "").lower() in ("true", "1", "yes")
 AUTH_DISABLED = os.getenv("AUTH_DISABLED", "").lower() in ("true", "1", "yes")
 BASE_URL = os.getenv("BASE_URL", "")
+# The largest story the server takes (saved or imported), in MB; it also caps every other request
+# body, except uploaded audio, which has its own limit
+MAX_STORY_MB = float(os.getenv("MAX_STORY_MB", "10"))
 # Emblem service for heroes' crests; empty = draw the built-in crests only
 EMBLAZON_URL = os.getenv("EMBLAZON_URL", "https://emblazon.mallen.us").rstrip("/")
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type DragEvent } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -19,21 +19,36 @@ import {
   type OnConnectEnd,
 } from '@xyflow/react'
 import '@xyflow/react/dist/base.css'
-import type { Scene, Story, StoryProblem } from '../../types'
+import type { Story, StoryProblem } from '../../types'
 import {
+  ITEM_DRAG,
   OPENING_NODE,
-  addRoute,
+  canConnect,
+  choiceHandle,
   connect,
   disconnect,
-  canConnect,
-  moveNode,
   nodeProblems,
-  removeRoute,
+  routeNodeId,
   storyGraph,
   type EdgeRole,
   type GraphNode,
 } from '../../lib/storyGraph'
-import { KIND_LABEL, describeCondition, findItem, itemUses, newScene, sceneTitle } from '../../lib/storyEdit'
+import {
+  KIND_LABEL,
+  addRoute,
+  addScene,
+  checkItem,
+  createScene,
+  defaultNext,
+  describeCondition,
+  findItem,
+  giveItem,
+  itemUses,
+  moveNode,
+  removeRoute,
+  sceneStatus,
+  sceneTitle,
+} from '../../lib/storyEdit'
 import { OUTCOME_ICON } from '../../lib/outcomes'
 import { ItemIcon } from '../../components/ItemIcon'
 import { D20Icon, LockIcon } from '../../components/Icons'
@@ -55,6 +70,8 @@ interface NodeData extends Record<string, unknown> {
   story: Story
   problems: StoryProblem[]
   highlight: Highlight
+  /** An item from the Items panel let go on a choice or a route */
+  onDropItem: (itemId: string, at: { choice: number } | { route: number }) => void
 }
 
 type FlowNode = Node<NodeData>
@@ -78,7 +95,7 @@ function Canvas({ story, problems, selection, update, onSelect }: FlowViewProps)
     if (selection.kind !== 'items' || !selection.id) return null
     const uses = itemUses(story, selection.id)
     const map = new Map<string, Highlight>()
-    uses.checked.forEach(u => u.scene && map.set(u.what === 'route' ? `route:${u.scene.id}:${u.index}` : u.scene.id, 'checked'))
+    uses.checked.forEach(u => u.scene && map.set(u.what === 'route' ? routeNodeId(u.scene.id, u.index) : u.scene.id, 'checked'))
     uses.given.forEach(u => u.scene && map.set(u.scene.id, 'given'))
     return map
   }, [story, selection])
@@ -91,17 +108,30 @@ function Canvas({ story, problems, selection, update, onSelect }: FlowViewProps)
     selected: node.id === selectedId,
     deletable: node.kind === 'route',
     connectable: true,
-    data: { node, story, problems: nodeProblems(problems, node), highlight: highlights ? highlights.get(node.id) ?? 'dim' : null },
+    data: {
+      node,
+      story,
+      problems: nodeProblems(problems, node),
+      highlight: highlights ? highlights.get(node.id) ?? 'dim' : null,
+      onDropItem: (itemId, at) => {
+        if (!node.sceneId) return
+        const sceneId = node.sceneId
+        update(s => ('choice' in at ? giveItem(s, sceneId, at.choice, itemId) : checkItem(s, sceneId, at.route, itemId)))
+      },
+    },
   }))
   const nextEdges: FlowEdge[] = graph.edges.map(e => ({
     id: e.id,
     source: e.source,
     sourceHandle: e.sourceHandle,
     target: e.target,
-    targetHandle: 'in',
+    targetHandle: e.role.kind === 'depends' ? 'depends-in' : 'in',
     deletable: ['choice', 'then', 'route', 'opening'].includes(e.role.kind) && !e.implicit,
+    focusable: e.role.kind !== 'depends',
+    label: e.role.kind === 'depends' ? 'depends on' : undefined,
     className: [
       'fl-edge',
+      e.role.kind === 'depends' ? 'fl-edge--depends' : '',
       e.outcome ? `fl-edge--${e.outcome}` : '',
       e.implicit ? 'fl-edge--default' : '',
       e.role.kind === 'route' ? 'fl-edge--yes' : '',
@@ -158,23 +188,23 @@ function Canvas({ story, problems, selection, update, onSelect }: FlowViewProps)
     if (state.isValid || !state.fromNode || !state.fromHandle || state.fromHandle.type !== 'source' || state.toNode) return
     const point = 'changedTouches' in event ? event.changedTouches[0] : event
     const position = flow.screenToFlowPosition({ x: point.clientX, y: point.clientY })
-    const scene = { ...newScene(story.scenes.length + 1), title: 'New scene' }
+    const scene = createScene(story, 'New scene')
     const from = state.fromNode.id
     const handle = state.fromHandle.id ?? null
-    if (!canConnect({ ...story, scenes: [...story.scenes, scene] }, from, handle, scene.id)) return
+    if (!canConnect(addScene(story, scene), from, handle, scene.id)) return
     update(s => {
-      const added = moveNode({ ...s, scenes: [...s.scenes, scene] }, scene.id, { x: position.x, y: position.y - 30 })
+      const added = moveNode(addScene(s, scene), scene.id, { x: position.x, y: position.y - 30 })
       return connect(added, from, handle, scene.id) ?? added
     })
     onSelect({ kind: 'scene', id: scene.id })
   }
 
-  function addScene() {
-    const scene = newScene(story.scenes.length + 1)
+  function addSceneHere() {
+    const scene = createScene(story)
     const { x, y, zoom } = flow.getViewport()
     const box = document.querySelector('.fl-canvas')?.getBoundingClientRect()
     const at = box ? { x: (box.width / 2 - x) / zoom - 130, y: (box.height / 2 - y) / zoom - 60 } : { x: 0, y: 0 }
-    update(s => moveNode({ ...s, scenes: [...s.scenes, scene] }, scene.id, at))
+    update(s => moveNode(addScene(s, scene), scene.id, at))
     onSelect({ kind: 'scene', id: scene.id })
   }
 
@@ -224,7 +254,7 @@ function Canvas({ story, problems, selection, update, onSelect }: FlowViewProps)
             <button type="button" onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>Fit</button>
           </div>
           <div className="fl-toolbar__group" role="group" aria-label="Add">
-            <button type="button" onClick={addScene}>+ Scene</button>
+            <button type="button" onClick={addSceneHere}>+ Scene</button>
             <button
               type="button"
               disabled={!selectedScene || selectedScene.is_finale}
@@ -265,43 +295,71 @@ function highlightClass(h: Highlight): string {
   return h ? `is-${h}` : ''
 }
 
+/** Drop handlers for an item dragged from the Items panel; `onOver` says whether it's above this target. */
+function itemDrop(onOver: (over: boolean) => void, onDrop: (itemId: string) => void) {
+  const carriesItem = (e: DragEvent) => e.dataTransfer.types.includes(ITEM_DRAG)
+  return {
+    onDragOver: (e: DragEvent) => {
+      if (!carriesItem(e)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      onOver(true)
+    },
+    onDragLeave: () => onOver(false),
+    onDrop: (e: DragEvent) => {
+      onOver(false)
+      const itemId = e.dataTransfer.getData(ITEM_DRAG)
+      if (!itemId) return
+      e.preventDefault()
+      onDrop(itemId)
+    },
+  }
+}
+
 function ProblemBadge({ problems }: { problems: StoryProblem[] }) {
   if (!problems.length) return null
   const first = problems[0]
   return (
     <span className={`fl-badge fl-badge--${first.severity}`} title={problems.map(p => p.message).join('\n')}>
-      {first.severity === 'warning' && first.message.endsWith('no path leads here.') ? 'Nothing leads here' : problems.length === 1 ? '1 to fix' : `${problems.length} to fix`}
+      {first.code === 'unreachable' ? 'Nothing leads here' : problems.length === 1 ? '1 to fix' : `${problems.length} to fix`}
     </span>
   )
 }
 
-/** Is a scene written enough to play? */
-function written(scene: Scene): boolean {
-  return !!scene.base_text.trim() && (scene.is_finale
-    ? !!scene.victory_text?.trim() && !!scene.defeat_text?.trim()
-    : scene.choices.every(c => c.display_text.trim() && c.result_text.trim()))
+/** Where "depends on" lines start and end: hidden, and never drawn by hand */
+function DependsHandles() {
+  return (
+    <>
+      <Handle type="source" position={Position.Bottom} id="depends" className="fl-handle fl-handle--depends" isConnectable={false} />
+      <Handle type="target" position={Position.Top} id="depends-in" className="fl-handle fl-handle--depends" isConnectable={false} />
+    </>
+  )
 }
 
 function SceneNode({ data, selected }: NodeProps<FlowNode>) {
-  const { story, node, problems, highlight } = data
+  const { story, node, problems, highlight, onDropItem } = data
+  const [dropOn, setDropOn] = useState<number | null>(null)
   const scene = story.scenes.find(s => s.id === node.sceneId)
   if (!scene) return null
-  const tone = problems.some(p => p.severity === 'error') ? 'problem' : written(scene) ? 'ready' : 'draft'
+  const status = sceneStatus(scene, problems)
+  const otherwise = sceneTitle(story, scene.next ?? defaultNext(story, scene))
   const thenLabel = scene.routes?.length
-    ? `${scene.routes.length === 1 ? 'A route' : `${scene.routes.length} routes`}, then ${scene.next ? sceneTitle(story, scene.next) : 'onward'}`
-    : scene.next ? sceneTitle(story, scene.next)
-    : story.settings.non_linear ? 'Back to the doors'
-    : sceneTitle(story, story.scenes[story.scenes.findIndex(s => s.id === scene.id) + 1]?.id ?? 'end')
+    ? `${scene.routes.length === 1 ? 'A route' : `${scene.routes.length} routes`}, then ${otherwise}`
+    : otherwise
 
   return (
-    <div className={`fl-node fl-scene ${scene.is_finale ? 'fl-scene--finale' : ''} ${selected ? 'is-selected' : ''} ${problemClass(problems)} ${highlightClass(highlight)}`}>
+    <div
+      className={`fl-node fl-scene ${scene.is_finale ? 'fl-scene--finale' : ''} ${selected ? 'is-selected' : ''} ${problemClass(problems)} ${highlightClass(highlight)}`}
+      style={{ width: node.width }}
+    >
       <Handle type="target" position={Position.Left} id="in" className="fl-handle fl-handle--in" />
+      <DependsHandles />
       <ProblemBadge problems={problems} />
       <div className="fl-scene__head">
         {!story.opening_scene && story.scenes[0]?.id === scene.id && <span className="fl-kicker">Starts here</span>}
         {scene.is_finale && <span className="fl-kicker">Finale</span>}
         <span className="fl-scene__title">{scene.title || 'Untitled scene'}</span>
-        {!scene.is_finale && <span className={`ed-dot ed-dot--${tone}`} aria-label={tone} />}
+        {!scene.is_finale && <span className={`ed-dot ed-dot--${status.tone}`} title={status.label} aria-label={status.label} />}
       </div>
       {!!scene.requires?.length && (
         <span className="fl-lock"><LockIcon size={12} /> Locked until {scene.requires.map(c => describeCondition(story, c)).join(' and ')}</span>
@@ -315,10 +373,15 @@ function SceneNode({ data, selected }: NodeProps<FlowNode>) {
               const Icon = OUTCOME_ICON[c.kind]
               const item = c.kind === 'item' ? findItem(story, c.item_id) : undefined
               return (
-                <li key={i} className={`fl-choice outcome--${c.kind}`} title={`${KIND_LABEL[c.kind]}: ${c.display_text || 'not written yet'}`}>
+                <li
+                  key={i}
+                  className={`fl-choice outcome--${c.kind} ${dropOn === i ? 'is-drop' : ''}`}
+                  title={`${KIND_LABEL[c.kind]}: ${c.display_text || 'not written yet'}`}
+                  {...itemDrop(over => setDropOn(over ? i : null), itemId => onDropItem(itemId, { choice: i }))}
+                >
                   {item ? <ItemIcon name={item.name} icon={item.icon} theme={story.theme} size={13} /> : <Icon size={13} />}
                   <span className={`fl-choice__text ${item ? 'fl-choice__text--item' : ''}`}>{item ? item.name : c.display_text || KIND_LABEL[c.kind]}</span>
-                  <Handle type="source" position={Position.Right} id={`c${i}`} className={`fl-handle fl-handle--choice ${c.next_scene_id ? 'has-path' : ''}`} />
+                  <Handle type="source" position={Position.Right} id={choiceHandle(i)} className={`fl-handle fl-handle--choice ${c.next_scene_id ? 'has-path' : ''}`} />
                 </li>
               )
             })}
@@ -335,13 +398,19 @@ function SceneNode({ data, selected }: NodeProps<FlowNode>) {
 }
 
 function RouteNode({ data }: NodeProps<FlowNode>) {
-  const { story, node, problems, highlight } = data
+  const { story, node, problems, highlight, onDropItem } = data
+  const [dropOn, setDropOn] = useState(false)
   const scene = story.scenes.find(s => s.id === node.sceneId)
   const route = scene?.routes?.[node.routeIndex ?? 0]
   if (!route) return null
   return (
-    <div className={`fl-node fl-route ${problemClass(problems)} ${highlightClass(highlight)}`}>
+    <div
+      className={`fl-node fl-route ${problemClass(problems)} ${highlightClass(highlight)} ${dropOn ? 'is-drop' : ''}`}
+      style={{ width: node.width, height: node.height }}
+      {...itemDrop(setDropOn, itemId => onDropItem(itemId, { route: node.routeIndex ?? 0 }))}
+    >
       <Handle type="target" position={Position.Left} id="in" className="fl-handle fl-handle--in" />
+      <Handle type="target" position={Position.Top} id="depends-in" className="fl-handle fl-handle--depends" isConnectable={false} />
       <div className="fl-route__shape" aria-hidden="true" />
       <span className="fl-route__text">
         <span className="fl-kicker">Route</span>
@@ -356,9 +425,9 @@ function RouteNode({ data }: NodeProps<FlowNode>) {
   )
 }
 
-function EndNode() {
+function EndNode({ data }: NodeProps<FlowNode>) {
   return (
-    <div className="fl-node fl-end">
+    <div className="fl-node fl-end" style={{ width: data.node.width, height: data.node.height }}>
       <Handle type="target" position={Position.Left} id="in" className="fl-handle fl-handle--in" />
       <span className="fl-kicker">The end</span>
       <span className="fl-end__text"><D20Icon size={14} label="" /> On to the d20</span>
@@ -366,9 +435,9 @@ function EndNode() {
   )
 }
 
-function DoorsNode() {
+function DoorsNode({ data }: NodeProps<FlowNode>) {
   return (
-    <div className="fl-node fl-doors">
+    <div className="fl-node fl-doors" style={{ width: data.node.width, height: data.node.height }}>
       <Handle type="target" position={Position.Left} id="in" className="fl-handle fl-handle--in" />
       <span className="fl-kicker">Door story</span>
       <span className="fl-doors__title">The doors</span>
@@ -382,7 +451,7 @@ function OpeningNode({ data, selected }: NodeProps<FlowNode>) {
   const opening = data.story.opening_scene
   if (!opening) return null
   return (
-    <div className={`fl-node fl-scene fl-opening ${selected ? 'is-selected' : ''} ${problemClass(data.problems)}`}>
+    <div className={`fl-node fl-scene fl-opening ${selected ? 'is-selected' : ''} ${problemClass(data.problems)}`} style={{ width: data.node.width }}>
       <ProblemBadge problems={data.problems} />
       <div className="fl-scene__head">
         <span className="fl-kicker">Starts here</span>
@@ -392,7 +461,7 @@ function OpeningNode({ data, selected }: NodeProps<FlowNode>) {
         {opening.choices.map((c, i) => (
           <li key={i} className="fl-choice">
             <span className="fl-choice__text">{c.text || `Choice ${i + 1}`}</span>
-            <Handle type="source" position={Position.Right} id={`c${i}`} className={`fl-handle fl-handle--choice ${c.target_scene_id ? 'has-path' : ''}`} />
+            <Handle type="source" position={Position.Right} id={choiceHandle(i)} className={`fl-handle fl-handle--choice ${c.target_scene_id ? 'has-path' : ''}`} />
           </li>
         ))}
         {opening.choices.length === 0 && (

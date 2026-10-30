@@ -1,5 +1,6 @@
 """Data models for stories and session state."""
 
+import math
 from enum import Enum
 from typing import Literal, Optional
 
@@ -181,6 +182,23 @@ class Story(BaseModel):
                     by_name[key].id if key not in ids and key in by_name else key: texts
                     for key, texts in scene.item_texts.items()
                 }
+        return self
+
+    @model_validator(mode="after")
+    def _layout_for_nodes_only(self) -> "Story":
+        """Keep only places for nodes the Flow view draws (lib/storyGraph.ts): scenes, their routes,
+        the prologue, The end and the doors. Anything else is a node that's gone, and a place that
+        isn't a real number (NaN, infinity) is no place: the Flow view lays that node out again."""
+        nodes = {"opening", END, "doors"}
+        for scene in self.scenes:
+            nodes.add(scene.id)
+            nodes.update(f"route:{scene.id}:{i}" for i in range(len(scene.routes)))
+
+        def keep(key: str, pos: NodePosition) -> bool:
+            return key in nodes and math.isfinite(pos.x) and math.isfinite(pos.y)
+
+        if not all(keep(key, pos) for key, pos in self.layout.items()):
+            self.layout = {key: pos for key, pos in self.layout.items() if keep(key, pos)}
         return self
 
 

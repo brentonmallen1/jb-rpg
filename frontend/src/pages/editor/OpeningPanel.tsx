@@ -1,9 +1,12 @@
-import type { RefObject } from 'react'
+import { useState, type RefObject } from 'react'
 import type { OpeningScene, Story, StoryProblem } from '../../types'
+import { describeCondition } from '../../lib/storyEdit'
 import { CloseIcon } from '../../components/Icons'
 import { Field, Section, TextArea, TextInput } from './fields'
 import { KeyChips } from './KeyChips'
 import { ConditionsEditor } from './ConditionsEditor'
+import { WritingDialog, type WritingEntry } from './WritingDialog'
+import { TargetPicker } from './pickers'
 
 interface OpeningPanelProps {
   story: Story
@@ -19,6 +22,19 @@ export function OpeningPanel({ story, opening, problems, update, textTarget }: O
     update(s => (s.opening_scene ? { ...s, opening_scene: { ...s.opening_scene, ...p } } : s))
   const openingProblems = problems.filter(p => p.area === 'opening')
   const keyTokens = story.madlib_template.fields.map(f => ({ token: `{${f.key}}`, title: f.label || f.key }))
+  const [writing, setWriting] = useState<string | null>(null)
+  const entries: WritingEntry[] = [
+    { id: 'opening-text', group: 'Read aloud', label: 'The prologue', sub: 'before the first scene', value: opening.base_text, onChange: base_text => patch({ base_text }) },
+    ...opening.conditional_text.map((ct, i) => ({
+      id: `line-${i}`,
+      group: 'Read aloud',
+      label: `If ${describeCondition(story, ct.condition)}`,
+      sub: 'added after the prologue',
+      value: ct.text,
+      onChange: (text: string) => patch({ conditional_text: opening.conditional_text.map((c, j) => (j === i ? { ...c, text } : c)) }),
+    })),
+  ]
+  const firstScene = story.scenes[0]
 
   return (
     <div className="ed-panel">
@@ -33,7 +49,7 @@ export function OpeningPanel({ story, opening, problems, update, textTarget }: O
       <KeyChips label="Insert a character detail" tokens={keyTokens} target={textTarget} />
 
       <Field label="The prologue" hint="read aloud before the first scene" htmlFor="opening-text">
-        <TextArea id="opening-text" className="ed-textarea--reading" rows={6} value={opening.base_text} onChange={e => patch({ base_text: e.target.value })} />
+        <TextArea id="opening-text" className="ed-textarea--reading" rows={6} value={opening.base_text} onChange={e => patch({ base_text: e.target.value })} onExpand={() => setWriting('opening-text')} />
       </Field>
 
       <Section
@@ -60,15 +76,16 @@ export function OpeningPanel({ story, opening, problems, update, textTarget }: O
                 placeholder="Take the left passage"
                 onChange={e => patch({ choices: opening.choices.map((c, j) => (j === i ? { ...c, text: e.target.value } : c)) })}
               />
-              <select
-                className="ed-input"
+              <TargetPicker
+                story={story}
+                allowEnd={false}
+                value={choice.target_scene_id}
+                defaultLabel={story.settings.non_linear ? 'The party picks a door' : `The first scene${firstScene ? ` (${firstScene.title || 'Untitled scene'})` : ''}`}
                 aria-label={`Where path ${i + 1} leads`}
-                value={choice.target_scene_id ?? ''}
-                onChange={e => patch({ choices: opening.choices.map((c, j) => (j === i ? { ...c, target_scene_id: e.target.value || undefined } : c)) })}
-              >
-                <option value="">The party picks a door</option>
-                {story.scenes.map(s => <option key={s.id} value={s.id}>{s.display_name || s.title}</option>)}
-              </select>
+                invalid={!!problem}
+                onChange={target => patch({ choices: opening.choices.map((c, j) => (j === i ? { ...c, target_scene_id: target ?? undefined } : c)) })}
+                update={update}
+              />
               <button type="button" className="icon-btn" aria-label={`Remove path ${i + 1}`} onClick={() => patch({ choices: opening.choices.filter((_, j) => j !== i) })}>
                 <CloseIcon size={16} />
               </button>
@@ -85,8 +102,11 @@ export function OpeningPanel({ story, opening, problems, update, textTarget }: O
           update={update}
           problems={openingProblems}
           onChange={conditional_text => patch({ conditional_text })}
+          onWrite={i => setWriting(`line-${i}`)}
         />
       </Section>
+
+      <WritingDialog title={opening.title || 'Prologue'} entries={entries} openId={writing} onClose={() => setWriting(null)} />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import type { Choice, Condition, ConditionalText, ItemDef, MadLibField, Scene, Story } from '../types'
+import type { Choice, ChoiceKind, Condition, ConditionType, ConditionalText, ItemDef, MadLibField, Route, Scene, Story, StoryProblem } from '../types'
 import { END } from '../types'
 
 /** Pure helpers for editing a story: each returns a new story. */
@@ -23,6 +23,16 @@ export function newScene(number: number): Scene {
   }
 }
 
+/** A new scene for this story, numbered after its last, with a title if one was given */
+export function createScene(story: Story, title?: string): Scene {
+  const scene = newScene(story.scenes.length + 1)
+  return title ? { ...scene, title } : scene
+}
+
+export function addScene(story: Story, scene: Scene): Story {
+  return { ...story, scenes: [...story.scenes, scene] }
+}
+
 export function newCondition(): ConditionalText {
   return { condition: { type: 'hp', op: 'lte', value: 1 }, text: '' }
 }
@@ -41,6 +51,17 @@ export function moveSceneTo(story: Story, sceneId: string, toIndex: number): Sto
   const [scene] = scenes.splice(from, 1)
   scenes.splice(Math.max(0, Math.min(toIndex, scenes.length)), 0, scene)
   return { ...story, scenes }
+}
+
+/** Is a scene written enough to play? (Problems come from the server; this adds "unwritten".) */
+export function sceneStatus(scene: Scene, problems: StoryProblem[]): { tone: 'problem' | 'draft' | 'ready'; label: string } {
+  const own = problems.filter(p => p.scene_id === scene.id)
+  if (own.some(p => p.severity === 'error')) return { tone: 'problem', label: 'Needs fixing before play' }
+  if (own.length) return { tone: 'draft', label: own[0].message }
+  const unwritten = !scene.base_text.trim() ||
+    (scene.is_finale ? !scene.victory_text?.trim() || !scene.defeat_text?.trim()
+      : scene.choices.some(c => !c.display_text.trim() || !c.result_text.trim()))
+  return unwritten ? { tone: 'draft', label: 'Still being written' } : { tone: 'ready', label: 'Written' }
 }
 
 // ---------------------------------------------------------------------------
@@ -78,49 +99,79 @@ export function patchItem(story: Story, id: string, patch: Partial<ItemDef>): St
   return { ...story, items: storyItems(story).map(i => (i.id === id ? { ...i, ...patch } : i)) }
 }
 
+/** The finale's texts that can hold {item_text:Name} placeholders */
+const FINALE_TEXTS = ['finale_setup_text', 'victory_text', 'defeat_text'] as const
+
+function mapFinaleTexts(scenes: Scene[], change: (text: string) => string): Scene[] {
+  return scenes.map(s => {
+    const next = { ...s }
+    for (const key of FINALE_TEXTS) if (s[key]) next[key] = change(s[key])
+    return next
+  })
+}
+
 /** Rename an item. References use its id, so only the {item_text:Name} placeholders in finale text change. */
 export function renameItem(story: Story, id: string, name: string): Story {
   const old = findItem(story, id)?.name
   const renamed = patchItem(story, id, { name })
   if (old === undefined || old === name) return renamed
-  const swap = (text?: string) => text?.split(`{item_text:${old}}`).join(`{item_text:${name}}`)
-  return {
-    ...renamed,
-    scenes: renamed.scenes.map(s => (s.is_finale ? { ...s, victory_text: swap(s.victory_text), defeat_text: swap(s.defeat_text), finale_setup_text: swap(s.finale_setup_text) } : s)),
-  }
+  return { ...renamed, scenes: mapFinaleTexts(renamed.scenes, text => text.split(`{item_text:${old}}`).join(`{item_text:${name}}`)) }
 }
 
 const usesItem = (c: Condition, id: string) => c.type === 'item_held' && c.item_id === id
 
-/** Remove an item and everything that points at it: the choices that gave it keep their kind but no item. */
-export function deleteItem(story: Story, id: string): Story {
-  const old = findItem(story, id)?.name
-  const drop = (text?: string) => (old ? text?.split(`{item_text:${old}}`).join('') : text)
+/** Where a condition lives: a line that changes, a route, or a door's lock. */
+export type ConditionPlace = { scene: Scene | null; what: 'line' | 'route' | 'lock'; index: number; condition: Condition }
+
+/** Every condition in the story (scenes in order, then the prologue's lines). */
+export function storyConditions(story: Story): ConditionPlace[] {
+  const found: ConditionPlace[] = []
+  for (const scene of story.scenes) {
+    scene.conditional_text.forEach((ct, index) => found.push({ scene, what: 'line', index, condition: ct.condition }))
+    scene.routes?.forEach((r, index) => found.push({ scene, what: 'route', index, condition: r.condition }))
+    scene.requires?.forEach((condition, index) => found.push({ scene, what: 'lock', index, condition }))
+  }
+  story.opening_scene?.conditional_text.forEach((ct, index) => found.push({ scene: null, what: 'line', index, condition: ct.condition }))
+  return found
+}
+
+/** The story without the lines, routes and locks whose condition fails `keep`. */
+function filterConditions(story: Story, keep: (c: Condition) => boolean): Story {
   return {
     ...story,
-    items: storyItems(story).filter(i => i.id !== id),
-    scenes: story.scenes.map(s => {
-      const itemTexts = { ...(s.item_texts ?? {}) }
-      delete itemTexts[id]
-      return {
-        ...s,
-        choices: s.choices.map(c => (c.item_id === id ? { ...c, item_id: null } : c)),
-        conditional_text: s.conditional_text.filter(ct => !usesItem(ct.condition, id)),
-        routes: s.routes?.filter(r => !usesItem(r.condition, id)),
-        requires: s.requires?.filter(c => !usesItem(c, id)),
-        item_texts: itemTexts,
-        victory_text: drop(s.victory_text),
-        defeat_text: drop(s.defeat_text),
-      }
-    }),
+    scenes: story.scenes.map(s => ({
+      ...s,
+      conditional_text: s.conditional_text.filter(ct => keep(ct.condition)),
+      routes: s.routes?.filter(r => keep(r.condition)),
+      requires: s.requires?.filter(keep),
+    })),
     opening_scene: story.opening_scene && {
       ...story.opening_scene,
-      conditional_text: story.opening_scene.conditional_text.filter(ct => !usesItem(ct.condition, id)),
+      conditional_text: story.opening_scene.conditional_text.filter(ct => keep(ct.condition)),
     },
   }
 }
 
-export type ItemUse = { scene: Scene | null; what: 'choice' | 'line' | 'route' | 'lock' | 'finale'; index: number; detail: string }
+/** Remove an item and everything that points at it: the choices that gave it keep their kind but no item. */
+export function deleteItem(story: Story, id: string): Story {
+  const old = findItem(story, id)?.name
+  const unchecked = filterConditions(story, c => !usesItem(c, id))
+  const scenes = unchecked.scenes.map(s => {
+    const itemTexts = { ...(s.item_texts ?? {}) }
+    delete itemTexts[id]
+    return { ...s, item_texts: itemTexts, choices: s.choices.map(c => (c.item_id === id ? { ...c, item_id: null } : c)) }
+  })
+  return {
+    ...unchecked,
+    items: storyItems(story).filter(i => i.id !== id),
+    scenes: old ? mapFinaleTexts(scenes, text => text.split(`{item_text:${old}}`).join('')) : scenes,
+  }
+}
+
+const routeDetail = (story: Story, target?: string) => (target === END ? 'then the story ends' : `then ${sceneTitle(story, target)}`)
+
+/** One place an item is used; `focus` names the field in the scene's panel (see data-focus) */
+export type ItemUse = { scene: Scene | null; what: 'choice' | 'line' | 'route' | 'lock' | 'finale'; index: number; detail: string; focus: string }
 
 /** Where an item is given (choices) and where it's checked (lines, routes, locks, finale texts). */
 export function itemUses(story: Story, id: string): { given: ItemUse[]; checked: ItemUse[] } {
@@ -128,28 +179,48 @@ export function itemUses(story: Story, id: string): { given: ItemUse[]; checked:
   const checked: ItemUse[] = []
   for (const scene of story.scenes) {
     scene.choices.forEach((c, i) => {
-      if (c.kind === 'item' && c.item_id === id) given.push({ scene, what: 'choice', index: i, detail: c.display_text })
+      if (c.kind === 'item' && c.item_id === id) given.push({ scene, what: 'choice', index: i, detail: c.display_text, focus: `choice-${i}` })
     })
-    scene.conditional_text.forEach((ct, i) => {
-      if (usesItem(ct.condition, id)) checked.push({ scene, what: 'line', index: i, detail: ct.text })
-    })
-    scene.routes?.forEach((r, i) => {
-      if (usesItem(r.condition, id)) checked.push({ scene, what: 'route', index: i, detail: r.target === END ? 'then the story ends' : `then ${sceneTitle(story, r.target)}` })
-    })
-    scene.requires?.forEach((c, i) => {
-      if (usesItem(c, id)) checked.push({ scene, what: 'lock', index: i, detail: 'the door stays locked without it' })
-    })
-    const texts = scene.item_texts?.[id]
-    if (texts) checked.push({ scene, what: 'finale', index: 0, detail: texts.victory || texts.defeat || '' })
   }
-  story.opening_scene?.conditional_text.forEach((ct, i) => {
-    if (usesItem(ct.condition, id)) checked.push({ scene: null, what: 'line', index: i, detail: ct.text })
-  })
+  for (const place of storyConditions(story)) {
+    if (!usesItem(place.condition, id)) continue
+    const { scene, what, index } = place
+    const detail = what === 'line'
+      ? (scene ? scene.conditional_text : story.opening_scene?.conditional_text ?? [])[index]?.text ?? ''
+      : what === 'route'
+        ? routeDetail(story, scene?.routes?.[index]?.target)
+        : 'the door stays locked without it'
+    checked.push({ scene, what, index, detail, focus: `${what}-${index}` })
+  }
+  for (const scene of story.scenes) {
+    const texts = scene.item_texts?.[id]
+    if (texts) checked.push({ scene, what: 'finale', index: 0, detail: texts.victory || texts.defeat || '', focus: `item-ending-${id}` })
+  }
   return { given, checked }
 }
 
-const OP_WORDS = { lte: 'at most', gte: 'at least', eq: 'exactly' } as const
-const OUTCOME_WORDS = { damage: 'they lost a life', item: 'they found an item', level: 'they grew stronger' } as const
+// ---------------------------------------------------------------------------
+// Conditions: the words for them, shared by the pickers and the sentences that describe them
+// ---------------------------------------------------------------------------
+
+export const CONDITION_TYPES: { value: ConditionType; label: string }[] = [
+  { value: 'item_held', label: 'they hold an item' },
+  { value: 'scene_outcome', label: 'an earlier scene went a way' },
+  { value: 'hp', label: "the hero's health" },
+  { value: 'level', label: "the hero's level" },
+  { value: 'items', label: 'the number of items carried' },
+]
+
+/** A fresh condition of a type, keeping nothing that doesn't belong to it. */
+export function conditionOfType(type: ConditionType): Condition {
+  if (type === 'item_held') return { type }
+  if (type === 'scene_outcome') return { type, outcome: 'item' }
+  return { type, op: type === 'hp' ? 'lte' : 'gte', value: 1 }
+}
+
+export const OUTCOME_WORDS: Record<ChoiceKind, string> = { damage: 'they lost a life', item: 'they found an item', level: 'they grew stronger' }
+
+export const OP_WORDS = { lte: 'at most', gte: 'at least', eq: 'exactly' } as const
 
 /** A condition as a phrase: "they hold the Climbing Rope", "health is at most 1". */
 export function describeCondition(story: Story, c: Condition): string {
@@ -167,18 +238,27 @@ export function describeCondition(story: Story, c: Condition): string {
 // Paths: where a scene leads
 // ---------------------------------------------------------------------------
 
+/** Door stories: where a room goes back to. Never stored; it's what a door story does by default. */
+export const DOORS = 'doors'
+
 export function sceneTitle(story: Story, id: string | null | undefined): string {
   if (id === END) return 'The end'
+  if (id === DOORS) return 'Back to the doors'
   const scene = story.scenes.find(s => s.id === id)
   return scene ? scene.title || 'Untitled scene' : 'A scene that no longer exists'
 }
 
+/** Where a scene goes when nothing in it says otherwise: the doors, the next scene in the list, or END
+ * (engine.default_next, on the server) */
+export function defaultNext(story: Story, scene: Scene): string {
+  if (story.settings.non_linear) return DOORS
+  return story.scenes[story.scenes.findIndex(s => s.id === scene.id) + 1]?.id ?? END
+}
+
 /** Where a scene goes when nothing in it says otherwise, in words. */
 export function defaultNextTitle(story: Story, scene: Scene): string {
-  if (story.settings.non_linear) return 'Back to the doors'
-  const i = story.scenes.findIndex(s => s.id === scene.id)
-  const next = story.scenes[i + 1]
-  return next ? `Next in the list: ${next.title || 'Untitled scene'}` : 'The end'
+  const next = defaultNext(story, scene)
+  return next === DOORS || next === END ? sceneTitle(story, next) : `Next in the list: ${sceneTitle(story, next)}`
 }
 
 /** Where a scene goes after a choice that doesn't say (before any route), in words. */
@@ -226,6 +306,39 @@ export function deleteScene(story: Story, id: string): Story {
       choices: story.opening_scene.choices.map(c => (c.target_scene_id === id ? { ...c, target_scene_id: undefined } : c)),
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Routes, items on choices, and where the Flow view's nodes sit
+// ---------------------------------------------------------------------------
+
+export function addRoute(story: Story, sceneId: string, route: Route = { condition: { type: 'item_held' }, target: '' }): Story {
+  return patchScene(story, sceneId, sc => ({ ...sc, routes: [...(sc.routes ?? []), route] }))
+}
+
+export function removeRoute(story: Story, sceneId: string, index: number): Story {
+  return patchScene(story, sceneId, sc => ({ ...sc, routes: (sc.routes ?? []).filter((_, j) => j !== index) }))
+}
+
+/** A choice now finds this item */
+export function giveItem(story: Story, sceneId: string, choiceIndex: number, itemId: string): Story {
+  return patchScene(story, sceneId, sc => ({
+    ...sc,
+    choices: sc.choices.map((c, i) => (i === choiceIndex ? { ...c, kind: 'item', item_id: itemId } : c)),
+  }))
+}
+
+/** A route now asks whether the party holds this item */
+export function checkItem(story: Story, sceneId: string, routeIndex: number, itemId: string): Story {
+  return patchScene(story, sceneId, sc => ({
+    ...sc,
+    routes: (sc.routes ?? []).map((r, i) => (i === routeIndex ? { ...r, condition: { type: 'item_held', item_id: itemId } } : r)),
+  }))
+}
+
+/** Remember where the author put a node on the Flow view */
+export function moveNode(story: Story, id: string, position: { x: number; y: number }): Story {
+  return { ...story, layout: { ...(story.layout ?? {}), [id]: { x: Math.round(position.x), y: Math.round(position.y) } } }
 }
 
 /** Template keys in order of first use: "{name} from {home}" -> ["name", "home"]. */

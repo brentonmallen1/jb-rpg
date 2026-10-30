@@ -104,6 +104,18 @@ def test_a_branch_can_end_at_its_own_finale():
     assert engine.awaiting_roll(state)
 
 
+def test_a_prologue_path_without_a_scene_starts_a_linear_story_at_the_top():
+    s = story(scene("a"), scene("b"), opening_scene={
+        "title": "Prologue", "base_text": "Long ago.",
+        "choices": [{"text": "Onward"}, {"text": "Straight to b", "target_scene_id": "b"}],
+    })
+    state = play(s)
+    assert state.status == SessionStatus.OPENING_SCENE_ACTIVE
+    engine.opening_choice(state, 0)
+    assert (state.status, state.current_scene_id) == (SessionStatus.RUNNING, "a")
+    assert "b" in engine.reachable_scene_ids(s)
+
+
 def test_back_across_a_branch_returns_to_where_the_table_was():
     s = story(scene("a", choice("item", item="rope", to="c"), choice()), scene("b"), scene("c"))
     state = play(s)
@@ -275,6 +287,7 @@ def test_a_scene_nothing_leads_to_is_a_warning_and_doesnt_stop_play():
     s = story(scene("a", choice(to="c")), scene("b"), scene("c", next="end"))
     found = problems(s)
     assert found == {("warning", "b", None, None): "Scene 'B': no path leads here."}
+    assert [p["code"] for p in engine.story_problems(s)] == ["unreachable"]
     play(s)
 
 
@@ -318,3 +331,91 @@ def test_only_the_storyteller_learns_how_far_is_left(client):
     assert client.get("/api/state").json()["path_progress"] == {"played": 0, "to_go": [2, 3]}
     phone = client.get("/api/state", params={"s": sid}, headers={"X-Session-Token": ""}).json()
     assert "path_progress" not in phone
+
+
+def chain(n, last=None):
+    """n scenes, each leading to the next; the last leads to `last` (or down the list)."""
+    return [scene(f"s{i}", choice(to=f"s{i + 1}" if i + 1 < n else last)) for i in range(n)]
+
+
+def test_a_long_story_is_checked_and_played(client):
+    """Deeper than Python's recursion limit: checking it, starting it and counting what's left all work."""
+    created = client.post("/api/stories", json={"title": "Long"}).json()
+    body = story(*chain(1500), finale("z")).model_dump(mode="json")
+    client.put(f"/api/stories/{created['id']}", json={**body, "id": created["id"]})
+
+    assert client.get(f"/api/stories/{created['id']}/problems").json() == {"problems": []}
+    resp = client.post("/api/state/start", json={"story_id": created["id"]})
+    assert resp.status_code == 200
+    client.headers["X-Session-Token"] = resp.json()["token"]
+    assert client.get("/api/state").json()["path_progress"] == {"played": 0, "to_go": [1501, 1501]}
+
+
+def test_a_long_loop_is_still_a_loop():
+    found = problems(story(*chain(1500, last="s0")))
+    assert any("S0 → S1 → S2" in message for message in found.values())
+
+
+# ---------------------------------------------------------------------------
+# Where the Flow view places things (Editor only)
+# ---------------------------------------------------------------------------
+
+
+def test_the_layout_keeps_places_only_for_nodes_that_exist():
+    s = story(
+        scene("a", routes=[{"condition": held("rope"), "target": "b"}]), scene("b"),
+        opening_scene={"title": "O", "base_text": "Once."},
+        layout={key: {"x": 1, "y": 2} for key in ("a", "b", "route:a:0", "route:a:1", "opening", "end", "doors", "gone", "x" * 5000)},
+    )
+    assert sorted(s.layout) == ["a", "b", "doors", "end", "opening", "route:a:0"]
+
+
+def test_a_place_that_isnt_a_number_is_dropped(client):
+    """NaN or infinity would make the saved story unreadable: the node is laid out again instead."""
+    created = client.post("/api/stories", json={"title": "Places"}).json()
+    body = story(scene("a"), scene("b")).model_dump(mode="json")
+    for bad in ("NaN", "Infinity", "-Infinity"):
+        raw = json.dumps({**body, "id": created["id"]}).replace('"layout": {}', f'"layout": {{"a": {{"x": {bad}, "y": 0}}, "b": {{"x": 3, "y": 4}}}}')
+        resp = client.put(f"/api/stories/{created['id']}", content=raw, headers={"Content-Type": "application/json"})
+        assert resp.status_code == 200, bad
+        assert client.get(f"/api/stories/{created['id']}").json()["layout"] == {"b": {"x": 3, "y": 4}}
+
+
+def test_the_drowned_bell_plays_down_each_branch():
+    """The branching demo: the prologue splits, the lantern and the key open their own ways, a swim ends it early."""
+    s = Story.model_validate(json.loads(Path("data/stories/demo-drowned-bell.json").read_text()))
+
+    def begin(path):
+        state = play(s)
+        for answer in ("Wren", "Saltmarsh", "a brother"):
+            engine.submit_madlib(state, answer)
+        engine.proceed_from_character(state)
+        engine.opening_choice(state, path)
+        return state
+
+    def walk(state, *picks):
+        seen = [state.current_scene_id]
+        for pick in picks:
+            choose(state, pick)
+            seen.append(state.current_scene_id)
+        return seen
+
+    # Harbour with the lantern: the road's route takes the stair
+    state = begin(0)
+    assert walk(state, 0, 0, 0) == ["scene_harbour", "scene_sunken_road", "scene_drowned_stair", "scene_bell"]
+    assert engine.get_scene(s, state.current_scene_id).is_finale
+
+    # Harbour without it: into the dark water, and Back returns to the road and the same branch
+    state = begin(0)
+    assert walk(state, 1, 0) == ["scene_harbour", "scene_sunken_road", "scene_dark_water"]
+    engine.go_back(state)
+    assert state.current_scene_id == "scene_sunken_road"
+
+    # The cliffs with the key: the dark water opens the keeper's room
+    state = begin(1)
+    assert walk(state, 0, 0, 1, 0) == ["scene_cliffs", "scene_sunken_road", "scene_dark_water", "scene_keepers_room", "scene_bell"]
+
+    # Swimming for shore ends it, on to the d20
+    state = begin(1)
+    walk(state, 1, 0, 2)
+    assert state.status == SessionStatus.GAME_OVER and state.outcome is None

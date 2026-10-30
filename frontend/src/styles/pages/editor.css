@@ -1226,6 +1226,7 @@
   cursor: pointer;
 }
 
+.ed-items__row[draggable="true"] { cursor: grab; }
 .ed-items__row:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
 .ed-items__row.is-active { background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
 
@@ -1644,3 +1645,14 @@
     box-shadow: -20px 0 40px rgb(0 0 0 / 0.35);
   }
 }
+
+/* A field an item's back-link pointed at: a soft ring that fades */
+[data-focus] { border-radius: 12px; transition: box-shadow 0.6s ease-out; }
+[data-focus].is-pointed { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-focus] { transition: none; }
+}
+
+/* The preview's item card: the phone's backpack card, standing in the pane */
+.ed-preview__item { max-width: 400px; max-height: none; margin: 18px auto 0; }

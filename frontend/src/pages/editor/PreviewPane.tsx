@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { GameState, Scene, Story } from '../../types'
 import { Atmosphere, HealthMeter } from '../../components'
 import { D20Icon } from '../../components/Icons'
-import { choiceWithItem, fillSample } from '../../lib/storyEdit'
+import { choiceWithItem, fillSample, findItem, itemUses, storyItems } from '../../lib/storyEdit'
 import { outcomeLabel } from '../../lib/outcomes'
-import { ChoiceOutcomeIcon } from '../../components/ItemIcon'
+import { ChoiceOutcomeIcon, ItemIcon } from '../../components/ItemIcon'
 import { HEALTH_LABEL, moodFor, moodSeed } from '../../lib/themes'
 import { PartyRail } from '../run/PartyRail'
 import type { EditorSelection } from './EditorNav'
@@ -107,7 +107,14 @@ function StagePreview({ story, selection, scene, fill, characterName, withItems 
   const mood = moodFor(story.theme, scene?.mood, scene ? moodSeed(scene.id) : 0)
   let main: ReactNode
 
-  if (selection.kind === 'characters') {
+  if (selection.kind === 'items') {
+    main = (
+      <>
+        <div className="eyebrow">An item is found</div>
+        <ItemCard story={story} itemId={selection.id} fill={fill} />
+      </>
+    )
+  } else if (selection.kind === 'characters') {
     main = (
       <>
         <div className="eyebrow">Read this to the table</div>
@@ -199,7 +206,14 @@ function PhonePreview({ story, selection, scene, fill, characterName }: ViewProp
   const mood = moodFor(story.theme, scene?.mood, scene ? moodSeed(scene.id) : 0)
   let main: ReactNode
 
-  if (selection.kind === 'characters') {
+  if (selection.kind === 'items') {
+    main = (
+      <>
+        <div className="phone-eyebrow">In the backpack</div>
+        <ItemCard story={story} itemId={selection.id} fill={fill} />
+      </>
+    )
+  } else if (selection.kind === 'characters') {
     const first = story.madlib_template.fields[0]
     main = (
       <div className="phone__main--center" style={{ minHeight: 600, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center' }}>
@@ -247,6 +261,22 @@ function PhonePreview({ story, selection, scene, fill, characterName }: ViewProp
       <Atmosphere contained theme={story.theme} mood={mood} level="subtle" />
       <header className="phone__bar"><span className="phone__story">{story.title}</span></header>
       <main className="phone__main">{main}</main>
+    </div>
+  )
+}
+
+/** An item as players see it when they open it in the backpack (the phone's ItemDialog card). */
+function ItemCard({ story, itemId, fill }: { story: Story; itemId?: string; fill: (text: string) => string }) {
+  const item = findItem(story, itemId) ?? storyItems(story)[0]
+  if (!item) return <p className="scene-text">Items appear here once the story has some.</p>
+  const where = itemUses(story, item.id).given[0]?.scene
+  return (
+    <div className="item-dialog__card ed-preview__item">
+      <ItemIcon name={item.name} icon={item.icon} theme={story.theme} size={84} framed />
+      <h2 className="item-dialog__name">{item.name || 'Unnamed item'}</h2>
+      {where && <p className="item-dialog__where">Found in {where.title || 'Untitled scene'}</p>}
+      {item.description && <p className="item-dialog__about">{fill(item.description)}</p>}
+      <p className="item-dialog__bonus">+1 to the final roll</p>
     </div>
   )
 }

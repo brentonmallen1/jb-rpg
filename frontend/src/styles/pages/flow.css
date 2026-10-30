@@ -27,7 +27,6 @@
 .fl-scene {
   display: flex;
   flex-direction: column;
-  width: 260px;
   padding: 12px 14px 8px;
   border: 1px solid color-mix(in srgb, var(--text-primary) 14%, var(--line));
   border-radius: 14px;
@@ -158,15 +157,13 @@
   white-space: nowrap;
 }
 
-.fl-badge--error { background: var(--warning); color: #1a1408; }
+.fl-badge--error { background: var(--warning); color: var(--bg-primary); }
 .fl-badge--warning { border: 1px dashed var(--text-secondary); background: var(--bg-secondary); color: var(--text-secondary); }
 
 /* Routes: a diamond with a yes (right) and a no (below) */
 .fl-route {
   display: grid;
   place-items: center;
-  width: 168px;
-  height: 104px;
   cursor: pointer;
 }
 
@@ -177,6 +174,8 @@
   background: color-mix(in srgb, var(--level) 12%, var(--bg-secondary));
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
+
+[data-mode="light"] .fl-route__shape { background: color-mix(in srgb, var(--level) 24%, var(--bg-secondary)); }
 
 .fl-route__text {
   position: relative;
@@ -206,8 +205,6 @@
   flex-direction: column;
   justify-content: center;
   gap: 4px;
-  width: 168px;
-  height: 72px;
   padding: 10px 14px;
   border-radius: 14px;
   font-size: 0.8rem;
@@ -240,6 +237,12 @@
 .fl-scene.is-given { border: 2px solid var(--fl-item); box-shadow: 0 0 0 5px color-mix(in srgb, var(--fl-item) 18%, transparent); }
 .fl-scene.is-checked { border: 2px dashed var(--fl-item); }
 .fl-route.is-checked .fl-route__shape { background: color-mix(in srgb, var(--fl-item) 22%, var(--bg-secondary)); }
+
+/* An item dragged from the Items panel: choices and routes are where it can land */
+.is-dragging-item .fl-choice { border-radius: 6px; outline: 1px dashed color-mix(in srgb, var(--fl-item) 55%, transparent); outline-offset: -2px; }
+.is-dragging-item .fl-route__shape { background: color-mix(in srgb, var(--fl-item) 14%, var(--bg-secondary)); }
+.fl-choice.is-drop { outline: 2px solid var(--fl-item); background: color-mix(in srgb, var(--fl-item) 16%, transparent); }
+.fl-route.is-drop .fl-route__shape { background: color-mix(in srgb, var(--fl-item) 30%, var(--bg-secondary)); }
 
 /* --- Handles ------------------------------------------------------------------ */
 
@@ -287,6 +290,13 @@
 .fl-edge--yes .react-flow__edge-path { stroke: var(--fl-level); }
 .fl-edge--default .react-flow__edge-path { stroke-dasharray: 5 6; opacity: 0.7; }
 .fl-edge--dim { opacity: 0.2; }
+
+/* "Depends on": a line, route or lock that looks back on how a scene went; drawn, never edited */
+.fl-edge--depends .react-flow__edge-path { stroke: var(--level); stroke-width: 1.5; stroke-dasharray: 2 5; opacity: 0.75; }
+.fl-edge--depends { pointer-events: none; }
+.fl-edge--depends .react-flow__edge-text { fill: var(--text-secondary); font-size: 10px; }
+.fl-edge--depends .react-flow__edge-textbg { fill: var(--bg-primary); }
+.react-flow__handle.fl-handle--depends { opacity: 0; pointer-events: none; }
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:focus-visible .react-flow__edge-path { stroke: var(--accent); stroke-width: 3; }
 

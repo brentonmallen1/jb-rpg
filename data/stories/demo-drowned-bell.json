@@ -1,0 +1,293 @@
+{
+  "id": "demo-drowned-bell",
+  "title": "The Drowned Bell",
+  "theme": "fantasy",
+  "settings": {
+    "starting_hp": 3,
+    "non_linear": false
+  },
+  "madlib_template": {
+    "prompt": "{name} of {homeland} came to Gull's Rest the night the drowned bell rang. They say the sea took it a hundred years ago, and that it rings only for someone who has lost {loss}.",
+    "fields": [
+      {
+        "key": "name",
+        "label": "The innkeeper sets down a cup and asks what to call you. What do you tell her?",
+        "hint": "a name"
+      },
+      {
+        "key": "homeland",
+        "label": "Your boots are salt-stained but your accent is not. Where are you from?",
+        "hint": "a place"
+      },
+      {
+        "key": "loss",
+        "label": "The old songs say the bell only rings for the grieving. What have you lost?",
+        "hint": "something precious"
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "item_ferrymans_lantern",
+      "name": "Ferryman's Lantern",
+      "icon": null,
+      "description": "Green glass and a flame that leans toward the sea, as if it knows the way down."
+    },
+    {
+      "id": "item_gull_feather_key",
+      "name": "Gull-feather Key",
+      "icon": null,
+      "description": "A key of grey iron, a white feather bound to its bow with fishing line. It is always cold."
+    }
+  ],
+  "opening_scene": {
+    "title": "Gull's Rest",
+    "base_text": "Three nights now the bell has rung beneath the bay. The fishermen will not put out; the children will not sleep. At low tide tonight, the old road under the water will show itself for one hour, and the bell will be close enough to reach. There are two ways down to it: the harbour, where the ferryman keeps his boat, and the cliff path, where the gulls nest in the ruined lookout.",
+    "choices": [
+      {
+        "text": "Down to the harbour",
+        "target_scene_id": "scene_harbour"
+      },
+      {
+        "text": "Up the cliff path",
+        "target_scene_id": "scene_cliffs"
+      }
+    ],
+    "conditional_text": []
+  },
+  "scenes": [
+    {
+      "id": "scene_harbour",
+      "title": "The Harbour at Low Tide",
+      "base_text": "The water has drawn back further than anyone alive has seen it. Boats lie tilted in the mud like sleeping dogs. At the end of the jetty the ferryman sits with his back to you, a green lantern at his feet, staring at the place where the sea used to be. 'You're here for the bell,' he says without turning. 'Everyone who comes for the bell sits with me first.'",
+      "choices": [
+        {
+          "kind": "item",
+          "display_text": "Do you sit with the ferryman and listen to his story?",
+          "result_text": "You sit. He talks about his daughter, and the night the bell first rang, and how he has carried this lantern down to the road every year since. When he is done he presses it into your hands. 'It knows the way down,' he says. 'I have stopped wanting to follow it.'",
+          "amount": 1,
+          "item_id": "item_ferrymans_lantern"
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you ask him which way the road runs and set out at once?",
+          "result_text": "He points without looking. You memorise the line of posts in the mud and the dark gap where the road dips under, and set off before the tide can change its mind. Hurrying sharpens you; you notice everything.",
+          "amount": 1
+        },
+        {
+          "kind": "damage",
+          "display_text": "Do you wade out across the mud flats, the quickest way?",
+          "result_text": "The mud takes you to the knee, then the thigh. Something under it is sharp. By the time you reach the road you are bleeding and shaking, and the ferryman's laugh drifts after you across the flats.",
+          "amount": 1
+        }
+      ],
+      "next": "scene_sunken_road"
+    },
+    {
+      "id": "scene_cliffs",
+      "title": "The Lookout on the Cliff",
+      "base_text": "The cliff path is narrow and the wind is not on your side. At the top, the old lookout tower has lost its roof to the weather and its stairs to the gulls. Hundreds of them watch you from the broken walls. In the centre of the floor is a nest larger than the rest, and something in it catches the moonlight like iron.",
+      "choices": [
+        {
+          "kind": "item",
+          "display_text": "Do you reach into the great nest for the glint of iron?",
+          "result_text": "The gulls scream but do not strike. Under the down and the fish bones is a key, a white feather bound to its bow. As you lift it, every gull in the tower falls silent at once. Then, together, they turn to face the sea.",
+          "amount": 1,
+          "item_id": "item_gull_feather_key"
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you read the warnings carved into the lookout's walls?",
+          "result_text": "Generations of watchmen have scratched their names here, and under them, the same words again and again: the road, the stair, the bell. One has drawn a map. You trace it with your finger until you know it by heart.",
+          "amount": 1
+        },
+        {
+          "kind": "damage",
+          "display_text": "Do you climb the broken wall to see the whole bay at once?",
+          "result_text": "From the top you can see it all: the road, the dark water, a tower drowned to its shoulders. Then a stone turns under your foot. You land hard on the floor below, among the gulls, who do not help.",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "scene_sunken_road",
+      "title": "The Sunken Road",
+      "base_text": "The road runs straight out from the shore, paved, impossibly, under a hand's depth of water. Weed hangs from the old lamp-posts. Where the road meets the deep water it splits: a stair winds down into a tower whose roof just breaks the surface, and beside it the road keeps going, down, into the black.",
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "item_held",
+            "item_id": "item_ferrymans_lantern"
+          },
+          "text": "The ferryman's lantern flares green and leans, hard, toward the drowned tower's stair."
+        },
+        {
+          "condition": {
+            "type": "scene_outcome",
+            "scene_id": "scene_harbour",
+            "outcome": "damage"
+          },
+          "text": "Your cut leg stings in the salt water with every step."
+        }
+      ],
+      "choices": [
+        {
+          "kind": "level",
+          "display_text": "Do you stop and listen for the bell before going on?",
+          "result_text": "You stand still, water to the ankle, and wait. When the bell comes it comes from below and to the left, and you feel it in your teeth. You know now which way it lies.",
+          "amount": 1
+        },
+        {
+          "kind": "damage",
+          "display_text": "Do you hurry, before the tide turns?",
+          "result_text": "You run. The stones are slick with weed and the third one tips. You go down hard on your hands, and the cold of the water is the cold of a hundred years.",
+          "amount": 1
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you call out {name}, your own name, into the dark?",
+          "result_text": "Your voice comes back to you changed, older and further away. Then, very faintly, someone answers it. You do not feel braver. You feel expected.",
+          "amount": 1
+        }
+      ],
+      "routes": [
+        {
+          "condition": {
+            "type": "item_held",
+            "item_id": "item_ferrymans_lantern"
+          },
+          "target": "scene_drowned_stair"
+        }
+      ],
+      "next": "scene_dark_water"
+    },
+    {
+      "id": "scene_drowned_stair",
+      "title": "The Drowned Stair",
+      "display_name": "The stair the lantern found",
+      "base_text": "The lantern's light goes ahead of you down the stair, and the water parts around it as if it were a hand. The tower's walls are covered in names, the same names as on the cliff. Halfway down, a figure sits on the steps, made of nothing but the green light. It has the ferryman's face, younger.",
+      "choices": [
+        {
+          "kind": "level",
+          "display_text": "Do you ask the figure who it is waiting for?",
+          "result_text": "'For her,' it says, and you understand that the ferryman has been waiting on these steps every night for forty years, and that some part of him never came back up. It stands aside. 'Ring it for both of us.'",
+          "amount": 1
+        },
+        {
+          "kind": "damage",
+          "display_text": "Do you walk straight through it?",
+          "result_text": "The light is colder than the water. For a moment you are forty years old and grieving and you cannot remember why you came down here. Then it passes, and you are yourself again, and shaking.",
+          "amount": 1
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you set the lantern down beside it?",
+          "result_text": "The figure looks at the lantern for a long time. Then it picks it up, and the light goes out of the stair and into it, and you walk the rest of the way down in the dark, unafraid.",
+          "amount": 1
+        }
+      ],
+      "next": "scene_bell"
+    },
+    {
+      "id": "scene_dark_water",
+      "title": "The Dark Water",
+      "base_text": "Without a light, the road goes down into water so dark it seems solid. You feel your way along the posts. The cold reaches your chest, then your throat. Ahead, something huge and patient sits on the bottom, and the water around it trembles each time it rings.",
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "item_held",
+            "item_id": "item_gull_feather_key"
+          },
+          "text": "The key in your pocket grows colder, and to your right, a door you would never have seen is outlined in frost."
+        }
+      ],
+      "choices": [
+        {
+          "kind": "damage",
+          "display_text": "Do you take a breath and dive for the bell?",
+          "result_text": "You dive. It is further than it looked, and the water is heavier than water should be. You touch the bell's lip with your fingertips before your lungs force you back up, gasping, half-drowned.",
+          "amount": 1
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you follow the posts along the bottom, hand over hand?",
+          "result_text": "It is slow and terrible and it works. Post by post you go down, until the bell is close enough that its ringing moves the water against your face.",
+          "amount": 1
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you swim back to shore while you still can?",
+          "result_text": "You turn back. Halfway to the shore you hear the bell ring once more, and then the tide comes in over the road for another hundred years. Whatever waited for you down there will go on waiting.",
+          "amount": 1,
+          "next_scene_id": "end"
+        }
+      ],
+      "routes": [
+        {
+          "condition": {
+            "type": "item_held",
+            "item_id": "item_gull_feather_key"
+          },
+          "target": "scene_keepers_room"
+        }
+      ],
+      "next": "scene_bell"
+    },
+    {
+      "id": "scene_keepers_room",
+      "title": "The Keeper's Room",
+      "display_name": "The door the key opened",
+      "base_text": "The frost door opens onto a dry room under the sea. A bed, a table, a window looking out at the drowned tower. On the table is a logbook in which a bell-keeper wrote the same sentence every day for a year: 'Rang the bell. No one came.' The last page is blank.",
+      "choices": [
+        {
+          "kind": "level",
+          "display_text": "Do you write in the last page of the logbook?",
+          "result_text": "You write: 'Someone came.' The ink dries at once. Somewhere above you, very faintly, every gull in the lookout begins to cry.",
+          "amount": 1
+        },
+        {
+          "kind": "damage",
+          "display_text": "Do you search the keeper's bed for anything useful?",
+          "result_text": "Under the mattress is nothing but the keeper. Or what the sea has left. You stumble back into the table and the logbook falls, and the room fills with the sound of the bell.",
+          "amount": 1
+        },
+        {
+          "kind": "level",
+          "display_text": "Do you look out of the window at the tower?",
+          "result_text": "From here you can see what the road cannot: a way into the bell chamber from below, through a door the keeper must have used every day. The key fits it. Of course it does.",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "scene_bell",
+      "title": "The Drowned Bell",
+      "is_finale": true,
+      "base_text": "The bell hangs in the drowned tower's crown, green with age and taller than a door. Its rope is still there, swaying in the current as if someone had only just let it go. When it rings, the whole bay listens. Somewhere above you, in a village that will not sleep, {loss} is remembered.",
+      "finale_setup_text": "The tide is turning. You have one chance to ring the bell and make it to the surface before the road goes under again. Roll the d20 and add one for every item you carry. You have one attempt for every level. Reach 20, and the bell rings for the last time.",
+      "victory_text": "You ring it. {item_text:Ferryman's Lantern}The sound goes up through the water and out over the bay, and every window in Gull's Rest lights at once. {item_text:Gull-feather Key}When you break the surface the tide is gentle and the gulls are waiting. In the morning, the fishermen put out to sea. The bell never rings again, and for the first time in a long time, {name} of {homeland} sleeps.",
+      "defeat_text": "The rope is heavier than a hundred years. {item_text:Ferryman's Lantern}You pull and pull and the bell will not swing, and then the tide is over the road and over the tower and over you. {item_text:Gull-feather Key}On the third night after, the bell rings again in Gull's Rest. The fishermen say it sounds different now. They say it sounds like {name}.",
+      "item_texts": {
+        "item_ferrymans_lantern": {
+          "victory": "The ferryman's lantern flares so bright it lights the whole tower, and for a moment you see a hundred faces in the water, all of them smiling. ",
+          "defeat": "The ferryman's lantern gutters and goes out. "
+        },
+        "item_gull_feather_key": {
+          "victory": "The key unlocks the keeper's door from the inside, and you climb out the dry way, the way the keeper used to. ",
+          "defeat": "The key slips from your numb fingers and turns over and over, down into the dark. "
+        }
+      },
+      "choices": [],
+      "conditional_text": [
+        {
+          "condition": {
+            "type": "level",
+            "op": "gte",
+            "value": 3
+          },
+          "text": "Everything you have learned on the way down tells you exactly where to pull."
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { useState, type RefObject } from 'react'
 import type { AudioFile, Condition, Route, Scene, Story, StoryProblem } from '../../types'
 import { MOODS } from '../../lib/themes'
-import { KIND_LABEL, defaultNextTitle, describeCondition, findItem, isDoor, newChoices, patchScene, storyItems } from '../../lib/storyEdit'
+import { KIND_LABEL, addRoute, defaultNextTitle, describeCondition, findItem, isDoor, newChoices, patchScene, removeRoute, storyItems } from '../../lib/storyEdit'
 import { CloseIcon } from '../../components/Icons'
 import { Field, Section, TextArea, TextInput } from './fields'
 import { KeyChips } from './KeyChips'
@@ -9,6 +9,7 @@ import { ChoiceCards } from './ChoiceCards'
 import { ConditionsEditor } from './ConditionsEditor'
 import { ConditionFields } from './ConditionFields'
 import { TargetPicker } from './pickers'
+import { Combobox } from './Combobox'
 import { WritingDialog, type WritingEntry } from './WritingDialog'
 import { FinaleSuggestions } from './FinaleSuggestions'
 
@@ -218,7 +219,7 @@ function FinaleSection({ story, scene, patch, textTarget, onWrite }: FinaleSecti
           {Object.entries(itemTexts).map(([id, texts]) => {
             const name = findItem(story, id)?.name || 'An item that no longer exists'
             return (
-              <div key={id} className="ed-item-ending">
+              <div key={id} className="ed-item-ending" data-focus={`item-ending-${id}`}>
                 <div className="ed-item-ending__head">
                   <strong>{name}</strong>
                   <button
@@ -246,15 +247,13 @@ function FinaleSection({ story, scene, patch, textTarget, onWrite }: FinaleSecti
           {items.length === 0 ? (
             <p className="ed-muted">No items in this story yet: add some under Items, or from a choice that finds one.</p>
           ) : unused.length > 0 && (
-            <select
-              className="ed-input"
+            <Combobox
               aria-label="Add item endings"
               value=""
-              onChange={e => e.target.value && patch({ item_texts: { ...itemTexts, [e.target.value]: { victory: '', defeat: '' } } })}
-            >
-              <option value="">+ Add endings for an item…</option>
-              {unused.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+              options={unused.map(item => ({ value: item.id, label: item.name }))}
+              onChange={id => patch({ item_texts: { ...itemTexts, [id]: { victory: '', defeat: '' } } })}
+              placeholder="+ Add endings for an item…"
+            />
           )}
         </div>
       </Section>
@@ -272,8 +271,7 @@ interface PathSectionProps {
 /** Where the story goes after a choice that doesn't say: routes in order, then "otherwise". */
 function AfterThisScene({ story, scene, problems, update }: PathSectionProps) {
   const routes = scene.routes ?? []
-  const setRoutes = (next: Route[]) => update(s => patchScene(s, scene.id, { routes: next }))
-  const setRoute = (i: number, route: Route) => setRoutes(routes.map((r, j) => (j === i ? route : r)))
+  const setRoute = (i: number, route: Route) => update(s => patchScene(s, scene.id, { routes: routes.map((r, j) => (j === i ? route : r)) }))
   const nextProblem = problems.find(p => p.field === 'next' && !p.message.includes('loop'))
 
   return (
@@ -286,7 +284,7 @@ function AfterThisScene({ story, scene, problems, update }: PathSectionProps) {
         {routes.map((route, i) => {
           const problem = problems.find(p => p.field === 'routes' && p.index === i)
           return (
-            <div key={i} className={`ed-route ${problem ? 'has-problem' : ''}`}>
+            <div key={i} className={`ed-route ${problem ? 'has-problem' : ''}`} data-focus={`route-${i}`}>
               <div className="ed-route__row">
                 <span className="ed-route__word">If</span>
                 <ConditionFields
@@ -310,7 +308,7 @@ function AfterThisScene({ story, scene, problems, update }: PathSectionProps) {
                   onChange={target => setRoute(i, { ...route, target: target ?? '' })}
                   update={update}
                 />
-                <button type="button" className="icon-btn" aria-label={`Remove route ${i + 1}`} onClick={() => setRoutes(routes.filter((_, j) => j !== i))}>
+                <button type="button" className="icon-btn" aria-label={`Remove route ${i + 1}`} onClick={() => update(s => removeRoute(s, scene.id, i))}>
                   <CloseIcon size={16} />
                 </button>
               </div>
@@ -321,7 +319,7 @@ function AfterThisScene({ story, scene, problems, update }: PathSectionProps) {
         <button
           type="button"
           className="s-btn s-btn--ghost ed-routes__add"
-          onClick={() => setRoutes([...routes, { condition: { type: 'item_held' }, target: '' }])}
+          onClick={() => update(s => addRoute(s, scene.id))}
         >
           + Add a route
         </button>
@@ -358,7 +356,7 @@ function LockedUntil({ story, scene, problems, update }: PathSectionProps) {
         {requires.map((condition, i) => {
           const problem = problems.find(p => p.field === 'requires' && p.index === i)
           return (
-            <div key={i} className={`ed-route ${problem ? 'has-problem' : ''}`}>
+            <div key={i} className={`ed-route ${problem ? 'has-problem' : ''}`} data-focus={`lock-${i}`}>
               <div className="ed-route__row">
                 <span className="ed-route__word">{i === 0 ? 'Until' : 'and'}</span>
                 <ConditionFields

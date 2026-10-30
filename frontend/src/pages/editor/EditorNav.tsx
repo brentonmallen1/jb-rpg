@@ -1,14 +1,14 @@
 import { useState } from 'react'
-import type { Scene, Story, StoryProblem } from '../../types'
-import { sceneBranches, storyItems } from '../../lib/storyEdit'
+import type { Story, StoryProblem } from '../../types'
+import { sceneBranches, sceneStatus, storyItems } from '../../lib/storyEdit'
 import { BranchIcon } from '../../components/Icons'
 
 export type EditorSelection =
   | { kind: 'story' }
   | { kind: 'characters' }
-  | { kind: 'opening' }
+  | { kind: 'opening'; focus?: string }
   | { kind: 'items'; id?: string }
-  | { kind: 'scene'; id: string }
+  | { kind: 'scene'; id: string; focus?: string }  // focus: a field in the panel to bring into view (its data-focus)
 
 interface EditorNavProps {
   story: Story
@@ -18,17 +18,6 @@ interface EditorNavProps {
   onAddScene: () => void
   onAddOpening: () => void
   onMoveScene: (sceneId: string, toIndex: number) => void
-}
-
-/** Is a scene written enough to play? (Problems come from the server; this adds "unwritten".) */
-function sceneStatus(scene: Scene, problems: StoryProblem[]): { tone: 'problem' | 'draft' | 'ready'; label: string } {
-  const own = problems.filter(p => p.scene_id === scene.id)
-  if (own.some(p => p.severity === 'error')) return { tone: 'problem', label: 'Needs fixing before play' }
-  if (own.length) return { tone: 'draft', label: own[0].message }
-  const unwritten = !scene.base_text.trim() ||
-    (scene.is_finale ? !scene.victory_text?.trim() || !scene.defeat_text?.trim()
-      : scene.choices.some(c => !c.display_text.trim() || !c.result_text.trim()))
-  return unwritten ? { tone: 'draft', label: 'Still being written' } : { tone: 'ready', label: 'Written' }
 }
 
 export function EditorNav({ story, selection, problems, onSelect, onAddScene, onAddOpening, onMoveScene }: EditorNavProps) {

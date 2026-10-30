@@ -8,7 +8,7 @@ import { loadAllThemes } from '../hooks/useTheme'
 import type { AudioFile, Story, StoryProblem } from '../types'
 import { ConfirmDialog, Modal, NowPlaying, PageMessage } from '../components'
 import { BackIcon, EyeIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
-import { deleteScene, moveSceneTo, newScene } from '../lib/storyEdit'
+import { addScene, createScene, deleteScene, moveSceneTo } from '../lib/storyEdit'
 import { EditorNav, type EditorSelection } from './editor/EditorNav'
 import { StoryPanel } from './editor/StoryPanel'
 import { CharactersPanel } from './editor/CharactersPanel'
@@ -159,6 +159,19 @@ export default function Editor() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [saveNow, undo, redo])
 
+  // A selection can point at one field in its panel (an item's "Given by" / "Checked by"): bring it into view
+  useEffect(() => {
+    const focus = 'focus' in selection ? selection.focus : undefined
+    const field = focus ? document.querySelector<HTMLElement>(`.ed-panel [data-focus="${CSS.escape(focus)}"]`) : null
+    if (!field) return
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    field.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' })
+    ;(field.querySelector<HTMLElement>('textarea') ?? field.querySelector<HTMLElement>('input, select'))?.focus({ preventScroll: true })
+    field.classList.add('is-pointed')
+    const done = setTimeout(() => field.classList.remove('is-pointed'), 1800)
+    return () => clearTimeout(done)
+  }, [selection])
+
   function select(next: EditorSelection) {
     setSelection(next)
     setNavOpen(false)
@@ -219,7 +232,7 @@ export default function Editor() {
       return <CharactersPanel story={story} problems={problems} samples={samples} onSamples={changeSamples} update={update} />
     }
     if (selection.kind === 'items') {
-      return <ItemsPanel story={story} itemId={selection.id} problems={problems} update={update} onSelect={select} />
+      return <ItemsPanel story={story} itemId={selection.id} problems={problems} update={update} onSelect={select} dragToCanvas={view === 'flow'} />
     }
     if (selection.kind === 'opening' && story.opening_scene) {
       return <OpeningPanel story={story} opening={story.opening_scene} problems={problems} update={update} textTarget={textTarget} />
@@ -315,8 +328,8 @@ export default function Editor() {
               problems={problems}
               onSelect={select}
               onAddScene={() => {
-                const scene = newScene(story.scenes.length + 1)
-                update(s => ({ ...s, scenes: [...s.scenes, scene] }))
+                const scene = createScene(story)
+                update(s => addScene(s, scene))
                 select({ kind: 'scene', id: scene.id })
               }}
               onAddOpening={() => {

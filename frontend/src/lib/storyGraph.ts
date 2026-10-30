@@ -1,7 +1,7 @@
 import dagre from '@dagrejs/dagre'
-import type { Choice, Route, Scene, Story, StoryProblem } from '../types'
+import type { Choice, Scene, Story, StoryProblem } from '../types'
 import { END } from '../types'
-import { isDoor, patchScene } from './storyEdit'
+import { DOORS, defaultNext, isDoor, patchScene, storyConditions } from './storyEdit'
 
 /**
  * The story as a graph for the Flow view: pure, so the canvas only draws it and every edit goes
@@ -9,13 +9,27 @@ import { isDoor, patchScene } from './storyEdit'
  *
  * Nodes: the prologue, scenes, a diamond per route, The end, and the doors (door stories).
  * Handles: "in" on everything that can be led to; on a scene, "c{i}" per choice and "then";
- * on a route, "yes" and "no".
+ * on a route, "yes" and "no". "depends" and "depends-in" carry the "depends on" lines, which
+ * only show what a condition looks back on: they can't be drawn or deleted.
  */
 
-export const END_NODE = 'end'
-export const DOORS_NODE = 'doors'
+export const END_NODE = END
+export const DOORS_NODE = DOORS
 export const OPENING_NODE = 'opening'
 export const routeNodeId = (sceneId: string, index: number) => `route:${sceneId}:${index}`
+
+export function parseRouteNode(id: string): { sceneId: string; index: number } | null {
+  const m = id.match(/^route:(.+):(\d+)$/)
+  return m ? { sceneId: m[1], index: Number(m[2]) } : null
+}
+
+/** A choice's handle on its scene (or the prologue): "c0", "c1"… */
+export const choiceHandle = (index: number) => `c${index}`
+
+export function parseChoiceHandle(handle: string | null | undefined): number | null {
+  const m = handle?.match(/^c(\d+)$/)
+  return m ? Number(m[1]) : null
+}
 
 export type GraphNodeKind = 'opening' | 'scene' | 'route' | 'end' | 'doors'
 
@@ -37,6 +51,7 @@ export type EdgeRole =
   | { kind: 'chain'; sceneId: string; index: number }  // fixed: then -> first route, route "no" -> next route
   | { kind: 'opening'; index: number }
   | { kind: 'door'; sceneId: string }  // fixed: the doors -> a door
+  | { kind: 'depends'; sceneId: string }  // fixed: a scene -> a line, route or lock that asks how it went
 
 export interface GraphEdge {
   id: string
@@ -49,9 +64,10 @@ export interface GraphEdge {
   outcome?: Choice['kind']
 }
 
+/** Node sizes: the layout reserves them and the nodes draw at them */
 export const SCENE_WIDTH = 260
-const ROUTE_SIZE = { width: 168, height: 104 }
-const SMALL_SIZE = { width: 168, height: 72 }
+export const ROUTE_SIZE = { width: 168, height: 104 }
+export const SMALL_SIZE = { width: 168, height: 72 }
 
 export function sceneHeight(scene: Scene): number {
   return 56 + scene.choices.length * 30 + (scene.is_finale ? 30 : 38) + (scene.requires?.length ? 26 : 0)
@@ -64,13 +80,6 @@ function nodeFor(story: Story, target: string | null | undefined): string | null
   return story.scenes.some(s => s.id === target) ? target : null
 }
 
-/** Where a scene goes when nothing says otherwise: the next in the list, The end, or the doors */
-function defaultNode(story: Story, scene: Scene): string {
-  if (story.settings.non_linear) return DOORS_NODE
-  const i = story.scenes.findIndex(s => s.id === scene.id)
-  return story.scenes[i + 1]?.id ?? END_NODE
-}
-
 export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
@@ -80,7 +89,7 @@ export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge
     nodes.push({ id: OPENING_NODE, kind: 'opening', position: { x: 0, y: 0 }, width: SCENE_WIDTH, height: 56 + Math.max(story.opening_scene.choices.length, 1) * 30 + 8 })
     story.opening_scene.choices.forEach((c, i) => {
       const target = nodeFor(story, c.target_scene_id) ?? (doorsStory ? DOORS_NODE : story.scenes[0]?.id)
-      if (target) edges.push({ id: `opening:${i}`, source: OPENING_NODE, sourceHandle: `c${i}`, target, role: { kind: 'opening', index: i }, implicit: !c.target_scene_id })
+      if (target) edges.push({ id: `opening:${i}`, source: OPENING_NODE, sourceHandle: choiceHandle(i), target, role: { kind: 'opening', index: i }, implicit: !c.target_scene_id })
     })
     // No choices: the story simply begins (at the doors, or the first scene)
     const begin = doorsStory ? DOORS_NODE : story.scenes[0]?.id
@@ -101,10 +110,10 @@ export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge
 
     scene.choices.forEach((c, i) => {
       const target = nodeFor(story, c.next_scene_id)
-      if (target) edges.push({ id: `choice:${scene.id}:${i}`, source: scene.id, sourceHandle: `c${i}`, target, role: { kind: 'choice', sceneId: scene.id, index: i }, outcome: c.kind })
+      if (target) edges.push({ id: `choice:${scene.id}:${i}`, source: scene.id, sourceHandle: choiceHandle(i), target, role: { kind: 'choice', sceneId: scene.id, index: i }, outcome: c.kind })
     })
     // Rooms in door stories go back to the doors without a line (the card says so)
-    const otherwise = nodeFor(story, scene.next) ?? defaultNode(story, scene)
+    const otherwise = nodeFor(story, scene.next) ?? defaultNext(story, scene)
     const routes = scene.routes ?? []
     routes.forEach((route, i) => {
       const id = routeNodeId(scene.id, i)
@@ -122,7 +131,21 @@ export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge
   nodes.push({ id: END_NODE, kind: 'end', position: { x: 0, y: 0 }, ...SMALL_SIZE })
 
   place(story, nodes, edges)
-  return { nodes, edges }
+  return { nodes, edges: [...edges, ...dependsOn(story)] }
+}
+
+/** "Depends on" lines: from a scene to each line, route or lock elsewhere that asks how it went.
+ * Drawn after layout, so they never pull the story's paths out of shape. */
+function dependsOn(story: Story): GraphEdge[] {
+  const edges = new Map<string, GraphEdge>()
+  for (const { scene, what, index, condition } of storyConditions(story)) {
+    const source = condition.type === 'scene_outcome' ? condition.scene_id : undefined
+    if (!scene || !source || source === scene.id || !story.scenes.some(s => s.id === source)) continue
+    const target = what === 'route' ? routeNodeId(scene.id, index) : scene.id
+    const id = `depends:${source}:${target}`
+    edges.set(id, { id, source, sourceHandle: 'depends', target, role: { kind: 'depends', sceneId: scene.id } })
+  }
+  return [...edges.values()]
 }
 
 /** Saved positions where the author put things; the rest laid out left to right by dagre. */
@@ -170,9 +193,10 @@ export function connect(story: Story, source: string, sourceHandle: string | nul
   const value = targetValue(story, target)
   if (value === undefined || source === target) return null
 
-  if (source === OPENING_NODE && story.opening_scene && sourceHandle?.startsWith('c')) {
+  const choice = parseChoiceHandle(sourceHandle)
+  if (source === OPENING_NODE && story.opening_scene && choice !== null) {
     if (value === END) return null
-    const i = Number(sourceHandle.slice(1))
+    const i = choice
     return { ...story, opening_scene: { ...story.opening_scene, choices: story.opening_scene.choices.map((c, j) => (j === i ? { ...c, target_scene_id: value ?? undefined } : c)) } }
   }
 
@@ -196,8 +220,8 @@ export function connect(story: Story, source: string, sourceHandle: string | nul
     if (scene.routes?.length) return null  // "then" runs through the routes
     return patchScene(story, scene.id, { next: value })
   }
-  if (sourceHandle?.startsWith('c')) {
-    const i = Number(sourceHandle.slice(1))
+  if (choice !== null) {
+    const i = choice
     return patchScene(story, scene.id, sc => ({ ...sc, choices: sc.choices.map((c, j) => (j === i ? { ...c, next_scene_id: value } : c)) }))
   }
   return null
@@ -216,27 +240,12 @@ export function disconnect(story: Story, role: EdgeRole): Story {
       if (!story.opening_scene) return story
       return { ...story, opening_scene: { ...story.opening_scene, choices: story.opening_scene.choices.map((c, j) => (j === role.index ? { ...c, target_scene_id: undefined } : c)) } }
     default:
-      return story  // the route chain and the doors are drawn from the story, not chosen
+      return story  // the route chain, the doors and "depends on" are drawn from the story, not chosen
   }
 }
 
-export function removeRoute(story: Story, sceneId: string, index: number): Story {
-  return patchScene(story, sceneId, sc => ({ ...sc, routes: (sc.routes ?? []).filter((_, j) => j !== index) }))
-}
-
-export function addRoute(story: Story, sceneId: string, route: Route = { condition: { type: 'item_held' }, target: '' }): Story {
-  return patchScene(story, sceneId, sc => ({ ...sc, routes: [...(sc.routes ?? []), route] }))
-}
-
-export function parseRouteNode(id: string): { sceneId: string; index: number } | null {
-  const m = id.match(/^route:(.+):(\d+)$/)
-  return m ? { sceneId: m[1], index: Number(m[2]) } : null
-}
-
-/** Remember where the author put a node */
-export function moveNode(story: Story, id: string, position: { x: number; y: number }): Story {
-  return { ...story, layout: { ...(story.layout ?? {}), [id]: { x: Math.round(position.x), y: Math.round(position.y) } } }
-}
+/** What an item carries while it's dragged from the Items panel onto the canvas */
+export const ITEM_DRAG = 'application/x-jb-rpg-item'
 
 /** Problems for a node, worst first */
 export function nodeProblems(problems: StoryProblem[], node: GraphNode): StoryProblem[] {

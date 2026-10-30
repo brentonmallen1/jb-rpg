@@ -296,6 +296,7 @@ export interface StoryProblem {
   field: string | null  // e.g. 'item_id', 'conditional_text', 'choices', 'next_scene_id', 'routes', 'next', 'requires'
   index: number | null  // which choice / condition / route / item
   severity: 'error' | 'warning'  // only errors stop a game starting
+  code: 'unreachable' | 'item_never_given' | 'unknown_item_text' | null  // what kind of warning
 }
 
 /** A crest from the emblem service (emblazon), SVG included */

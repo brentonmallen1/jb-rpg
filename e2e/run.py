@@ -149,7 +149,7 @@ def main() -> int:
     (data_dir / "stories").mkdir()
     shutil.copy(ROOT / "data" / "stories" / f"{STORY}.json", data_dir / "stories")
 
-    backend = start_backend(data_dir)
+    backend_ref = [start_backend(data_dir)]  # the checks restart it: always stop the latest
     frontend = subprocess.Popen(
         ["npx", "vite", "--port", str(FRONTEND_PORT), "--strictPort"],
         cwd=ROOT / "frontend", env={**os.environ, "BACKEND_PORT": str(BACKEND_PORT)},
@@ -157,11 +157,10 @@ def main() -> int:
     )
     try:
         wait_for(B)
-        run_checks(data_dir, lambda: start_backend(data_dir), backend_ref := [backend])
-        backend = backend_ref[0]
+        run_checks(data_dir, lambda: start_backend(data_dir), backend_ref)
     finally:
         stop(frontend)
-        stop(backend)
+        stop(backend_ref[0])
         shutil.rmtree(data_dir, ignore_errors=True)
 
     passed = sum(ok for _, ok in results)
@@ -368,6 +367,8 @@ def run_checks(data_dir: Path, restart_backend, backend_ref: list) -> None:
         roll_checks(browser)
         backpack_checks(browser)
         door_checks(browser)
+        branch_checks(browser)
+        lock_checks(browser)
         login_checks(browser)
         browser.close()
 
@@ -429,6 +430,11 @@ def editor_checks(browser) -> None:
     check("The item shows where it's given and checked", page.locator(".ed-uses__row").count() >= 2)
     page.fill("#item-name", "Climbing Rope")
     page.wait_for_timeout(2500)
+    check("The preview shows the item's backpack card", "Climbing Rope" in page.locator(".ed-preview .item-dialog__name").inner_text())
+    page.locator(".ed-uses__row").first.click()
+    page.wait_for_timeout(600)
+    focused = page.evaluate("document.activeElement?.closest('[data-focus]')?.dataset.focus ?? ''")
+    check("A 'Given by' link opens the scene at that choice", focused.startswith("choice-"), focused)
     page.click(".ed-nav__item:has-text('The Village Gate')")
     page.wait_for_selector("#scene-text", timeout=5000)
 
@@ -456,12 +462,15 @@ def editor_checks(browser) -> None:
     page.keyboard.press("Escape")
     page.wait_for_selector("dialog.writer[open]", state="detached", timeout=3000)
     check("Escape closes the window", "OWL" in scene_text.input_value())
+    check("Closing it returns to the field it was opened from", page.evaluate("document.activeElement?.id") == "scene-text")
 
     def chasm_lines():
         saved = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]["conditional_text"]
         return [c for c in saved if c["condition"].get("scene_id") == "scene_chasm_bridge" and c["condition"].get("outcome") == "item"]
 
-    page.select_option("select[aria-label='Add text for after a scene']", label="The Chasm Bridge")
+    page.click("input[aria-label='Add text for after a scene']")
+    page.keyboard.type("Chasm")
+    page.keyboard.press("Enter")
     slot = page.locator("textarea[aria-label='If the hero found an item in The Chasm Bridge']")
     slot.fill("You still have the rope.")
     page.wait_for_timeout(2500)
@@ -485,6 +494,8 @@ def flow_checks(browser) -> None:
     page.wait_for_selector(".fl-scene", timeout=10000)
     scenes = call(f"/api/stories/{STORY}", method="GET")["scenes"]
     check("The Flow view draws every scene, and The end", page.locator(".fl-scene").count() == len(scenes) and page.locator(".fl-end").count() == 1)
+    looks_back = sum(1 for sc in scenes for ct in sc["conditional_text"] if ct["condition"]["type"] == "scene_outcome")
+    check("Lines that look back on a scene are drawn as 'depends on'", looks_back > 0 and page.locator(".react-flow__edge.fl-edge--depends").count() > 0)
 
     def node(scene_id):
         return page.locator(f".react-flow__node[data-id='{scene_id}']")
@@ -528,6 +539,17 @@ def flow_checks(browser) -> None:
     page.keyboard.press("Meta+z" if sys.platform == "darwin" else "Control+z")
     page.wait_for_timeout(2500)
     check("Undo takes it back", len(call(f"/api/stories/{STORY}", method="GET")["scenes"]) == count)
+
+    # Drag an item from the drawer onto a choice: the choice now finds it
+    page.click(".editor__drawer button:text-is('Items')")
+    rope = next(i for i in call(f"/api/stories/{STORY}", method="GET")["items"] if i["name"] == "Climbing Rope")
+    choice_index = next(i for i, c in enumerate(saved["scenes"][0]["choices"]) if c["kind"] != "item")
+    page.drag_and_drop(".ed-items__row:has-text('Climbing Rope')", f".react-flow__node[data-id='{gate}'] .fl-choice >> nth={choice_index}")
+    page.wait_for_timeout(2500)
+    given = call(f"/api/stories/{STORY}", method="GET")["scenes"][0]["choices"][choice_index]
+    check("Dropping an item on a choice gives it", given["kind"] == "item" and given.get("item_id") == rope["id"], str(given.get("item_id")))
+    page.keyboard.press("Meta+z" if sys.platform == "darwin" else "Control+z")
+    page.wait_for_timeout(2500)
     page.click(".editor__view button:has-text('Text')")
 
 
@@ -775,6 +797,82 @@ def backpack_checks(browser) -> None:
     phone.locator(".item-dialog__card").dispatch_event("touchend", {"touches": []})
     phone.wait_for_timeout(300)
     check("A swipe down goes back to the backpack", phone.locator(".item-dialog[open]").count() == 0 and phone.locator(".sheet[open]").count() == 1)
+
+
+def branch_checks(browser) -> None:
+    """The branching demo: the stage counts what's played and what may be left, and follows the lantern's route."""
+    demo = json.loads((ROOT / "data" / "stories" / "demo-drowned-bell.json").read_text())
+    story_id = call("/api/stories/import", demo)["id"]
+    started = call("/api/state/start", {"story_id": story_id, "force": True})
+    token = started["token"]
+    for answer in ("Wren", "Saltmarsh", "a brother"):
+        call("/api/state/madlib", {"answer": answer}, token)
+    call("/api/state/proceed-from-character", None, token)
+    call("/api/state/opening-choice", {"choice_index": 0}, token)  # down to the harbour
+
+    teller = signed_in_context(browser, viewport={"width": 1280, "height": 900})
+    teller.add_init_script(f"sessionStorage.setItem('jb_rpg_session_token', {json.dumps(token)}); localStorage.setItem('jb_rpg_presentation','off')")
+    stage = teller.new_page()
+    stage.goto(B + "/run")
+    stage.wait_for_selector("text=The Harbour at Low Tide", timeout=10000)
+    stage.wait_for_selector(".progress-rail", timeout=10000)
+    words = stage.locator(".progress-rail").locator("xpath=..").inner_text().lower()
+    check("A branching story counts what's played and what may be left", "0 played · 3–5 to go" in words, words[:120])
+    check("The rail shows the paths that may be longer", stage.locator(".progress-rail .is-maybe").count() == 2)
+
+    call("/api/state/choice", {"choice_index": 0}, token)  # the ferryman's lantern
+    call("/api/state/choice", {"choice_index": 0}, token)  # the road: the lantern's route
+    stage.wait_for_selector("text=The Drowned Stair", timeout=10000)
+    check("A route sends the party where the lantern leads", "2 played" in stage.locator(".progress-rail").locator("xpath=..").inner_text().lower())
+
+    # Back across the branch, then the other way: without the lantern, the road goes on into the dark
+    stage.click("button:has-text('Undo last choice')")
+    stage.wait_for_selector("h1:has-text('The Sunken Road')", timeout=10000)
+    stage.click("button:has-text('Undo last choice')")
+    stage.wait_for_selector("h1:has-text('The Harbour at Low Tide')", timeout=10000)
+    check("Back goes back across the branch", "0 played" in stage.locator(".progress-rail").locator("xpath=..").inner_text().lower())
+    call("/api/state/choice", {"choice_index": 1}, token)  # set out at once, no lantern
+    call("/api/state/choice", {"choice_index": 0}, token)
+    stage.wait_for_selector("h1:has-text('The Dark Water')", timeout=10000)
+    check("Without the lantern the road leads into the dark water", "Drowned Stair" not in stage.locator("h1.stage-title").inner_text())
+    stage.context.close()
+
+
+def lock_checks(browser) -> None:
+    """A locked door in a story of doors: shown locked on the stage until the item behind another door is found."""
+    story = call("/api/stories", {"title": "The Locked Vault"})
+    key = {"id": "item_key", "name": "Brass Key"}
+    room = lambda sid, title, **extra: {"id": sid, "title": title, "base_text": "A room.", "choices": [
+        {"kind": "level", "display_text": "Look around?", "result_text": "Nothing.", "amount": 1},
+        {"kind": "item", "display_text": "Take it?", "result_text": "Taken.", "amount": 1, "item_id": key["id"]}], **extra}
+    story["items"] = [key]
+    story["scenes"] = [room("gate", "The Gate"), room("vault", "The Vault", requires=[{"type": "item_held", "item_id": key["id"]}]),
+                       room("hall", "The Hall"), room("attic", "The Attic")]
+    story["settings"] = {**story.get("settings", {}), "non_linear": True}
+    call(f"/api/stories/{story['id']}", story, method="PUT")
+    token = call("/api/state/start", {"story_id": story["id"], "force": True})["token"]
+    call("/api/state/choice", {"choice_index": 0}, token)  # the gate, without the key
+
+    teller = signed_in_context(browser, viewport={"width": 1280, "height": 900})
+    teller.add_init_script(f"sessionStorage.setItem('jb_rpg_session_token', {json.dumps(token)})")
+    stage = teller.new_page()
+    stage.goto(B + "/run")
+    stage.wait_for_selector("text=Which door next?", timeout=10000)
+    vault = stage.locator(".door:has-text('The Vault')")
+    check("A locked door says what opens it", "Locked until they hold Brass Key" in vault.inner_text(), vault.inner_text())
+    vault.click(force=True)  # aria-disabled: Playwright won't click it unless told to
+    stage.wait_for_timeout(800)
+    check("A locked door can't be opened", stage.locator("text=Which door next?").count() == 1)
+
+    stage.locator(".door:has-text('The Hall')").click()
+    stage.wait_for_selector("h1:has-text('The Hall')", timeout=10000)
+    call("/api/state/choice", {"choice_index": 1}, token)  # the key
+    stage.wait_for_selector("text=Which door next?", timeout=10000)
+    check("Finding the item unlocks the door", "Locked" not in vault.inner_text(), vault.inner_text())
+    vault.click()
+    stage.wait_for_selector("h1:has-text('The Vault')", timeout=10000)
+    check("The unlocked door opens", True)
+    teller.close()
 
 
 def door_checks(browser) -> None:

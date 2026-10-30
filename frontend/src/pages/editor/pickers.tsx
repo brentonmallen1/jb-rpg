@@ -1,6 +1,6 @@
 import type { Scene, Story } from '../../types'
 import { END } from '../../types'
-import { addItem, itemUses, newItemId, newScene, storyItems } from '../../lib/storyEdit'
+import { addItem, addScene, createScene, itemUses, newItemId, storyItems } from '../../lib/storyEdit'
 import { ItemIcon } from '../../components/ItemIcon'
 import { Combobox } from './Combobox'
 
@@ -9,8 +9,10 @@ type Update = (change: (story: Story) => Story) => void
 interface TargetPickerProps {
   id?: string
   story: Story
-  /** The scene the link starts from (it can't lead to itself) */
-  scene: Scene
+  /** The scene the link starts from (it can't lead to itself); none for the prologue */
+  scene?: Scene
+  /** Offer The end (not from the prologue, which leads into the story) */
+  allowEnd?: boolean
   value: string | null | undefined
   /** What "no link" means here, e.g. "After this scene (Next: The Bridge)" */
   defaultLabel: string
@@ -22,16 +24,16 @@ interface TargetPickerProps {
 }
 
 /** Where a link leads: a scene (searched by title), The end, or a new scene made on the spot. */
-export function TargetPicker({ id, story, scene, value, defaultLabel, defaultHint, onChange, update, invalid, ...rest }: TargetPickerProps) {
+export function TargetPicker({ id, story, scene, allowEnd = true, value, defaultLabel, defaultHint, onChange, update, invalid, ...rest }: TargetPickerProps) {
   const options = [
     { value: '', label: defaultLabel, hint: defaultHint },
-    ...story.scenes.filter(s => s.id !== scene.id).map(s => ({
+    ...story.scenes.filter(s => s.id !== scene?.id).map(s => ({
       value: s.id,
       label: s.title || 'Untitled scene',
       hint: s.is_finale ? 'Finale' : s.display_name || undefined,
       group: 'Scenes',
     })),
-    { value: END, label: 'The end', hint: 'On to the d20 finale roll', group: 'Or' },
+    ...(allowEnd ? [{ value: END, label: 'The end', hint: 'On to the d20 finale roll', group: 'Or' }] : []),
   ]
   return (
     <Combobox
@@ -44,8 +46,8 @@ export function TargetPicker({ id, story, scene, value, defaultLabel, defaultHin
         : options}
       onChange={v => onChange(v || null)}
       onCreate={title => {
-        const created = { ...newScene(story.scenes.length + 1), title }
-        update(s => ({ ...s, scenes: [...s.scenes, created] }))
+        const created = createScene(story, title)
+        update(s => addScene(s, created))
         onChange(created.id)
       }}
       createLabel={title => `New scene “${title}”`}

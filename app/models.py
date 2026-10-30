@@ -130,6 +130,7 @@ class HistoryEntry(BaseModel):
     item_icon: Optional[str] = None
     item_description: Optional[str] = None
     damage_amount: int = 1
+    decided_by: Optional[str] = None  # the player who made this choice (turn-taking games)
 
 
 class Emblem(BaseModel):

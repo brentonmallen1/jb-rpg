@@ -109,6 +109,7 @@ export interface HistoryEntry {
   item_icon?: string | null
   item_description?: string | null
   damage_amount: number
+  decided_by?: string | null  // the player who made this choice (turn-taking games)
 }
 
 export interface Character {

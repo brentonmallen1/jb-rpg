@@ -425,6 +425,10 @@
 }
 
 .chip-btn:hover { border-color: var(--accent); }
+/* Picking who decides: those who've had their turn this round fade back, with a small tick */
+.chip-btn[data-gone] { opacity: 0.55; }
+.chip-btn[data-gone]::after { content: ' ✓'; font-size: 0.8em; }
+.chip-btn[data-gone][aria-pressed='true'] { opacity: 1; }
 .chip-btn[aria-pressed='true'] {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, transparent);

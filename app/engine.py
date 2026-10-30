@@ -657,6 +657,7 @@ def make_choice(state: GameState, visual_index: int) -> None:
         item_icon=choice.item_icon if choice.kind == ChoiceKind.ITEM else None,
         item_description=(choice.item_description or None) if choice.kind == ChoiceKind.ITEM else None,
         damage_amount=choice.amount,
+        decided_by=decider.id if (decider := current_decider(state)) else None,
     ))
 
     if state.hp <= 0:

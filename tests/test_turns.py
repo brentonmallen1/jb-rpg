@@ -108,6 +108,7 @@ def test_storyteller_picks_who_decides_and_only_they_can_propose(client):
     client.post("/api/state/choice", json={"choice_index": 1})
     state = client.get("/api/state").json()["state"]
     assert state["proposal"] is None and state["decider_id"] is None  # fresh scene, pick again
+    assert state["history"][-1]["decided_by"] == bea["player"]["id"]  # the stage marks Bea as having had a turn
 
 
 def test_removing_a_player_moves_the_turn_on(client):

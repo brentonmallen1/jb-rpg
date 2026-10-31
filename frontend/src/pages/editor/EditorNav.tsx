@@ -25,15 +25,10 @@ export function EditorNav({ story, selection, problems, onSelect, onAddScene, on
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const is = (s: EditorSelection) =>
     s.kind === selection.kind && (s.kind !== 'scene' || (selection.kind === 'scene' && s.id === selection.id))
-  const errors = problems.filter(p => p.severity === 'error')
   const areaProblems = (area: StoryProblem['area']) => problems.filter(p => p.area === area).length
 
   return (
     <nav className="ed-nav" aria-label="Story sections">
-      <button className={`ed-nav__item ${is({ kind: 'story' }) ? 'is-active' : ''}`} onClick={() => onSelect({ kind: 'story' })}>
-        <span>Story</span>
-        {errors.length > 0 && <span className="ed-badge" title={`${errors.length} to fix before playing`}>{errors.length}</span>}
-      </button>
       <button className={`ed-nav__item ${is({ kind: 'characters' }) ? 'is-active' : ''}`} onClick={() => onSelect({ kind: 'characters' })}>
         <span>Characters</span>
         <span className="ed-nav__meta">{areaProblems('characters') > 0 ? <span className="ed-dot ed-dot--problem" /> : `${story.madlib_template.fields.length} questions`}</span>

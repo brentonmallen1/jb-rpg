@@ -1,7 +1,9 @@
-import { useMemo, useState, type DragEvent } from 'react'
+import { createContext, useContext, useMemo, useState, type DragEvent } from 'react'
 import {
   Background,
   BackgroundVariant,
+  BaseEdge,
+  EdgeLabelRenderer,
   Handle,
   MiniMap,
   Panel,
@@ -10,9 +12,11 @@ import {
   ReactFlowProvider,
   applyEdgeChanges,
   applyNodeChanges,
+  getBezierPath,
   useReactFlow,
   type Edge,
   type EdgeChange,
+  type EdgeProps,
   type Node,
   type NodeChange,
   type NodeProps,
@@ -21,6 +25,8 @@ import {
 import '@xyflow/react/dist/base.css'
 import type { Story, StoryProblem } from '../../types'
 import {
+  DOORS_NODE,
+  END_NODE,
   ITEM_DRAG,
   OPENING_NODE,
   canConnect,
@@ -28,9 +34,11 @@ import {
   connect,
   disconnect,
   nodeProblems,
+  otherwiseNode,
   routeNodeId,
   storyGraph,
   type EdgeRole,
+  type GraphEdge,
   type GraphNode,
 } from '../../lib/storyGraph'
 import {
@@ -43,6 +51,7 @@ import {
   describeCondition,
   findItem,
   giveItem,
+  isDoor,
   itemUses,
   moveNode,
   removeRoute,
@@ -51,7 +60,7 @@ import {
 } from '../../lib/storyEdit'
 import { OUTCOME_ICON } from '../../lib/outcomes'
 import { ItemIcon } from '../../components/ItemIcon'
-import { D20Icon, LockIcon } from '../../components/Icons'
+import { D20Icon, DoorIcon, LockIcon } from '../../components/Icons'
 import type { EditorSelection } from './EditorNav'
 import '../../styles/pages/flow.css'
 
@@ -75,7 +84,7 @@ interface NodeData extends Record<string, unknown> {
 }
 
 type FlowNode = Node<NodeData>
-type FlowEdge = Edge<{ role: EdgeRole }>
+type FlowEdge = Edge<{ role: EdgeRole; badge?: GraphEdge['badge'] }>
 
 /** The story as a flow diagram. Every change goes through update(), like the text Editor's. */
 export function FlowView(props: FlowViewProps) {
@@ -120,25 +129,33 @@ function Canvas({ story, problems, selection, update, onSelect }: FlowViewProps)
       },
     },
   }))
-  const nextEdges: FlowEdge[] = graph.edges.map(e => ({
-    id: e.id,
-    source: e.source,
-    sourceHandle: e.sourceHandle,
-    target: e.target,
-    targetHandle: e.role.kind === 'depends' ? 'depends-in' : 'in',
-    deletable: ['choice', 'then', 'route', 'opening'].includes(e.role.kind) && !e.implicit,
-    focusable: e.role.kind !== 'depends',
-    label: e.role.kind === 'depends' ? 'depends on' : undefined,
-    className: [
-      'fl-edge',
-      e.role.kind === 'depends' ? 'fl-edge--depends' : '',
-      e.outcome ? `fl-edge--${e.outcome}` : '',
-      e.implicit ? 'fl-edge--default' : '',
-      e.role.kind === 'route' ? 'fl-edge--yes' : '',
-      highlights ? 'fl-edge--dim' : '',
-    ].join(' '),
-    data: { role: e.role },
-  }))
+  const nextEdges: FlowEdge[] = graph.edges.map(e => {
+    const toDoor = e.source === DOORS_NODE
+    const back = e.role.kind === 'back'
+    return {
+      id: e.id,
+      type: toDoor ? 'door' : back ? 'back' : 'default',
+      source: e.source,
+      sourceHandle: e.sourceHandle,
+      target: e.target,
+      targetHandle: e.role.kind === 'depends' ? 'depends-in' : back ? 'back' : 'in',
+      deletable: ['choice', 'then', 'route', 'opening'].includes(e.role.kind) && !e.implicit,
+      focusable: e.role.kind !== 'depends' && !back,
+      label: e.role.kind === 'depends' ? 'depends on' : undefined,
+      className: [
+        'fl-edge',
+        e.role.kind === 'depends' ? 'fl-edge--depends' : '',
+        toDoor ? 'fl-edge--door' : '',
+        back ? 'fl-edge--back' : '',
+        e.target === END_NODE ? 'fl-edge--end' : '',
+        e.outcome ? `fl-edge--${e.outcome}` : '',
+        e.implicit && !toDoor ? 'fl-edge--default' : '',
+        e.role.kind === 'route' ? 'fl-edge--yes' : '',
+        highlights ? 'fl-edge--dim' : '',
+      ].join(' '),
+      data: { role: e.role, badge: e.badge },
+    }
+  })
 
   // React Flow measures nodes and tracks dragging in its own state; keep that, and take
   // everything else from the story whenever it changes. A node stays where it was drawn
@@ -209,75 +226,86 @@ function Canvas({ story, problems, selection, update, onSelect }: FlowViewProps)
   }
 
   const selectedScene = selection.kind === 'scene' ? story.scenes.find(s => s.id === selection.id) : undefined
+  const loop = useMemo(() => loopLane(nodes, edges), [nodes, edges])
 
   return (
     <div className="fl-canvas">
-      <ReactFlow<FlowNode, FlowEdge>
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={(_, node) => select(node)}
-        onNodeDragStop={(_, _node, moved) => update(s => moved.reduce((acc, n) => moveNode(acc, n.id, n.position), s))}
-        isValidConnection={c => canConnect(story, c.source, c.sourceHandle ?? null, c.target)}
-        onConnect={c => update(s => connect(s, c.source, c.sourceHandle ?? null, c.target) ?? s)}
-        onConnectEnd={onConnectEnd}
-        onBeforeDelete={async ({ nodes: ns, edges: es }) => ({
-          nodes: ns.filter(n => n.data.node.kind === 'route'),
-          edges: es.filter(e => e.deletable !== false),
-        })}
-        onDelete={({ nodes: ns, edges: es }) => update(s => {
-          const gone = new Set(ns.map(n => n.id))
-          // Lines first (but not those of a route being removed: its "no" is the scene's "otherwise"),
-          // then routes, last first so the indices hold
-          let next = es.filter(e => !gone.has(e.source) && !gone.has(e.target)).reduce((acc, e) => (e.data ? disconnect(acc, e.data.role) : acc), s)
-          const routes = ns.map(n => n.data.node).filter(n => n.kind === 'route').sort((a, b) => (b.routeIndex ?? 0) - (a.routeIndex ?? 0))
-          for (const r of routes) next = removeRoute(next, r.sceneId!, r.routeIndex!)
-          return next
-        })}
-        deleteKeyCode={['Backspace', 'Delete']}
-        fitView
-        fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
-        minZoom={0.2}
-        maxZoom={1.6}
-        defaultEdgeOptions={{ type: 'default' }}
-        nodesFocusable
-        edgesFocusable
-      >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} className="fl-bg" />
-        <MiniMap className="fl-minimap" pannable zoomable nodeStrokeWidth={0} nodeBorderRadius={6} />
-        <Panel position="bottom-left" className="fl-toolbar">
-          <div className="fl-toolbar__group" role="group" aria-label="Zoom">
-            <button type="button" onClick={() => flow.zoomOut()} aria-label="Zoom out">−</button>
-            <button type="button" onClick={() => flow.zoomIn()} aria-label="Zoom in">+</button>
-            <button type="button" onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>Fit</button>
-          </div>
-          <div className="fl-toolbar__group" role="group" aria-label="Add">
-            <button type="button" onClick={addSceneHere}>+ Scene</button>
+      <svg className="fl-defs" aria-hidden="true">
+        <defs>
+          <marker id="fl-door-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" className="fl-door-arrow" />
+          </marker>
+        </defs>
+      </svg>
+      <LoopContext.Provider value={loop}>
+        <ReactFlow<FlowNode, FlowEdge>
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={(_, node) => select(node)}
+          onNodeDragStop={(_, _node, moved) => update(s => moved.reduce((acc, n) => moveNode(acc, n.id, n.position), s))}
+          isValidConnection={c => canConnect(story, c.source, c.sourceHandle ?? null, c.target)}
+          onConnect={c => update(s => connect(s, c.source, c.sourceHandle ?? null, c.target) ?? s)}
+          onConnectEnd={onConnectEnd}
+          onBeforeDelete={async ({ nodes: ns, edges: es }) => ({
+            nodes: ns.filter(n => n.data.node.kind === 'route'),
+            edges: es.filter(e => e.deletable !== false),
+          })}
+          onDelete={({ nodes: ns, edges: es }) => update(s => {
+            const gone = new Set(ns.map(n => n.id))
+            // Lines first (but not those of a route being removed: its "no" is the scene's "otherwise"),
+            // then routes, last first so the indices hold
+            let next = es.filter(e => !gone.has(e.source) && !gone.has(e.target)).reduce((acc, e) => (e.data ? disconnect(acc, e.data.role) : acc), s)
+            const routes = ns.map(n => n.data.node).filter(n => n.kind === 'route').sort((a, b) => (b.routeIndex ?? 0) - (a.routeIndex ?? 0))
+            for (const r of routes) next = removeRoute(next, r.sceneId!, r.routeIndex!)
+            return next
+          })}
+          deleteKeyCode={['Backspace', 'Delete']}
+          fitView
+          fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
+          minZoom={0.2}
+          maxZoom={1.6}
+          defaultEdgeOptions={{ type: 'default' }}
+          nodesFocusable
+          edgesFocusable
+        >
+          <Background variant={BackgroundVariant.Dots} gap={24} size={1} className="fl-bg" />
+          <MiniMap className="fl-minimap" pannable zoomable nodeStrokeWidth={0} nodeBorderRadius={6} />
+          <Panel position="bottom-left" className="fl-toolbar">
+            <div className="fl-toolbar__group" role="group" aria-label="Zoom">
+              <button type="button" onClick={() => flow.zoomOut()} aria-label="Zoom out">−</button>
+              <button type="button" onClick={() => flow.zoomIn()} aria-label="Zoom in">+</button>
+              <button type="button" onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 300 })}>Fit</button>
+            </div>
+            <div className="fl-toolbar__group" role="group" aria-label="Add">
+              <button type="button" onClick={addSceneHere}>+ Scene</button>
+              <button
+                type="button"
+                disabled={!selectedScene || selectedScene.is_finale}
+                title={selectedScene ? `Add a route after ${selectedScene.title}` : 'Select a scene first'}
+                onClick={() => selectedScene && update(s => addRoute(s, selectedScene.id))}
+              >
+                + Route
+              </button>
+            </div>
             <button
               type="button"
-              disabled={!selectedScene || selectedScene.is_finale}
-              title={selectedScene ? `Add a route after ${selectedScene.title}` : 'Select a scene first'}
-              onClick={() => selectedScene && update(s => addRoute(s, selectedScene.id))}
+              className="fl-toolbar__single"
+              title="Lay every node out again, left to right"
+              onClick={() => {
+                setRelayout(true)
+                update(s => ({ ...s, layout: {} }))
+                setTimeout(() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 300 }), 50)
+              }}
             >
-              + Route
+              Tidy up
             </button>
-          </div>
-          <button
-            type="button"
-            className="fl-toolbar__single"
-            title="Lay every node out again, left to right"
-            onClick={() => {
-              setRelayout(true)
-              update(s => ({ ...s, layout: {} }))
-              setTimeout(() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 300 }), 50)
-            }}
-          >
-            Tidy up
-          </button>
-        </Panel>
-      </ReactFlow>
+          </Panel>
+        </ReactFlow>
+      </LoopContext.Provider>
     </div>
   )
 }
@@ -343,6 +371,7 @@ function SceneNode({ data, selected }: NodeProps<FlowNode>) {
   if (!scene) return null
   const status = sceneStatus(scene, problems)
   const otherwise = sceneTitle(story, scene.next ?? defaultNext(story, scene))
+  const toDoors = !scene.routes?.length && otherwiseNode(story, scene) === DOORS_NODE
   const thenLabel = scene.routes?.length
     ? `${scene.routes.length === 1 ? 'A route' : `${scene.routes.length} routes`}, then ${otherwise}`
     : otherwise
@@ -388,8 +417,8 @@ function SceneNode({ data, selected }: NodeProps<FlowNode>) {
           </ul>
           <div className="fl-then">
             <span className="fl-kicker">Then</span>
-            <span className="fl-then__target">{thenLabel}</span>
-            <Handle type="source" position={Position.Right} id="then" className="fl-handle fl-handle--then" />
+            <span className={`fl-then__target ${toDoors ? 'fl-then__target--doors' : ''}`}>{toDoors && <DoorIcon size={13} />}{thenLabel}</span>
+            <Handle type="source" position={Position.Right} id="then" className={`fl-handle fl-handle--then ${toDoors ? 'fl-handle--to-doors' : ''}`} />
           </div>
         </>
       )}
@@ -402,7 +431,8 @@ function RouteNode({ data }: NodeProps<FlowNode>) {
   const [dropOn, setDropOn] = useState(false)
   const scene = story.scenes.find(s => s.id === node.sceneId)
   const route = scene?.routes?.[node.routeIndex ?? 0]
-  if (!route) return null
+  if (!scene || !route) return null
+  const toDoors = node.routeIndex === scene.routes!.length - 1 && otherwiseNode(story, scene) === DOORS_NODE
   return (
     <div
       className={`fl-node fl-route ${problemClass(problems)} ${highlightClass(highlight)} ${dropOn ? 'is-drop' : ''}`}
@@ -418,7 +448,7 @@ function RouteNode({ data }: NodeProps<FlowNode>) {
       </span>
       <Handle type="source" position={Position.Right} id="yes" className="fl-handle fl-handle--yes" />
       <span className="fl-route__label fl-route__label--yes">yes</span>
-      <Handle type="source" position={Position.Bottom} id="no" className="fl-handle fl-handle--no" />
+      <Handle type="source" position={Position.Bottom} id="no" className={`fl-handle fl-handle--no ${toDoors ? 'fl-handle--to-doors' : ''}`} />
       <span className="fl-route__label fl-route__label--no">no</span>
       <ProblemBadge problems={problems} />
     </div>
@@ -435,14 +465,26 @@ function EndNode({ data }: NodeProps<FlowNode>) {
   )
 }
 
+const DOORS_HINT = 'Between rooms, the table picks which door to open next. Every scene nothing leads to is a door, '
+  + 'and each room comes back here when it ends. A locked door opens once its conditions hold; the finale stays sealed '
+  + 'until it is the last door left. When no door is left, on to the d20.'
+
+/** The doors: where the table picks the next door, and where every room comes back to */
 function DoorsNode({ data }: NodeProps<FlowNode>) {
+  const { story, node } = data
+  const doors = story.scenes.filter(s => isDoor(story, s))
+  const locked = doors.filter(s => s.requires?.length).length
   return (
-    <div className="fl-node fl-doors" style={{ width: data.node.width, height: data.node.height }}>
-      <Handle type="target" position={Position.Left} id="in" className="fl-handle fl-handle--in" />
-      <span className="fl-kicker">Door story</span>
+    <div className="fl-node fl-doors" style={{ width: node.width, height: node.height }} title={DOORS_HINT}>
+      <Handle type="target" position={Position.Left} id="in" className={`fl-handle fl-handle--in ${node.entered ? '' : 'is-idle'}`} />
+      <Handle type="target" position={Position.Top} id="back" className="fl-handle fl-handle--back" isConnectable={false} />
+      <DoorIcon size={22} className="fl-doors__glyph" />
       <span className="fl-doors__title">The doors</span>
-      <span className="fl-doors__text">Rooms come back here</span>
-      <Handle type="source" position={Position.Right} id="out" className="fl-handle fl-handle--out" isConnectable={false} />
+      <span className="fl-doors__text">Pick the next door</span>
+      <span className="fl-doors__count">
+        {doors.length === 1 ? '1 door' : `${doors.length} doors`}{locked ? ` · ${locked} locked` : ''}
+      </span>
+      <Handle type="source" position={Position.Right} id="out" className="fl-handle fl-handle--door" isConnectable={false} />
     </div>
   )
 }
@@ -476,4 +518,76 @@ function OpeningNode({ data, selected }: NodeProps<FlowNode>) {
 }
 
 const NODE_TYPES = { scene: SceneNode, route: RouteNode, end: EndNode, doors: DoorsNode, opening: OpeningNode }
+
+// ---------------------------------------------------------------------------
+// Edges: the doors and the way back to them
+// ---------------------------------------------------------------------------
+
+interface Loop {
+  railX: number
+  laneY: number
+  /** The one line that carries the label, so it shows once */
+  labelOn: string
+}
+
+/** Where the lines back to the doors run: down a rail right of every room that comes back,
+ * then along a lane above everything, into the top of the doors. */
+function loopLane(nodes: FlowNode[], edges: FlowEdge[]): Loop | null {
+  const back = edges.filter(e => e.data?.role.kind === 'back')
+  if (!back.length || !nodes.length) return null
+  const sources = new Set(back.map(e => e.source))
+  const right = Math.max(...nodes.filter(n => sources.has(n.id)).map(n => n.position.x + (n.measured?.width ?? n.data.node.width)))
+  const top = Math.min(...nodes.map(n => n.position.y))
+  return { railX: right + 40, laneY: top - 44, labelOn: back[0].id }
+}
+
+const LoopContext = createContext<Loop | null>(null)
+
+/** The doors -> a door: solid, with an arrow, and a badge for a locked door or the one opened last */
+function DoorEdge({ id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, data }: EdgeProps<FlowEdge>) {
+  // Stop short of the door's port, so the arrow shows
+  const [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX: targetX - 7, targetY, targetPosition })
+  const badge = data?.badge
+  return (
+    <>
+      <BaseEdge id={id} path={path} markerEnd="url(#fl-door-arrow)" />
+      {badge && (
+        <EdgeLabelRenderer>
+          <span
+            className={`fl-door-badge fl-door-badge--${badge}`}
+            style={{ transform: `translate(-50%, -50%) translate(${targetX - 44}px, ${targetY}px)` }}
+            title={badge === 'locked' ? 'Locked until its conditions hold' : 'Sealed until it is the last door left'}
+          >
+            {badge === 'locked' ? <LockIcon size={11} label="Locked" /> : 'Last'}
+          </span>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
+}
+
+/** A room -> the doors. Drawn from the doors outward, so the part every line shares is the same path
+ * and the dashes line up into one line. */
+function BackEdge({ id, sourceX, sourceY, targetX, targetY }: EdgeProps<FlowEdge>) {
+  const loop = useContext(LoopContext)
+  if (!loop) return null
+  const { railX: x, laneY: y } = loop
+  const r = 12
+  const path = `M${targetX},${targetY - 7} V${y + r} Q${targetX},${y} ${targetX + r},${y} H${x - r} Q${x},${y} ${x},${y + r}`
+    + ` V${sourceY - r} Q${x},${sourceY} ${x - r},${sourceY} H${sourceX}`
+  return (
+    <>
+      <BaseEdge id={id} path={path} markerStart="url(#fl-door-arrow)" interactionWidth={0} />
+      {loop.labelOn === id && (
+        <EdgeLabelRenderer>
+          <span className="fl-loop-label" style={{ transform: `translate(-50%, -50%) translate(${(targetX + x) / 2}px, ${y}px)` }}>
+            Back to the doors after every room
+          </span>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
+}
+
+const EDGE_TYPES = { door: DoorEdge, back: BackEdge }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useLocation, useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../context/useGame'
 import * as api from '../hooks/api'
 import { useAutoSave } from '../hooks/useAutoSave'
@@ -7,7 +7,7 @@ import { useUndoable } from '../hooks/useUndoable'
 import { loadAllThemes } from '../hooks/useTheme'
 import type { AudioFile, Story, StoryProblem } from '../types'
 import { ConfirmDialog, Modal, NowPlaying, PageMessage } from '../components'
-import { BackIcon, EyeIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
+import { BackIcon, EyeIcon, GearIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
 import { addScene, createScene, deleteScene, moveSceneTo } from '../lib/storyEdit'
 import { EditorNav, type EditorSelection } from './editor/EditorNav'
 import { StoryPanel } from './editor/StoryPanel'
@@ -17,6 +17,7 @@ import { ScenePanel } from './editor/ScenePanel'
 import { ItemsPanel } from './editor/ItemsPanel'
 import { PreviewPane } from './editor/PreviewPane'
 import { SuggestionsContext } from './editor/suggest'
+import { FoldingSections, REVEAL_EVENT } from './editor/folding'
 import { FlowView } from './editor/FlowView'
 import '../styles/stage.css'
 import '../styles/phone.css'
@@ -26,11 +27,12 @@ import '../styles/pages/editor.css'
 const SAVE_LABEL = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved changes' } as const
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-type EditorView = 'text' | 'flow'
+/** The two ways of editing the story; Settings (the story as a whole) is a tab of its own beside them */
+type StoryView = 'text' | 'flow'
 const VIEW_KEY = 'jb_rpg_editor_view'
 
 /** Text or Flow, remembered per device */
-function readView(): EditorView {
+function readView(): StoryView {
   try {
     return localStorage.getItem(VIEW_KEY) === 'flow' ? 'flow' : 'text'
   } catch {
@@ -49,6 +51,7 @@ function readSamples(storyId: string): Record<string, string> {
 export default function Editor() {
   const { storyId = '' } = useParams<{ storyId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { toggleColorMode, colorMode, setTheme, startSession } = useGame()
   const { value: story, update, reset, undo, redo, canUndo, canRedo } = useUndoable<Story>()
 
@@ -61,7 +64,9 @@ export default function Editor() {
   const [replaceMessage, setReplaceMessage] = useState<string | null>(null)
   const [navOpen, setNavOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [view, setView] = useState<EditorView>(readView)
+  const [view, setView] = useState<StoryView>(readView)
+  // A new story opens on its settings, so the theme and shape are picked before the scenes
+  const [onSettings, setOnSettings] = useState(() => !!(location.state as { fresh?: boolean } | null)?.fresh)
   // Flow view: the selected node's panel opens beside the canvas
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [audio, setAudio] = useState<AudioFile[]>([])
@@ -164,6 +169,7 @@ export default function Editor() {
     const focus = 'focus' in selection ? selection.focus : undefined
     const field = focus ? document.querySelector<HTMLElement>(`.ed-panel [data-focus="${CSS.escape(focus)}"]`) : null
     if (!field) return
+    field.dispatchEvent(new CustomEvent(REVEAL_EVENT, { bubbles: true }))
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     field.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' })
     ;(field.querySelector<HTMLElement>('textarea') ?? field.querySelector<HTMLElement>('input, select'))?.focus({ preventScroll: true })
@@ -177,13 +183,20 @@ export default function Editor() {
   }, [selection])
 
   function select(next: EditorSelection) {
+    // The story as a whole (what's left to fix, its theme and settings) is the Settings tab
+    if (next.kind === 'story') {
+      setOnSettings(true)
+      return
+    }
     setSelection(next)
     setNavOpen(false)
     setDrawerOpen(true)
+    setOnSettings(false)
   }
 
-  function changeView(next: EditorView) {
+  function changeView(next: StoryView) {
     setView(next)
+    setOnSettings(false)
     try {
       localStorage.setItem(VIEW_KEY, next)
     } catch {
@@ -269,9 +282,17 @@ export default function Editor() {
           <button className="icon-btn editor__nav-toggle" onClick={() => setNavOpen(!navOpen)} aria-expanded={navOpen} aria-label="Story sections">☰</button>
           <span className="stage__story-title">{story.title || 'Untitled story'}</span>
           <span className={`editor__save editor__save--${saveStatus}`} role="status">{SAVE_LABEL[saveStatus]}</span>
-          <div className="ed-segmented ed-segmented--small editor__view" role="radiogroup" aria-label="Edit as">
-            <button type="button" role="radio" aria-checked={view === 'text'} onClick={() => changeView('text')}>Text</button>
-            <button type="button" role="radio" aria-checked={view === 'flow'} onClick={() => changeView('flow')}>Flow</button>
+          <div className="editor__tabs">
+            <button type="button" className="editor__settings-tab" aria-pressed={onSettings} onClick={() => setOnSettings(true)}>
+              <GearIcon size={15} /> Settings
+            </button>
+            <div className={`editor__story-tabs ${onSettings ? '' : 'is-active'}`}>
+              <span className="editor__story-label" aria-hidden="true">Story</span>
+              <div className="ed-segmented ed-segmented--small editor__view" role="radiogroup" aria-label="Edit the story as">
+                <button type="button" role="radio" aria-checked={!onSettings && view === 'text'} onClick={() => changeView('text')}>Text</button>
+                <button type="button" role="radio" aria-checked={!onSettings && view === 'flow'} onClick={() => changeView('flow')}>Flow</button>
+              </div>
+            </div>
           </div>
         </div>
         <div className="stage__tools">
@@ -293,14 +314,23 @@ export default function Editor() {
         </div>
       </header>
 
-      {view === 'flow' ? (
+      {onSettings ? (
+        <main className="editor__settings">
+          {error && (
+            <div className="stage-error" role="alert">
+              <span>{error}</span>
+              <button className="s-btn s-btn--ghost" onClick={() => setError(null)}>Dismiss</button>
+            </div>
+          )}
+          <StoryPanel story={story} problems={problems} update={update} onJump={select} audio={audio} onAudioChange={refreshAudio} />
+        </main>
+      ) : view === 'flow' ? (
         <div className={`editor__layout editor__layout--flow ${drawerOpen ? 'has-drawer' : ''}`}>
           <FlowView story={story} problems={problems} selection={selection} update={update} onSelect={select} />
           {drawerOpen && (
             <aside className="editor__drawer" aria-label="Edit the selection" onFocusCapture={rememberTextField}>
               <div className="editor__drawer-bar">
                 <div className="ed-segmented ed-segmented--small" role="group" aria-label="Story sections">
-                  <button type="button" aria-pressed={selection.kind === 'story'} onClick={() => select({ kind: 'story' })}>Story</button>
                   <button type="button" aria-pressed={selection.kind === 'characters'} onClick={() => select({ kind: 'characters' })}>Characters</button>
                   <button type="button" aria-pressed={selection.kind === 'items'} onClick={() => select({ kind: 'items' })}>Items</button>
                 </div>
@@ -313,13 +343,15 @@ export default function Editor() {
                 </div>
               )}
               <SuggestionsContext.Provider value={suggestions}>
-                {renderPanel()}
+                <FoldingSections.Provider value={true}>
+                  {renderPanel()}
+                </FoldingSections.Provider>
               </SuggestionsContext.Provider>
             </aside>
           )}
           {!drawerOpen && (
             <button type="button" className="s-btn s-btn--ghost editor__drawer-open" onClick={() => setDrawerOpen(true)}>
-              Story, characters and items
+              Characters and items
             </button>
           )}
         </div>

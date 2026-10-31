@@ -89,7 +89,7 @@ export default function Library() {
 
   async function handleCreateStory(title: string) {
     setShowCreateDialog(false)
-    await attempt(async () => navigate(`/editor/${(await api.createStory(title)).id}`), 'Failed to create story.')
+    await attempt(async () => navigate(`/editor/${(await api.createStory(title)).id}`, { state: { fresh: true } }), 'Failed to create story.')
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {

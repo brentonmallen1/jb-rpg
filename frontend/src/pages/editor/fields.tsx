@@ -1,6 +1,7 @@
-import { useRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
-import { ExpandIcon } from '../../components/Icons'
+import { useContext, useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { ChevronUpIcon, ExpandIcon } from '../../components/Icons'
 import { usePlaceholderSuggest } from './suggest'
+import { FoldingSections, REVEAL_EVENT } from './folding'
 
 interface FieldProps {
   label: ReactNode
@@ -70,7 +71,16 @@ function chain(props: Partial<Record<keyof Handlers, ((e: never) => void) | unde
   )
 }
 
-export function Section({ title, aside, children }: { title: ReactNode; aside?: ReactNode; children: ReactNode }) {
+interface SectionProps {
+  title: ReactNode
+  aside?: ReactNode
+  children: ReactNode
+}
+
+export function Section(props: SectionProps) {
+  const folding = useContext(FoldingSections)
+  if (folding) return <FoldingSection {...props} />
+  const { title, aside, children } = props
   return (
     <section className="ed-section">
       <div className="ed-section__head">
@@ -78,6 +88,71 @@ export function Section({ title, aside, children }: { title: ReactNode; aside?: 
         {aside}
       </div>
       {children}
+    </section>
+  )
+}
+
+const FOLDED_KEY = 'jb_rpg_folded_sections'
+
+function foldedSections(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]') as string[])
+  } catch {
+    return new Set()
+  }
+}
+
+function rememberFolded(name: string, folded: boolean) {
+  const all = foldedSections()
+  if (folded) all.add(name)
+  else all.delete(name)
+  try {
+    localStorage.setItem(FOLDED_KEY, JSON.stringify([...all]))
+  } catch {
+    // per-device convenience only
+  }
+}
+
+/** A section that folds to its title. Folded or open is remembered on this device by name (without a
+ * count: "Questions (3)" is "Questions"), so it stays that way from one scene to the next. */
+function FoldingSection({ title, aside, children }: SectionProps) {
+  const name = typeof title === 'string' ? title.replace(/\s*\(\d+\)$/, '') : null
+  const [open, setOpen] = useState(() => !name || !foldedSections().has(name))
+  const section = useRef<HTMLElement>(null)
+  const body = useRef<HTMLDivElement>(null)
+  const bodyId = useId()
+
+  // A link into this section opens it (just this once) before the field is brought into view
+  useEffect(() => {
+    const el = section.current
+    if (!el) return
+    const reveal = () => {
+      body.current?.removeAttribute('hidden')
+      setOpen(true)
+    }
+    el.addEventListener(REVEAL_EVENT, reveal)
+    return () => el.removeEventListener(REVEAL_EVENT, reveal)
+  }, [])
+
+  function toggle() {
+    setOpen(!open)
+    if (name) rememberFolded(name, open)
+  }
+
+  return (
+    <section ref={section} className={`ed-section ed-section--folding ${open ? '' : 'is-folded'}`}>
+      <div className="ed-section__head">
+        <h3 className="ed-section__title">
+          <button type="button" className="ed-section__toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
+            <ChevronUpIcon size={16} className="ed-section__chevron" />
+            {title}
+          </button>
+        </h3>
+        {open && aside}
+      </div>
+      <div ref={body} id={bodyId} className="ed-section__body" hidden={!open}>
+        {children}
+      </div>
     </section>
   )
 }

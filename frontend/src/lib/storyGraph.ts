@@ -10,7 +10,8 @@ import { DOORS, defaultNext, isDoor, patchScene, storyConditions } from './story
  * Nodes: the prologue, scenes, a diamond per route, The end, and the doors (door stories).
  * Handles: "in" on everything that can be led to; on a scene, "c{i}" per choice and "then";
  * on a route, "yes" and "no". "depends" and "depends-in" carry the "depends on" lines, which
- * only show what a condition looks back on: they can't be drawn or deleted.
+ * only show what a condition looks back on: they can't be drawn or deleted. In door stories the
+ * doors also take "back": every room's way back to them when it ends, drawn but never chosen.
  */
 
 export const END_NODE = END
@@ -41,6 +42,8 @@ export interface GraphNode {
   height: number
   sceneId?: string
   routeIndex?: number
+  /** The doors: a line leads in (a prologue path with no scene), not only rooms coming back */
+  entered?: boolean
 }
 
 /** What an edge stands for in the story, so drawing or deleting one can change it */
@@ -51,6 +54,7 @@ export type EdgeRole =
   | { kind: 'chain'; sceneId: string; index: number }  // fixed: then -> first route, route "no" -> next route
   | { kind: 'opening'; index: number }
   | { kind: 'door'; sceneId: string }  // fixed: the doors -> a door
+  | { kind: 'back'; sceneId: string }  // fixed: a room -> the doors, when it ends
   | { kind: 'depends'; sceneId: string }  // fixed: a scene -> a line, route or lock that asks how it went
 
 export interface GraphEdge {
@@ -62,12 +66,15 @@ export interface GraphEdge {
   /** Where the story goes by default (down the list), not a link the author drew */
   implicit?: boolean
   outcome?: Choice['kind']
+  /** A line to a door: locked until its conditions hold, or opened last (the finale) */
+  badge?: 'locked' | 'last'
 }
 
 /** Node sizes: the layout reserves them and the nodes draw at them */
 export const SCENE_WIDTH = 260
 export const ROUTE_SIZE = { width: 168, height: 104 }
 export const SMALL_SIZE = { width: 168, height: 72 }
+export const DOORS_SIZE = { width: 184, height: 160 }
 
 export function sceneHeight(scene: Scene): number {
   return 56 + scene.choices.length * 30 + (scene.is_finale ? 30 : 38) + (scene.requires?.length ? 26 : 0)
@@ -78,6 +85,11 @@ function nodeFor(story: Story, target: string | null | undefined): string | null
   if (!target) return null
   if (target === END) return END_NODE
   return story.scenes.some(s => s.id === target) ? target : null
+}
+
+/** Where a scene goes when no choice or route says otherwise, as a node id */
+export function otherwiseNode(story: Story, scene: Scene): string {
+  return nodeFor(story, scene.next) ?? defaultNext(story, scene)
 }
 
 export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge[] } {
@@ -98,11 +110,14 @@ export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge
     }
   }
   if (doorsStory) {
-    nodes.push({ id: DOORS_NODE, kind: 'doors', position: { x: 0, y: 0 }, ...SMALL_SIZE })
+    nodes.push({ id: DOORS_NODE, kind: 'doors', position: { x: 0, y: 0 }, ...DOORS_SIZE })
     for (const scene of story.scenes.filter(s => isDoor(story, s))) {
-      edges.push({ id: `door:${scene.id}`, source: DOORS_NODE, sourceHandle: 'out', target: scene.id, role: { kind: 'door', sceneId: scene.id }, implicit: true })
+      const badge = scene.requires?.length ? 'locked' : scene.is_finale ? 'last' : undefined
+      edges.push({ id: `door:${scene.id}`, source: DOORS_NODE, sourceHandle: 'out', target: scene.id, role: { kind: 'door', sceneId: scene.id }, implicit: true, badge })
     }
   }
+  // Rooms going back to the doors: drawn after layout, so the loop doesn't pull the story out of shape
+  const loops: GraphEdge[] = []
 
   for (const scene of story.scenes) {
     nodes.push({ id: scene.id, kind: 'scene', sceneId: scene.id, position: { x: 0, y: 0 }, width: SCENE_WIDTH, height: sceneHeight(scene) })
@@ -112,8 +127,7 @@ export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge
       const target = nodeFor(story, c.next_scene_id)
       if (target) edges.push({ id: `choice:${scene.id}:${i}`, source: scene.id, sourceHandle: choiceHandle(i), target, role: { kind: 'choice', sceneId: scene.id, index: i }, outcome: c.kind })
     })
-    // Rooms in door stories go back to the doors without a line (the card says so)
-    const otherwise = nodeFor(story, scene.next) ?? defaultNext(story, scene)
+    const otherwise = otherwiseNode(story, scene)
     const routes = scene.routes ?? []
     routes.forEach((route, i) => {
       const id = routeNodeId(scene.id, i)
@@ -124,14 +138,18 @@ export function storyGraph(story: Story): { nodes: GraphNode[]; edges: GraphEdge
       if (yes) edges.push({ id: `route:${scene.id}:${i}`, source: id, sourceHandle: 'yes', target: yes, role: { kind: 'route', sceneId: scene.id, index: i } })
     })
     const last = routes.length ? { source: routeNodeId(scene.id, routes.length - 1), sourceHandle: 'no' } : { source: scene.id, sourceHandle: 'then' }
-    if (otherwise !== DOORS_NODE) {
+    if (otherwise === DOORS_NODE) {
+      loops.push({ id: `back:${scene.id}`, ...last, target: DOORS_NODE, role: { kind: 'back', sceneId: scene.id } })
+    } else {
       edges.push({ id: `then:${scene.id}`, ...last, target: otherwise, role: { kind: 'then', sceneId: scene.id }, implicit: !scene.next })
     }
   }
   nodes.push({ id: END_NODE, kind: 'end', position: { x: 0, y: 0 }, ...SMALL_SIZE })
+  const doors = nodes.find(n => n.id === DOORS_NODE)
+  if (doors) doors.entered = edges.some(e => e.target === DOORS_NODE)
 
   place(story, nodes, edges)
-  return { nodes, edges: [...edges, ...dependsOn(story)] }
+  return { nodes, edges: [...edges, ...loops, ...dependsOn(story)] }
 }
 
 /** "Depends on" lines: from a scene to each line, route or lock elsewhere that asks how it went.
@@ -240,7 +258,7 @@ export function disconnect(story: Story, role: EdgeRole): Story {
       if (!story.opening_scene) return story
       return { ...story, opening_scene: { ...story.opening_scene, choices: story.opening_scene.choices.map((c, j) => (j === role.index ? { ...c, target_scene_id: undefined } : c)) } }
     default:
-      return story  // the route chain, the doors and "depends on" are drawn from the story, not chosen
+      return story  // the route chain, the doors, the way back to them and "depends on" are drawn from the story, not chosen
   }
 }
 

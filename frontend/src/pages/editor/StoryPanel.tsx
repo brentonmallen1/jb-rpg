@@ -26,7 +26,7 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
   return (
     <div className="ed-panel">
       <div className="ed-panel__head">
-        <span className="stage-label">The story</span>
+        <span className="stage-label">Story settings</span>
       </div>
       <input
         className="ed-title-input"

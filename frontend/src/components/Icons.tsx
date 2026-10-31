@@ -45,6 +45,9 @@ export const EyeIcon = (p: IconProps) => (
 export const LockIcon = (p: IconProps) => (
   <Icon {...p}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Icon>
 )
+export const DoorIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M6 21V10a6 6 0 0 1 12 0v11" /><path d="M3.5 21h17" /><path d="M14.5 14.5h.01" /></Icon>
+)
 export const GemIcon = (p: IconProps) => (
   <Icon {...p}><path d="M12 2l7 7-7 13L5 9z" /></Icon>
 )

@@ -9,9 +9,19 @@
   --fl-damage: color-mix(in srgb, var(--danger) 75%, var(--text-primary));
   --fl-level: var(--level);
   --fl-line: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+  /* The doors: the hub, the lines to each door and the way back (opaque, so the shared lines don't stack up) */
+  --fl-door: #b8a0f2;
+  --fl-door-back: color-mix(in srgb, var(--fl-door) 55%, var(--bg-primary));
+  --fl-end: color-mix(in srgb, var(--accent) 70%, var(--text-secondary));
 }
 
-[data-mode="light"] .fl-canvas { background: color-mix(in srgb, var(--bg-primary) 94%, var(--text-secondary)); }
+[data-mode="light"] .fl-canvas {
+  background: color-mix(in srgb, var(--bg-primary) 94%, var(--text-secondary));
+  --fl-door: #6a4bb0;
+}
+
+.fl-defs { position: absolute; width: 0; height: 0; }
+.fl-door-arrow { fill: var(--fl-door); }
 
 .fl-bg { color: color-mix(in srgb, var(--text-secondary) 35%, transparent); }
 
@@ -138,6 +148,16 @@
   white-space: nowrap;
 }
 
+.fl-then__target--doors {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fl-door);
+  font-weight: 600;
+}
+
+.fl-then__target--doors svg { flex: none; }
+
 .fl-scene__d20 {
   display: flex;
   align-items: center;
@@ -199,8 +219,7 @@
 .fl-route__label--yes { top: 34px; right: -26px; }
 .fl-route__label--no { bottom: -20px; left: 92px; }
 
-.fl-end,
-.fl-doors {
+.fl-end {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -224,13 +243,36 @@
   color: var(--text-secondary);
 }
 
+/* The doors: an archway, a place the story keeps coming back to rather than a scene */
 .fl-doors {
-  border: 1px solid color-mix(in srgb, var(--text-primary) 18%, var(--line));
-  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 0 14px 12px;
+  border: 1.5px solid color-mix(in srgb, var(--fl-door) 60%, var(--line));
+  border-radius: 92px 92px 16px 16px;
+  background: color-mix(in srgb, var(--fl-door) 11%, var(--bg-secondary));
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--fl-door) 8%, transparent), 0 6px 20px rgb(0 0 0 / 0.18);
+  font-size: 0.8rem;
+  text-align: center;
+  cursor: help;
 }
 
-.fl-doors__title { font-family: var(--font-display); font-size: 0.95rem; font-weight: 600; }
-.fl-doors__text { color: var(--text-secondary); font-size: 0.72rem; }
+.fl-doors__glyph { margin-bottom: 4px; color: var(--fl-door); }
+.fl-doors__title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; }
+.fl-doors__text { font-size: 0.78rem; }
+
+.fl-doors__count {
+  align-self: stretch;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--fl-door) 30%, var(--line));
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
 
 /* An item selected in the Items panel: where it's given and checked stand out */
 .fl-node.is-dim { opacity: 0.28; }
@@ -274,6 +316,15 @@
 .fl-scene:hover .react-flow__handle.fl-handle--choice:not(.has-path) { background: var(--bg-secondary); border-color: currentColor; }
 
 .react-flow__handle.fl-handle--yes { background: var(--level); }
+.react-flow__handle.fl-handle--door,
+.react-flow__handle.fl-handle--to-doors { background: var(--fl-door); }
+.react-flow__handle.fl-handle--back { opacity: 0; pointer-events: none; }
+
+/* The doors' own port shows only when a prologue path leads there, or while drawing a line */
+.react-flow__handle.fl-handle--in.is-idle { opacity: 0; }
+.fl-doors:hover .react-flow__handle.is-idle,
+.react-flow__handle.is-idle.connectingto,
+.react-flow__handle.is-idle.valid { opacity: 1; }
 .react-flow__handle.fl-handle--then,
 .react-flow__handle.fl-handle--no,
 .react-flow__handle.fl-handle--out { background: var(--text-secondary); }
@@ -284,12 +335,50 @@
 /* --- Edges -------------------------------------------------------------------- */
 
 .fl-edge .react-flow__edge-path { stroke: var(--fl-line); stroke-width: 2; }
+.fl-edge--end .react-flow__edge-path { stroke: var(--fl-end); }
 .fl-edge--damage .react-flow__edge-path { stroke: var(--fl-damage); }
 .fl-edge--item .react-flow__edge-path { stroke: var(--fl-item); }
 .fl-edge--level .react-flow__edge-path,
 .fl-edge--yes .react-flow__edge-path { stroke: var(--fl-level); }
 .fl-edge--default .react-flow__edge-path { stroke-dasharray: 5 6; opacity: 0.7; }
 .fl-edge--dim { opacity: 0.2; }
+
+/* The doors -> each door, and every room's way back: one colour, so the loop reads as one */
+.fl-edge--door .react-flow__edge-path { stroke: var(--fl-door); stroke-width: 1.75; }
+.fl-edge--back .react-flow__edge-path { stroke: var(--fl-door-back); stroke-width: 1.5; stroke-dasharray: 6 5; }
+.fl-edge--back { pointer-events: none; }
+
+.fl-door-badge {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1.25px solid var(--fl-door);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--fl-door);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: all;
+}
+
+.fl-loop-label {
+  position: absolute;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg-primary) 88%, black);
+  color: var(--fl-door);
+  font-size: 0.66rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+[data-mode="light"] .fl-loop-label { background: color-mix(in srgb, var(--bg-primary) 94%, var(--text-secondary)); }
 
 /* "Depends on": a line, route or lock that looks back on how a scene went; drawn, never edited */
 .fl-edge--depends .react-flow__edge-path { stroke: var(--level); stroke-width: 1.5; stroke-dasharray: 2 5; opacity: 0.75; }

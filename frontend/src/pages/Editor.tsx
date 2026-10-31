@@ -240,6 +240,8 @@ export default function Editor() {
   if (!story) return <PageMessage message="Loading…" />
 
   const selectedScene = selection.kind === 'scene' ? story.scenes.find(s => s.id === selection.id) : undefined
+  // The list of sections and the preview belong to the Text view: on a narrow screen they slide in from its buttons
+  const textView = !onSettings && view === 'text'
   const errors = problems.filter(p => p.severity === 'error')
   const suggestions = story.madlib_template.fields.filter(f => f.key.trim()).map(f => ({ token: `{${f.key}}`, hint: f.label }))
 
@@ -279,7 +281,9 @@ export default function Editor() {
           <button className="icon-btn" onClick={() => navigate('/')} aria-label="Back to the library" title="Back to the library">
             <BackIcon />
           </button>
-          <button className="icon-btn editor__nav-toggle" onClick={() => setNavOpen(!navOpen)} aria-expanded={navOpen} aria-label="Story sections">☰</button>
+          {textView && (
+            <button className="icon-btn editor__nav-toggle" onClick={() => setNavOpen(!navOpen)} aria-expanded={navOpen} aria-label="Story sections">☰</button>
+          )}
           <span className="stage__story-title">{story.title || 'Untitled story'}</span>
           <span className={`editor__save editor__save--${saveStatus}`} role="status">{SAVE_LABEL[saveStatus]}</span>
           <div className="editor__tabs">
@@ -299,9 +303,11 @@ export default function Editor() {
           <NowPlaying />
           <button className="icon-btn" onClick={undo} disabled={!canUndo} aria-label="Undo" title={`Undo (${isMac ? '⌘' : 'Ctrl+'}Z)`}><UndoIcon /></button>
           <button className="icon-btn" onClick={redo} disabled={!canRedo} aria-label="Redo" title={`Redo (${isMac ? '⇧⌘' : 'Ctrl+'}${isMac ? 'Z' : 'Y'})`}><RedoIcon /></button>
-          <button className="icon-btn editor__preview-toggle" onClick={() => setPreviewOpen(!previewOpen)} aria-pressed={previewOpen} aria-label="Preview">
-            <EyeIcon />
-          </button>
+          {textView && (
+            <button className="icon-btn editor__preview-toggle" onClick={() => setPreviewOpen(!previewOpen)} aria-pressed={previewOpen} aria-label="Preview">
+              <EyeIcon />
+            </button>
+          )}
           <button className="icon-btn" onClick={toggleColorMode} aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}>
             {colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>

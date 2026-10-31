@@ -315,6 +315,31 @@
   gap: 14px;
 }
 
+/* Starting lives: how often a blind table runs out (lib/difficulty.ts) */
+.ed-difficulty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
+.ed-difficulty__level {
+  padding: 1px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ed-difficulty--gentle .ed-difficulty__level { color: var(--success); }
+.ed-difficulty--fair .ed-difficulty__level { color: var(--level); }
+.ed-difficulty--hard .ed-difficulty__level { color: var(--warning); }
+.ed-difficulty--brutal .ed-difficulty__level { color: var(--danger); }
+
 .ed-section {
   display: flex;
   flex-direction: column;

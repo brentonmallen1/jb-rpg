@@ -232,7 +232,7 @@ function PhonePreview({ story, selection, scene, fill, characterName }: ViewProp
         <div className="party-strip">
           <div>
             <div className="phone-label">{HEALTH_LABEL[story.theme]}</div>
-            <div style={{ marginTop: 8 }}><HealthMeter hp={story.settings.starting_hp} max={story.settings.starting_hp} theme={story.theme} size={26} /></div>
+            <div style={{ marginTop: 8 }}><HealthMeter hp={story.settings.starting_hp} max={story.settings.starting_hp} theme={story.theme} size={26} width={200} /></div>
           </div>
           <div className="party-strip__stats">
             <div><div className="phone-label">Level</div><div className="party-strip__value">1</div></div>

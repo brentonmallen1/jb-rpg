@@ -143,7 +143,7 @@ function KeepsakeCard({ state, resolved, cardRef }: KeepsakeProps & { cardRef: R
       <div className="keepsake__stats">
         <div>
           <div className="keepsake__label">{HEALTH_LABEL[theme]}</div>
-          <HealthMeter hp={state.hp} max={resolved.max_hp} theme={theme} size={20} />
+          <HealthMeter hp={state.hp} max={resolved.max_hp} theme={theme} size={20} width={170} />
         </div>
         <div>
           <div className="keepsake__label">Level</div>

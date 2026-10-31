@@ -1,5 +1,6 @@
 import { THEMES, type AudioFile, type Story, type StoryProblem } from '../../types'
 import { HEALTH_LABEL } from '../../lib/themes'
+import { MAX_LIVES, MIN_LIVES, storyDifficulty, type DifficultyLevel } from '../../lib/difficulty'
 import { Field, Section } from './fields'
 import type { EditorSelection } from './EditorNav'
 import { SoundSection } from './SoundSection'
@@ -21,7 +22,7 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
   const errors = problems.filter(p => p.severity === 'error')
   const warnings = problems.filter(p => p.severity === 'warning')
   const hp = story.settings.starting_hp
-  const setHp = (value: number) => update(s => ({ ...s, settings: { ...s.settings, starting_hp: Math.min(10, Math.max(1, value)) } }))
+  const setHp = (value: number) => update(s => ({ ...s, settings: { ...s.settings, starting_hp: Math.min(MAX_LIVES, Math.max(MIN_LIVES, value)) } }))
 
   return (
     <div className="ed-panel">
@@ -71,10 +72,11 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
       <div className="ed-grid-2">
         <Field label={`Starting ${HEALTH_LABEL[story.theme].toLowerCase()}`} hint="how many lives the party has">
           <div className="ed-stepper">
-            <button type="button" className="icon-btn" aria-label="Fewer" onClick={() => setHp(hp - 1)} disabled={hp <= 1}>−</button>
+            <button type="button" className="icon-btn" aria-label="Fewer" onClick={() => setHp(hp - 1)} disabled={hp <= MIN_LIVES}>−</button>
             <output aria-live="polite">{hp}</output>
-            <button type="button" className="icon-btn" aria-label="More" onClick={() => setHp(hp + 1)} disabled={hp >= 10}>+</button>
+            <button type="button" className="icon-btn" aria-label="More" onClick={() => setHp(hp + 1)} disabled={hp >= MAX_LIVES}>+</button>
           </div>
+          <DifficultyNote story={story} onUse={setHp} />
         </Field>
 
         <Field label="Story shape">
@@ -110,6 +112,30 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
       </Field>
 
       <SoundSection story={story} audio={audio} onAudioChange={onAudioChange} update={update} />
+    </div>
+  )
+}
+
+const LEVEL_LABEL: Record<DifficultyLevel, string> = { gentle: 'Gentle', fair: 'Fair', hard: 'Hard', brutal: 'Brutal' }
+
+/** How often the starting lives run out, and how many would make it fair (see lib/difficulty.ts) */
+function DifficultyNote({ story, onUse }: { story: Story; onUse: (lives: number) => void }) {
+  const d = storyDifficulty(story)
+  if (!d.risky) return <p className="ed-muted ed-difficulty">No choice costs a life yet.</p>
+  const percent = Math.round(d.defeat * 100)
+  const often = percent < 1 ? 'almost never runs out' : percent > 99 ? 'runs out almost every game' : `runs out in about ${percent}% of games`
+  return (
+    <div className={`ed-difficulty ed-difficulty--${d.level}`}>
+      <span className="ed-difficulty__level">{LEVEL_LABEL[d.level]}</span>
+      <p className="ed-muted">
+        Players can't see what a choice costs. Picking blind, the table {often}: the riskiest way
+        through has {d.risky === 1 ? '1 scene' : `${d.risky} scenes`} where a choice costs a life.
+      </p>
+      {story.settings.starting_hp < d.suggested && (
+        <button type="button" className="s-btn s-btn--ghost" onClick={() => onUse(d.suggested)}>
+          Use {d.suggested} for a fair game
+        </button>
+      )}
     </div>
   )
 }

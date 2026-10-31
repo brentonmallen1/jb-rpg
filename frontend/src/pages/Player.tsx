@@ -490,7 +490,7 @@ function HeroDock({ state, resolved, choicesEl, onShowHero, onShowPack }: {
           <span className="dock__who"><span className="phone-label">{HEALTH_LABEL[resolved.theme]}</span></span>
         )}
         <span className="dock__health" aria-label={`${HEALTH_LABEL[resolved.theme]}: ${state.hp} of ${resolved.max_hp}`}>
-          <HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={20} />
+          <HealthMeter hp={state.hp} max={resolved.max_hp} theme={resolved.theme} size={20} width={110} />
         </span>
         <span className="dock__stat"><span className="phone-label">Lvl</span><span className="dock__value">{state.level}</span></span>
         <button

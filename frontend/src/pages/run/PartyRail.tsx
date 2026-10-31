@@ -36,7 +36,7 @@ export function PartyRail({ state, theme, maxHp, characterDescription, decider, 
       <div>
         <span className="stage-label">{HEALTH_LABEL[theme]}</span>
         <div style={{ marginTop: 10 }}>
-          <HealthMeter hp={state.hp} max={maxHp} theme={theme} size={30} />
+          <HealthMeter hp={state.hp} max={maxHp} theme={theme} size={30} width={210} />
         </div>
       </div>
 

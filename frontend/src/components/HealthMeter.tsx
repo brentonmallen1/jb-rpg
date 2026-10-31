@@ -2,19 +2,37 @@ import type { ThemeName } from '../types'
 import { HEALTH_LABEL } from '../lib/themes'
 import '../styles/health.css'
 
+/** A unit's width as a share of the size, and the gap between units (as in health.css) */
+const UNIT_WIDTH: Record<ThemeName, number> = { fantasy: 0.85, deep_space: 1.2, horror: 1.4, cyberpunk: 1, insanity: 1, modern: 1 }
+const GAP = 0.45
+
 interface HealthMeterProps {
   hp: number
   max: number
   theme: ThemeName
   size?: number
+  /** The room it has, in px: lives that don't fit show as one icon and a multiplier */
+  width?: number
 }
 
-/** The party's health, drawn in the theme's own iconography (lanterns, eyes, chips, hull plates, moons, hearts). */
-export function HealthMeter({ hp, max, theme, size = 28 }: HealthMeterProps) {
+/** The party's health, drawn in the theme's own iconography (lanterns, eyes, chips, hull plates, moons, hearts).
+ * When every life fits, each is drawn, full or lost. When they don't: one icon "×12" while more are left than
+ * fit, then the ones left, one by one. */
+export function HealthMeter({ hp, max, theme, size = 28, width = 400 }: HealthMeterProps) {
   const label = HEALTH_LABEL[theme]
+  const style = { '--hm-size': `${size}px` } as React.CSSProperties
+  const fits = Math.max(1, Math.floor((width + GAP * size) / ((UNIT_WIDTH[theme] + GAP) * size)))
+  if (max > fits && hp > fits) {
+    return (
+      <div className={`health health--${theme} health--count`} role="img" aria-label={`${label}: ${hp} of ${max}`} style={style}>
+        <span className="health__unit is-full"><HealthIcon theme={theme} full /></span>
+        <span className="health__count">×{hp}</span>
+      </div>
+    )
+  }
   return (
-    <div className={`health health--${theme}`} role="img" aria-label={`${label}: ${hp} of ${max}`} style={{ '--hm-size': `${size}px` } as React.CSSProperties}>
-      {Array.from({ length: max }, (_, i) => (
+    <div className={`health health--${theme}`} role="img" aria-label={`${label}: ${hp} of ${max}`} style={style}>
+      {Array.from({ length: max > fits ? Math.max(hp, 1) : max }, (_, i) => (
         <span key={i} className={`health__unit ${i < hp ? 'is-full' : 'is-lost'}`} style={{ '--i': i } as React.CSSProperties}>
           <HealthIcon theme={theme} full={i < hp} />
         </span>

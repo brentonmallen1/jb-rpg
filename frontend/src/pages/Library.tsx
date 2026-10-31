@@ -5,7 +5,7 @@ import * as api from '../hooks/api'
 import { loadAllThemes } from '../hooks/useTheme'
 import type { GameOptions, StorySummary, TurnMode } from '../types'
 import { Modal, RulesModal, ConfirmDialog, InputDialog, NowPlaying } from '../components'
-import { BookIcon, MoonIcon, SunIcon } from '../components/Icons'
+import { BookIcon, MoonIcon, SunIcon, WarningIcon } from '../components/Icons'
 import '../styles/stage.css'
 import '../styles/pages/library.css'
 
@@ -103,8 +103,8 @@ export default function Library() {
       } catch {
         throw new Error(`“${file.name}” isn't a story file (it isn't valid JSON).`)
       }
-      const story = await api.importStory(data)
-      setStories(s => [...s, { id: story.id, title: story.title, theme: story.theme, scene_count: story.scenes.length }])
+      await api.importStory(data)
+      await loadStories()  // with what the story has left to fix
     }, 'Failed to import story.')
   }
 
@@ -220,7 +220,10 @@ export default function Library() {
                   <div className="cover__body">
                     <span className="cover__theme">{THEME_LABEL[story.theme] ?? story.theme}{isActive && ' · now playing'}</span>
                     <h2 className="cover__title">{story.title}</h2>
-                    <span className="cover__meta">{story.scene_count} {story.scene_count === 1 ? 'scene' : 'scenes'}</span>
+                    <span className="cover__meta">
+                      {story.scene_count} {story.scene_count === 1 ? 'scene' : 'scenes'}
+                      <StoryNotes story={story} />
+                    </span>
                   </div>
                   <div className="cover__actions">
                     {isActive && isStoryteller ? (
@@ -237,7 +240,7 @@ export default function Library() {
                         </button>
                         <button onClick={() => attempt(async () => {
                           const copy = await api.duplicateStory(story.id)
-                          setStories(s => [...s, { id: copy.id, title: copy.title, theme: copy.theme, scene_count: copy.scenes.length }])
+                          setStories(s => [...s, { ...story, id: copy.id, title: copy.title }])
                         }, 'Failed to duplicate story.')}>
                           Duplicate
                         </button>
@@ -312,5 +315,19 @@ export default function Library() {
       </Modal>
 
     </div>
+  )
+}
+
+/** What a story has left to fix, or is worth a look, as a badge on its cover (the messages on hover) */
+function StoryNotes({ story }: { story: StorySummary }) {
+  const errors = story.errors ?? 0
+  const warnings = story.warnings ?? []
+  if (!errors && !warnings.length) return null
+  const label = errors ? `${errors} to fix` : `${warnings.length} worth a look`
+  return (
+    <span className={`cover__note ${errors ? 'cover__note--fix' : ''}`} title={errors ? 'Open it in the editor to see what stops it being played' : warnings.join('\n')}>
+      <WarningIcon size={14} />
+      {label}
+    </span>
   )
 }

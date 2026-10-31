@@ -30,6 +30,16 @@
   border-color: color-mix(in srgb, var(--warning) 45%, transparent);
 }
 
+/* Worth a look: quieter than what's left to fix */
+.editor__warnings {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.editor__warnings svg { color: var(--warning); }
+
 .editor__nav-toggle,
 .editor__preview-toggle {
   display: none;
@@ -339,6 +349,14 @@
 .ed-difficulty--fair .ed-difficulty__level { color: var(--level); }
 .ed-difficulty--hard .ed-difficulty__level { color: var(--warning); }
 .ed-difficulty--brutal .ed-difficulty__level { color: var(--danger); }
+
+.ed-difficulty__warning {
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 9%, transparent);
+  color: var(--text-primary);
+}
 
 .ed-section {
   display: flex;

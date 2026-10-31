@@ -8,13 +8,14 @@ interface FieldProps {
   hint?: ReactNode
   htmlFor?: string
   error?: string | null
+  focus?: string  // its data-focus, for a link to bring it into view
   children: ReactNode
 }
 
 /** A labelled form field with an optional hint and an inline problem message. */
-export function Field({ label, hint, htmlFor, error, children }: FieldProps) {
+export function Field({ label, hint, htmlFor, error, focus, children }: FieldProps) {
   return (
-    <div className={`ed-field ${error ? 'ed-field--error' : ''}`}>
+    <div className={`ed-field ${error ? 'ed-field--error' : ''}`} data-focus={focus}>
       <label htmlFor={htmlFor} className="ed-label">
         {label}
         {hint && <span className="ed-hint">{hint}</span>}

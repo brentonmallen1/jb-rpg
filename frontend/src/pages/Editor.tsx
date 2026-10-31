@@ -7,7 +7,7 @@ import { useUndoable } from '../hooks/useUndoable'
 import { loadAllThemes } from '../hooks/useTheme'
 import type { AudioFile, Story, StoryProblem } from '../types'
 import { ConfirmDialog, Modal, NowPlaying, PageMessage } from '../components'
-import { BackIcon, EyeIcon, GearIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon } from '../components/Icons'
+import { BackIcon, EyeIcon, GearIcon, MoonIcon, RedoIcon, SunIcon, UndoIcon, WarningIcon } from '../components/Icons'
 import { addScene, createScene, deleteScene, moveSceneTo } from '../lib/storyEdit'
 import { EditorNav, type EditorSelection } from './editor/EditorNav'
 import { StoryPanel } from './editor/StoryPanel'
@@ -67,6 +67,8 @@ export default function Editor() {
   const [view, setView] = useState<StoryView>(readView)
   // A new story opens on its settings, so the theme and shape are picked before the scenes
   const [onSettings, setOnSettings] = useState(() => !!(location.state as { fresh?: boolean } | null)?.fresh)
+  // A setting to bring into view on the Settings tab (a fresh object each time, so pointing again works)
+  const [settingsFocus, setSettingsFocus] = useState<{ focus: string } | null>(null)
   // Flow view: the selected node's panel opens beside the canvas
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [audio, setAudio] = useState<AudioFile[]>([])
@@ -164,9 +166,9 @@ export default function Editor() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [saveNow, undo, redo])
 
-  // A selection can point at one field in its panel (an item's "Given by" / "Checked by"): bring it into view
+  // A selection can point at one field in its panel (an item's "Given by" / "Checked by", a setting): bring it into view
   useEffect(() => {
-    const focus = 'focus' in selection ? selection.focus : undefined
+    const focus = onSettings ? settingsFocus?.focus : 'focus' in selection ? selection.focus : undefined
     const field = focus ? document.querySelector<HTMLElement>(`.ed-panel [data-focus="${CSS.escape(focus)}"]`) : null
     if (!field) return
     field.dispatchEvent(new CustomEvent(REVEAL_EVENT, { bubbles: true }))
@@ -180,12 +182,13 @@ export default function Editor() {
       clearTimeout(done)
       fade()
     }
-  }, [selection])
+  }, [selection, onSettings, settingsFocus])
 
   function select(next: EditorSelection) {
     // The story as a whole (what's left to fix, its theme and settings) is the Settings tab
     if (next.kind === 'story') {
       setOnSettings(true)
+      setSettingsFocus(next.focus ? { focus: next.focus } : null)
       return
     }
     setSelection(next)
@@ -243,6 +246,7 @@ export default function Editor() {
   // The list of sections and the preview belong to the Text view: on a narrow screen they slide in from its buttons
   const textView = !onSettings && view === 'text'
   const errors = problems.filter(p => p.severity === 'error')
+  const warnings = problems.filter(p => p.severity === 'warning')
   const suggestions = story.madlib_template.fields.filter(f => f.key.trim()).map(f => ({ token: `{${f.key}}`, hint: f.label }))
 
   function renderPanel() {
@@ -314,6 +318,16 @@ export default function Editor() {
           {errors.length > 0 && (
             <button className="s-btn s-btn--ghost editor__problems" onClick={() => select({ kind: 'story' })}>
               {errors.length} to fix
+            </button>
+          )}
+          {warnings.length > 0 && (
+            <button
+              className="s-btn s-btn--ghost editor__warnings"
+              onClick={() => select({ kind: 'story' })}
+              title={warnings.map(w => w.message).join('\n')}
+            >
+              <WarningIcon size={16} />
+              {warnings.length} worth a look
             </button>
           )}
           <button className="s-btn" onClick={() => playtest()}>Playtest</button>

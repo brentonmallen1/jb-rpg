@@ -4,7 +4,7 @@ import { sceneBranches, sceneStatus, storyItems } from '../../lib/storyEdit'
 import { BranchIcon } from '../../components/Icons'
 
 export type EditorSelection =
-  | { kind: 'story' }
+  | { kind: 'story'; focus?: string }
   | { kind: 'characters' }
   | { kind: 'opening'; focus?: string }
   | { kind: 'items'; id?: string }

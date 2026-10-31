@@ -400,6 +400,45 @@ def scenes_to_go(story: Story, scene_id: str) -> tuple[int, int] | None:
     return memo[scene_id]
 
 
+def riskiest_run(story: Story) -> list[float]:
+    """Each scene's chance of costing a life when the table picks blind (players never see what a
+    choice costs), along the way through the story that risks the most. Door stories play every door
+    and the rooms behind it. The editor's lib/difficulty.ts walks the same way."""
+    scenes = {s.id: s for s in story.scenes}
+
+    def risk(scene: Scene) -> float:
+        if scene.is_finale or not scene.choices:
+            return 0
+        return sum(c.kind == ChoiceKind.DAMAGE for c in scene.choices) / len(scene.choices)
+
+    memo: dict[str, tuple[float, list[float]]] = {}
+
+    def run_from(start: str) -> tuple[float, list[float]]:
+        # Depth first without recursion: a scene's run is its own risk and the riskiest run after it
+        # (the longer one on a tie). A link back along the path is skipped
+        path, on_path, todo = [start], {start}, [iter(scene_exits(story, scenes[start]))]
+        while path:
+            nxt = next((t for t in todo[-1] if t in scenes and t not in memo and t not in on_path), None)
+            if nxt is not None:
+                path.append(nxt)
+                on_path.add(nxt)
+                todo.append(iter(scene_exits(story, scenes[nxt])))
+                continue
+            sid = path.pop()
+            on_path.discard(sid)
+            todo.pop()
+            ahead = [memo[t] for t in scene_exits(story, scenes[sid]) if t in memo and t not in on_path]
+            total, chances = max(ahead, key=lambda run: (run[0], len(run[1])), default=(0, []))
+            own = risk(scenes[sid])
+            memo[sid] = (own + total, [own, *chances])
+        return memo[start]
+
+    if story.settings.non_linear:
+        return [p for door in door_scenes(story) for p in run_from(door.id)[1]]
+    runs = [run_from(sid) for sid in story_starts(story) if sid in scenes]
+    return max(runs, key=lambda run: run[0], default=(0, []))[1]
+
+
 def is_branching(story: Story) -> bool:
     """Does anything in the story say where it leads (rather than going down the list)?"""
     return any(s.next or s.routes or any(c.next_scene_id for c in s.choices) for s in story.scenes)
@@ -440,7 +479,7 @@ def story_problems(story: Story) -> list[dict]:
 
     Each problem says where it is, so the editor can point at it:
     {"message", "area": story|characters|opening|scene|items, "scene_id", "field", "index", "severity", "code"}.
-    Warnings carry a code (unreachable, item_never_given, unknown_item_text) so the editor needn't read the words.
+    Warnings carry a code (unreachable, item_never_given, unknown_item_text, lives_never_run_out) so the editor needn't read the words.
     Saving never enforces these (the editor autosaves half-finished work); starting a game refuses
     errors and lets warnings (a scene nothing leads to, an item nothing gives) through.
     """
@@ -559,6 +598,12 @@ def story_problems(story: Story) -> list[dict]:
     for loop in scene_loops(story):
         path = " → ".join(titles[sid] for sid in loop)
         add(f"These scenes go round in a loop: {path}. A path has to reach an end.", "scene", loop[0], "next")
+
+    # As many lives as chances to lose one: the party can't run out (or only by losing every time)
+    risky = sum(p > 0 for p in riskiest_run(story))
+    lives = story.settings.starting_hp
+    if risky and lives >= risky:
+        add(f"Lives {'exceed' if lives > risky else 'meet'} the choices that cost one ({risky}).", "story", None, "starting_hp", warning="lives_never_run_out")
 
     if story.scenes:
         reachable = reachable_scene_ids(story)

@@ -305,6 +305,29 @@ def test_item_problems():
     assert found[("warning", None, "id", 1)] == "Scene 'B' checks for 'Lantern Oil', but no choice gives it."
 
 
+def test_lives_that_cant_run_out_are_a_warning():
+    hurt = choice("damage")
+    # The riskiest way through: a → c → d, two scenes where a choice costs a life (b is the safe way)
+    scenes = (scene("a", hurt, choice(to="c"), choice(to="b")), scene("b", next="end"), scene("c", hurt, choice()), scene("d", choice()))
+
+    def lives_warning(lives):
+        s = story(*scenes, settings={"starting_hp": lives})
+        return [p["message"] for p in engine.story_problems(s) if p["code"] == "lives_never_run_out"]
+
+    assert [sum(p > 0 for p in engine.riskiest_run(story(*scenes)))] == [2]
+    assert lives_warning(1) == []
+    assert lives_warning(2) == ["Lives meet the choices that cost one (2)."]
+    assert lives_warning(3) == ["Lives exceed the choices that cost one (2)."]
+    play(story(*scenes, settings={"starting_hp": 3}))
+
+
+def test_door_stories_count_every_door_toward_the_lives():
+    hurt = choice("damage")
+    s = story(scene("a", hurt, choice()), scene("b", hurt, choice(to="c")), scene("c", hurt), non_linear=True, settings={"non_linear": True, "starting_hp": 3})
+    assert engine.riskiest_run(s) == [0.5, 0.5, 1]
+    assert [p["code"] for p in engine.story_problems(s)] == ["lives_never_run_out"]
+
+
 # ---------------------------------------------------------------------------
 # How far there is to go (storyteller only)
 # ---------------------------------------------------------------------------

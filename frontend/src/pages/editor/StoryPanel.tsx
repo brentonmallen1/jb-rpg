@@ -70,7 +70,7 @@ export function StoryPanel({ story, problems, update, onJump, audio, onAudioChan
       </Section>
 
       <div className="ed-grid-2">
-        <Field label={`Starting ${HEALTH_LABEL[story.theme].toLowerCase()}`} hint="how many lives the party has">
+        <Field label={`Starting ${HEALTH_LABEL[story.theme].toLowerCase()}`} hint="how many lives the party has" focus="starting_hp">
           <div className="ed-stepper">
             <button type="button" className="icon-btn" aria-label="Fewer" onClick={() => setHp(hp - 1)} disabled={hp <= MIN_LIVES}>−</button>
             <output aria-live="polite">{hp}</output>
@@ -122,6 +122,8 @@ const LEVEL_LABEL: Record<DifficultyLevel, string> = { gentle: 'Gentle', fair: '
 function DifficultyNote({ story, onUse }: { story: Story; onUse: (lives: number) => void }) {
   const d = storyDifficulty(story)
   if (!d.risky) return <p className="ed-muted ed-difficulty">No choice costs a life yet.</p>
+  const lives = story.settings.starting_hp
+  const scenes = d.risky === 1 ? '1 scene' : `${d.risky} scenes`
   const percent = Math.round(d.defeat * 100)
   const often = percent < 1 ? 'almost never runs out' : percent > 99 ? 'runs out almost every game' : `runs out in about ${percent}% of games`
   return (
@@ -129,9 +131,15 @@ function DifficultyNote({ story, onUse }: { story: Story; onUse: (lives: number)
       <span className="ed-difficulty__level">{LEVEL_LABEL[d.level]}</span>
       <p className="ed-muted">
         Players can't see what a choice costs. Picking blind, the table {often}: the riskiest way
-        through has {d.risky === 1 ? '1 scene' : `${d.risky} scenes`} where a choice costs a life.
+        through has {scenes} where a choice costs a life.
       </p>
-      {story.settings.starting_hp < d.suggested && (
+      {/* As many lives as chances to lose one: the health hardly matters */}
+      {lives >= d.risky && (
+        <p className="ed-difficulty__warning" role="status">
+          {lives > d.risky ? 'Lives exceed' : 'Lives meet'} the choices that cost one ({d.risky}).
+        </p>
+      )}
+      {(lives < d.suggested || (lives >= d.risky && d.suggested < d.risky)) && (
         <button type="button" className="s-btn s-btn--ghost" onClick={() => onUse(d.suggested)}>
           Use {d.suggested} for a fair game
         </button>
@@ -151,7 +159,7 @@ function ProblemLinks({ problems, story, onJump, quiet }: { problems: StoryProbl
               p.area === 'scene' && p.scene_id ? { kind: 'scene', id: p.scene_id } :
               p.area === 'items' ? { kind: 'items', id: p.index !== null ? story.items?.[p.index]?.id : undefined } :
               p.area === 'opening' ? { kind: 'opening' } :
-              p.area === 'characters' ? { kind: 'characters' } : { kind: 'story' }
+              p.area === 'characters' ? { kind: 'characters' } : { kind: 'story', focus: p.field ?? undefined }
             )}
           >
             {p.message}

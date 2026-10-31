@@ -157,7 +157,9 @@ def test_problems_are_reported_but_saving_still_works(client):
 
 
 def test_a_finished_story_has_no_problems(client):
-    story = make_story(client)
+    # Fewer lives than chances to lose one (more would be worth a look: the party couldn't run out)
+    hurt = [scene(sid, "level", "damage") for sid in "abcd"]
+    story = make_story(client, hurt)
     assert client.get(f"/api/stories/{story['id']}/problems").json() == {"problems": []}
 
 
@@ -294,3 +296,10 @@ def test_access_logs_leave_out_game_links_and_tokens():
     record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s"', ("1.2.3.4:5", "GET", "/player/abc123"), None)
     RedactAccessLog().filter(record)
     assert record.getMessage().endswith('"GET /player/…"')
+
+
+def test_the_library_says_whats_left_to_fix_and_worth_a_look(client):
+    make_story(client)  # 3 lives, one scene that can cost one
+    make_story(client, [])
+    found = {(s["errors"], tuple(s["warnings"])) for s in client.get("/api/stories").json() if s["title"] == "Test"}
+    assert found == {(0, ("Lives exceed the choices that cost one (1).",)), (1, ())}

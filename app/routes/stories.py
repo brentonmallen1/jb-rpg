@@ -26,7 +26,14 @@ def require_story(story_id: str) -> Story:
 
 @router.get("")
 async def list_stories() -> list[dict]:
-    return storage.list_story_summaries()
+    """Each story's title and theme, with what's left to fix (errors) and what's worth a look (warnings)."""
+    summaries = storage.list_story_summaries()
+    for summary in summaries:
+        story = storage.load_story(summary["id"])
+        problems = engine.story_problems(story) if story else []
+        summary["errors"] = sum(p["severity"] == "error" for p in problems)
+        summary["warnings"] = [p["message"] for p in problems if p["severity"] == "warning"]
+    return summaries
 
 
 @router.post("")

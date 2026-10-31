@@ -160,8 +160,32 @@
 }
 
 .cover__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
   font-family: var(--font-reading);
   color: var(--text-secondary);
+}
+
+/* What's left to fix, or worth a look (the messages on hover) */
+.cover__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.cover__note svg { color: var(--warning); }
+
+.cover__note--fix {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
 
 .cover__actions {

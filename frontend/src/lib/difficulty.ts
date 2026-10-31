@@ -70,7 +70,8 @@ function sceneRisk(scene: Scene): number {
 }
 
 /** Each scene's chance of costing a life, along the way through the story that risks the most.
- * Door stories play every door (and the rooms behind it); others follow one path from the start. */
+ * Door stories play every door (and the rooms behind it); others follow one path from the start.
+ * The server walks the same way (engine.riskiest_run) to warn when the lives can't run out. */
 function riskiestRun(story: Story): number[] {
   const byId = new Map(story.scenes.map(s => [s.id, s]))
   const best = new Map<string, { total: number; chances: number[] }>()
@@ -103,7 +104,7 @@ function riskiestRun(story: Story): number[] {
 
 /** Where a scene can lead: its choices' own links, and (for choices without one) its routes and "otherwise" */
 function nextScenes(story: Story, scene: Scene): string[] {
-  if (scene.is_finale) return []
+  if (scene.is_finale || !scene.choices.length) return []
   const own = scene.choices.map(c => c.next_scene_id).filter((id): id is string => !!id)
   if (own.length === scene.choices.length && own.length) return [...new Set(own)]
   const routes = (scene.routes ?? []).map(r => r.target).filter(Boolean)
